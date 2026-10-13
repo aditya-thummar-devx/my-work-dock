@@ -49,6 +49,8 @@ final class LocalIPStore {
     @ObservationIgnored var pause: (TimeInterval) async -> Void = { try? await Task.sleep(for: .seconds($0)) }
     @ObservationIgnored private var task: Task<Void, Never>?
     @ObservationIgnored private var monitor: NWPathMonitor?
+    /// Only the running app watches the network; sample and test stores never start a monitor.
+    @ObservationIgnored private var watchesNetwork = false
 
     static let spinnerTime: TimeInterval = 0.55
     static let copiedTime: TimeInterval = 1.5
@@ -58,16 +60,30 @@ final class LocalIPStore {
         ip = read()
     }
 
-    /// The running app: also re-reads whenever the network path changes.
+    /// The running app: re-reads whenever the network path changes, once `startMonitoring()` is called.
     static func live() -> LocalIPStore {
         let store = LocalIPStore()
+        store.watchesNetwork = true
+        return store
+    }
+
+    func startMonitoring() {
+        guard watchesNetwork, monitor == nil else { return }
         let monitor = NWPathMonitor()
-        monitor.pathUpdateHandler = { [weak store] _ in
-            Task { @MainActor in store?.refresh() }
+        monitor.pathUpdateHandler = { [weak self] _ in
+            Task { @MainActor in self?.refresh() }
         }
         monitor.start(queue: DispatchQueue(label: "MyWorkDock.localip"))
-        store.monitor = monitor
-        return store
+        self.monitor = monitor
+        refresh()
+    }
+
+    /// Local IP chip switched off: no more network watching.
+    func stopMonitoring() {
+        monitor?.cancel()
+        monitor = nil
+        task?.cancel()
+        phase = .idle
     }
 
     /// Fixed address, nothing read: what the snapshots draw.

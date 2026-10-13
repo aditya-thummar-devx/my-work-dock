@@ -11,8 +11,9 @@ struct Reading: Equatable {
 struct AccountSample: Identifiable {
     var id: String
     var plan: String
-    var session: Reading
-    var week: Reading
+    /// nil = "no reading".
+    var session: Reading?
+    var week: Reading?
     var active = false
     var name: String { id }
 }
@@ -54,6 +55,9 @@ struct TodoSample: Identifiable, Codable {
     var due: String
     var hot = false
     var done = false
+    /// When the todo was added; nil for seed todos and files written before day sections (they group under "Earlier").
+    /// Optional so those files still decode.
+    var createdAt: Date?
 }
 
 struct WirelessSample: Identifiable {
@@ -66,7 +70,6 @@ struct WirelessSample: Identifiable {
 
 extension Geo {
     enum CardMetrics {
-        static let accountHeight: CGFloat = 108
         static let memberHeight: CGFloat = 118
         static let deviceHeight: CGFloat = 108
         static let gridGap: CGFloat = 10
@@ -76,7 +79,8 @@ extension Geo {
 
 // MARK: - claudex
 
-/// Usage card: dot, name, plan, two gauge rows, Remove / Switch. The active account is green-tinted with no buttons.
+/// Usage card: same layout as `MemberCard` (dot, name, plan, thick gauge rows or "no reading"), with Remove / Switch.
+/// The active account is green-tinted with no buttons.
 struct AccountCard: View {
     var account: AccountSample
     var onRemove: () -> Void = {}
@@ -92,15 +96,19 @@ struct AccountCard: View {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 7) {
                     Circle().fill(account.active ? t.gaugeGreen : t.offFg).frame(width: 7, height: 7)
-                    Text(account.name).font(Typo.ui(14, .bold))
+                    Text(account.name).font(Typo.ui(13.5, .bold))
                     Text(account.plan).font(Typo.ui(11)).foregroundStyle(t.faint)
                     Spacer(minLength: 0)
                     if account.active { Text("ACTIVE").font(Typo.ui(10.5, .bold)).foregroundStyle(t.green) }
                 }
                 Spacer(minLength: 0)
-                GaugeRow(label: "session", percent: account.session.percent, reset: account.session.reset)
-                Spacer(minLength: 0)
-                GaugeRow(label: "week", percent: account.week.percent, reset: account.week.reset)
+                if let s = account.session, let w = account.week {
+                    GaugeRow(label: "session", percent: s.percent, reset: s.reset, barHeight: Geo.GaugeRow.barPool)
+                    Spacer(minLength: 0)
+                    GaugeRow(label: "week", percent: w.percent, reset: w.reset, barHeight: Geo.GaugeRow.barPool)
+                } else {
+                    NoReadingRows()
+                }
                 if !account.active {
                     Spacer(minLength: 0)
                     HStack {
@@ -112,7 +120,25 @@ struct AccountCard: View {
             }
             .frame(maxHeight: .infinity)
         }
-        .frame(height: Geo.CardMetrics.accountHeight)
+        .frame(height: Geo.CardMetrics.memberHeight)
+    }
+}
+
+/// Italic `session  no reading` / `week  no reading` rows shown in place of the gauges.
+private struct NoReadingRows: View {
+    @Environment(\.tokens) private var t
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            ForEach(["session", "week"], id: \.self) { label in
+                HStack(spacing: 0) {
+                    Text(label).foregroundStyle(t.muted).frame(width: 58, alignment: .leading)
+                    Text("no reading").italic()
+                }
+            }
+        }
+        .font(Typo.ui(11.5))
+        .foregroundStyle(t.faint)
     }
 }
 
@@ -147,16 +173,7 @@ struct MemberCard: View {
                     Spacer(minLength: 0)
                     GaugeRow(label: "week", percent: w.percent, reset: w.reset, barHeight: Geo.GaugeRow.barPool)
                 } else {
-                    VStack(alignment: .leading, spacing: 4) {
-                        ForEach(["session", "week"], id: \.self) { label in
-                            HStack(spacing: 0) {
-                                Text(label).foregroundStyle(t.muted).frame(width: 58, alignment: .leading)
-                                Text("no reading").italic()
-                            }
-                        }
-                    }
-                    .font(Typo.ui(11.5))
-                    .foregroundStyle(t.faint)
+                    NoReadingRows()
                 }
                 Spacer(minLength: 0)
                 HStack(spacing: 6) {
@@ -234,31 +251,69 @@ extension Geo {
     }
 }
 
-/// Todo row: round check, title, tag chip, due text. Done rows are struck through and faint.
+/// Todo row: round check, title, tag chip, due text, edit / delete. Done rows are struck through and faint.
+/// Editing swaps the title, tag and due for an input with Save and cancel.
 struct TodoRow: View {
     var todo: TodoSample
     /// Colour of the todo's tag when the user created it.
     var tagColor: Color?
+    var editing = false
+    /// Edit-field text; nil draws the title statically (snapshots).
+    var editText: Binding<String>?
     var onToggle: () -> Void = {}
+    var onEdit: () -> Void = {}
+    var onDelete: () -> Void = {}
+    var onSave: () -> Void = {}
+    var onCancel: () -> Void = {}
     @Environment(\.tokens) private var t
 
     var body: some View {
         HStack(spacing: 12) {
             RoundCheck(done: todo.done, title: todo.title, action: onToggle)
-            Text(todo.title)
-                .font(Typo.ui(13.5, .medium))
-                .foregroundStyle(todo.done ? t.faint : t.text)
-                .strikethrough(todo.done)
-                .lineLimit(1)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            TagChip(tag: todo.tag, custom: tagColor)
-            Text(todo.due)
-                .font(Typo.ui(11.5, .medium))
-                .foregroundStyle(!todo.done && todo.hot ? t.hot : t.faint)
-                .frame(width: 72, alignment: .trailing)
+            if editing { editor } else { content }
         }
         .padding(.leading, 12)
-        .padding(.trailing, 14)
+        .padding(.trailing, editing ? 10 : 6)
+    }
+
+    @ViewBuilder private var editor: some View {
+        InlineEditField(text: editText ?? .constant(todo.title), font: Typo.ui(13.5, .medium), onSave: onSave, onCancel: onCancel)
+        DockButton(title: "Save", glyph: nil, metrics: .save, tone: .tint, weight: .bold, action: onSave)
+        RowIconButton(glyph: .close, label: "Cancel edit", fg: t.text2, fill: t.btn2, iconSize: 11, stroke: 2.8, action: onCancel)
+    }
+
+    @ViewBuilder private var content: some View {
+        Text(todo.title)
+            .font(Typo.ui(13.5, .medium))
+            .foregroundStyle(todo.done ? t.faint : t.text)
+            .strikethrough(todo.done)
+            .lineLimit(1)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        TagChip(tag: todo.tag, custom: tagColor)
+        HStack(spacing: 0) {
+            RowIconButton(glyph: .pencil, label: "Edit todo", fg: t.muted, action: onEdit)
+            RowIconButton(glyph: .trash, label: "Delete todo", fg: t.red, action: onDelete)
+        }
+    }
+}
+
+/// Single-line inline edit input: inset fill, `ink` ring, takes focus; Enter saves, Esc cancels.
+struct InlineEditField: View {
+    @Binding var text: String
+    var font: Font
+    var onSave: () -> Void
+    var onCancel: () -> Void
+    @Environment(\.tokens) private var t
+
+    var body: some View {
+        DockTextField(text: $text, placeholder: "", font: font, autofocus: true)
+            .onSubmit(onSave)
+            .onKeyPress(.escape) { onCancel(); return .handled }
+            .padding(.horizontal, 10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(height: 32)
+            .background(RoundedRectangle(cornerRadius: 9).fill(t.inset))
+            .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(t.ink, lineWidth: 1.5))
     }
 }
 
@@ -302,14 +357,7 @@ struct SnippetRow: View {
                 .background(RoundedRectangle(cornerRadius: Geo.Prompt.editRadius).fill(t.inset))
                 .overlay(RoundedRectangle(cornerRadius: Geo.Prompt.editRadius).strokeBorder(t.ink, lineWidth: Geo.Prompt.editRing))
         } else {
-            DockTextField(text: editText ?? .constant(text), placeholder: "", font: kind.font, autofocus: true)
-                .onSubmit(onSave)
-                .onKeyPress(.escape) { onCancel(); return .handled }
-                .padding(.horizontal, 10)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .frame(height: 32)
-                .background(RoundedRectangle(cornerRadius: 9).fill(t.inset))
-                .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(t.ink, lineWidth: 1.5))
+            InlineEditField(text: editText ?? .constant(text), font: kind.font, onSave: onSave, onCancel: onCancel)
         }
         DockButton(title: "Save", glyph: nil, metrics: .save, tone: .tint, weight: .bold, action: onSave)
         RowIconButton(glyph: .close, label: "Cancel edit", fg: t.text2, fill: t.btn2, iconSize: 11, stroke: 2.8, action: onCancel)

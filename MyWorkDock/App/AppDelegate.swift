@@ -17,10 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         #if DEBUG
         MainActor.assumeIsolated { SnapshotRunner.applyStartState(to: model) }
         #endif
-        MainActor.assumeIsolated {
-            model.emulator.startMonitoring()
-            Task { await model.claudex.refresh() }
-        }
+        MainActor.assumeIsolated { model.startServices() }
         // No automatic login item: "Open at login" in the right-click menu is the only way to turn it on.
         let controller = NotchWindowController(model: model)
         self.controller = controller

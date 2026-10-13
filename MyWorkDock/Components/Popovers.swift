@@ -25,6 +25,9 @@ extension Geo {
         static let swatchCheck: CGFloat = 12
         static let ringWidth: CGFloat = 2
         static let noteFont: CGFloat = 11.5
+        static let menuRowHeight: CGFloat = 36
+        static let switchSize = (width: CGFloat(34), height: CGFloat(20))
+        static let switchKnob: CGFloat = 14
     }
 
     enum Menu {
@@ -43,26 +46,134 @@ extension Geo {
     }
 }
 
-/// Settings › Appearance: theme cards with miniatures, 8 tint swatches. Applies everywhere.
-struct AppearancePopover: View {
+/// Settings: Appearance (theme, tint) and Menus (which features are on). Applies everywhere.
+struct SettingsPopover: View {
+    enum Page: String { case appearance, menus }
+
     var theme: ThemeMode
     /// What macOS is in right now; only shown while `theme == .system`.
     var systemIsDark = true
     var tint: Tint
+    var disabled: Set<Feature> = []
     var onTheme: (ThemeMode) -> Void = { _ in }
     var onTint: (Tint) -> Void = { _ in }
+    var onFeature: (Feature, Bool) -> Void = { _, _ in }
     var onClose: () -> Void = {}
+    @State private var page: Page
     @Environment(\.tokens) private var t
+
+    init(theme: ThemeMode, systemIsDark: Bool = true, tint: Tint, disabled: Set<Feature> = [], page: Page = .appearance,
+         onTheme: @escaping (ThemeMode) -> Void = { _ in }, onTint: @escaping (Tint) -> Void = { _ in },
+         onFeature: @escaping (Feature, Bool) -> Void = { _, _ in }, onClose: @escaping () -> Void = {}) {
+        self.theme = theme
+        self.systemIsDark = systemIsDark
+        self.tint = tint
+        self.disabled = disabled
+        self.onTheme = onTheme
+        self.onTint = onTint
+        self.onFeature = onFeature
+        self.onClose = onClose
+        _page = State(initialValue: page)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: Geo.Chrome.popoverGap) {
             HStack {
-                Text("Appearance").font(Typo.display(Geo.Appearance.titleFont)).tracking(Geo.Appearance.titleTracking)
+                SubTabs(items: [SubTabItem(Page.appearance.rawValue, "Appearance"), SubTabItem(Page.menus.rawValue, "Menus")],
+                        selection: page.rawValue, activeFill: t.ctrl) { page = Page(rawValue: $0) ?? .appearance }
                 Spacer()
                 IconButton(glyph: .close, label: "Close settings", size: Geo.Appearance.closeSize,
                            iconSize: Geo.Appearance.closeIcon, stroke: 2.8, action: onClose)
             }
+            switch page {
+            case .appearance:
+                AppearanceSection(theme: theme, systemIsDark: systemIsDark, tint: tint, onTheme: onTheme, onTint: onTint)
+            case .menus:
+                MenusSection(disabled: disabled, onFeature: onFeature)
+            }
+        }
+        .padding(Geo.Chrome.popoverPadding + 1)
+        .frame(width: Geo.Appearance.width)
+        .background {
+            // Shadow on the shape only: on the container every child would cast its own.
+            RoundedRectangle(cornerRadius: Geo.Chrome.popoverRadius).fill(t.pop)
+                .shadow(color: t.popShadow, radius: Geo.Chrome.popoverShadow.blur / 2, y: Geo.Chrome.popoverShadow.y)
+        }
+        .overlay(RoundedRectangle(cornerRadius: Geo.Chrome.popoverRadius).strokeBorder(t.border, lineWidth: 1))
+    }
+}
 
+/// Settings › Menus: one switch per feature. Off hides it and stops its background work.
+private struct MenusSection: View {
+    var disabled: Set<Feature>
+    var onFeature: (Feature, Bool) -> Void
+    @Environment(\.tokens) private var t
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Geo.Chrome.popoverGap) {
+            Text("Menus").font(Typo.ui(Geo.Appearance.sectionFont, .semibold)).foregroundStyle(t.faint)
+            VStack(spacing: 0) {
+                ForEach(Feature.allCases) { row($0) }
+            }
+            .padding(.top, Geo.Appearance.pullUp)
+            Text("A menu that is switched off is hidden and stops everything it runs in the background.")
+                .font(Typo.ui(Geo.Appearance.noteFont))
+                .foregroundStyle(t.faint)
+                .lineSpacing(Typo.lineSpacing(size: Geo.Appearance.noteFont, lineHeight: 1.4))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func row(_ feature: Feature) -> some View {
+        let on = !disabled.contains(feature)
+        return Button { onFeature(feature, !on) } label: {
+            HStack(spacing: Geo.Menu.rowGap) {
+                Icon(feature.glyph, size: Geo.Appearance.themeIcon).foregroundStyle(on ? t.text : t.muted)
+                Text(feature.label).font(Typo.ui(Geo.Menu.font, .medium)).foregroundStyle(on ? t.text : t.text2)
+                Spacer(minLength: 0)
+                SwitchPill(on: on)
+            }
+            .padding(.horizontal, Geo.Menu.rowPadX)
+            .frame(height: Geo.Appearance.menuRowHeight)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(feature.label)
+        .accessibilityValue(on ? "On" : "Off")
+    }
+}
+
+/// Drawn by hand: the system `Toggle` is AppKit-backed, which `ImageRenderer` snapshots cannot draw.
+struct SwitchPill: View {
+    var on: Bool
+    @Environment(\.tokens) private var t
+
+    var body: some View {
+        let size = Geo.Appearance.switchSize
+        let inset = (size.height - Geo.Appearance.switchKnob) / 2
+        Capsule().fill(on ? t.accent : t.ctrl)
+            .overlay(Capsule().strokeBorder(on ? .clear : t.border, lineWidth: 1))
+            .overlay(alignment: .leading) {
+                Circle().fill(on ? Tokens.onTint : t.muted)
+                    .frame(width: Geo.Appearance.switchKnob, height: Geo.Appearance.switchKnob)
+                    .offset(x: on ? size.width - Geo.Appearance.switchKnob - inset : inset)
+            }
+            .frame(width: size.width, height: size.height)
+            .animation(.easeOut(duration: 0.15), value: on)
+    }
+}
+
+/// Theme cards with miniatures, 8 tint swatches.
+private struct AppearanceSection: View {
+    var theme: ThemeMode
+    var systemIsDark = true
+    var tint: Tint
+    var onTheme: (ThemeMode) -> Void = { _ in }
+    var onTint: (Tint) -> Void = { _ in }
+    @Environment(\.tokens) private var t
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Geo.Chrome.popoverGap) {
             Text("Theme").font(Typo.ui(Geo.Appearance.sectionFont, .semibold)).foregroundStyle(t.faint)
             HStack(spacing: Geo.Appearance.themeGap) {
                 ForEach(ThemeMode.allCases, id: \.self) { mode in
@@ -93,14 +204,6 @@ struct AppearancePopover: View {
                 .lineSpacing(Typo.lineSpacing(size: Geo.Appearance.noteFont, lineHeight: 1.4))
                 .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(Geo.Chrome.popoverPadding + 1)
-        .frame(width: Geo.Appearance.width)
-        .background {
-            // Shadow on the shape only: on the container every child would cast its own.
-            RoundedRectangle(cornerRadius: Geo.Chrome.popoverRadius).fill(t.pop)
-                .shadow(color: t.popShadow, radius: Geo.Chrome.popoverShadow.blur / 2, y: Geo.Chrome.popoverShadow.y)
-        }
-        .overlay(RoundedRectangle(cornerRadius: Geo.Chrome.popoverRadius).strokeBorder(t.border, lineWidth: 1))
     }
 
     private func themeCard(_ mode: ThemeMode) -> some View {
@@ -226,6 +329,14 @@ struct TagMenuOption: Identifiable {
     /// nil draws the hollow ring ("No tag", "All") instead of a colour dot.
     var dot: Color?
     var count: Int?
+    /// Shows edit / delete buttons (user tags).
+    var editable = false
+}
+
+/// Edit / delete hooks for the editable rows of a `TagMenu`.
+struct TagMenuEditing {
+    var onEdit: (String) -> Void
+    var onDelete: (String) -> Void
 }
 
 /// Tag dropdown (assign tag, filter by tag): small-caps header, rows with dot, label, optional count and a ✓ slot,
@@ -236,58 +347,77 @@ struct TagMenu<Footer: View>: View {
     var selected: String
     var width: CGFloat
     var onSelect: (String) -> Void
+    var edit: TagMenuEditing?
+    /// Rows beyond this many scroll, so the menu never outgrows the panel.
+    var maxRows: Int?
     @ViewBuilder var footer: Footer
     @Environment(\.tokens) private var t
 
     init(title: String, options: [TagMenuOption], selected: String, width: CGFloat,
-         onSelect: @escaping (String) -> Void = { _ in }, @ViewBuilder footer: () -> Footer) {
+         onSelect: @escaping (String) -> Void = { _ in }, edit: TagMenuEditing? = nil, maxRows: Int? = nil,
+         @ViewBuilder footer: () -> Footer) {
         self.title = title
         self.options = options
         self.selected = selected
         self.width = width
         self.onSelect = onSelect
+        self.edit = edit
+        self.maxRows = maxRows
         self.footer = footer()
     }
 
     var body: some View {
         VStack(spacing: 0) {
-            Text(title)
-                .font(Typo.ui(10.5, .bold)).tracking(1).foregroundStyle(t.faint)
-                .padding(.horizontal, 8)
-                .frame(maxWidth: .infinity, minHeight: Geo.Menu.headerHeight, maxHeight: Geo.Menu.headerHeight, alignment: .leading)
-                .padding(.top, 4).padding(.bottom, 6)
-            ForEach(options) { o in
-                Button { onSelect(o.id) } label: {
-                    HStack(spacing: Geo.Menu.rowGap) {
-                        Circle().fill(o.dot ?? .clear)
-                            .overlay { if o.dot == nil { Circle().strokeBorder(t.muted, lineWidth: 1.5) } }
-                            .frame(width: 8, height: 8)
-                        Text(o.label)
-                        Spacer(minLength: 0)
-                        if let count = o.count { Text("\(count)").font(Typo.ui(11)).foregroundStyle(t.faint) }
-                        Icon(.check, size: 12, stroke: 3)
-                            .opacity(o.id == selected ? 1 : 0)
-                            .frame(width: Geo.Menu.checkSlot)
-                    }
-                    .font(Typo.ui(Geo.Menu.font, .medium))
-                    .foregroundStyle(t.text)
-                    .padding(.horizontal, Geo.Menu.rowPadX)
-                    .frame(height: Geo.Menu.rowHeight)
-                    .background(RoundedRectangle(cornerRadius: Geo.Menu.rowRadius).fill(o.id == selected ? t.ctrl : .clear))
-                    .contentShape(Rectangle())
+            TagMenuHeader(title: title)
+            let rows = VStack(spacing: 0) {
+                ForEach(options) { o in
+                    TagMenuRow(option: o, selected: o.id == selected, edit: edit) { onSelect(o.id) }
                 }
-                .buttonStyle(.plain)
-                .accessibilityAddTraits(o.id == selected ? .isSelected : [])
+            }
+            if let maxRows, options.count > maxRows {
+                DockScroll { rows }.frame(height: CGFloat(maxRows) * Geo.Menu.rowHeight)
+            } else {
+                rows
             }
             footer
         }
-        .padding(Geo.Menu.padding + 1)
-        .frame(width: width)
-        .background {
-            RoundedRectangle(cornerRadius: Geo.Menu.radius).fill(t.pop)
-                .shadow(color: t.popShadow, radius: Geo.Menu.shadow.radius, y: Geo.Menu.shadow.y)
-        }
-        .overlay(RoundedRectangle(cornerRadius: Geo.Menu.radius).strokeBorder(t.border, lineWidth: 1))
+        .tagMenuSurface(width: width)
+    }
+}
+
+/// Small-caps header line of a tag menu / form.
+private struct TagMenuHeader: View {
+    var title: String
+    @Environment(\.tokens) private var t
+
+    var body: some View {
+        Text(title)
+            .font(Typo.ui(10.5, .bold)).tracking(1).foregroundStyle(t.faint)
+            .padding(.horizontal, 8)
+            .frame(maxWidth: .infinity, minHeight: Geo.Menu.headerHeight, maxHeight: Geo.Menu.headerHeight, alignment: .leading)
+            .padding(.top, 4)
+            .padding(.bottom, 6)
+    }
+}
+
+private extension View {
+    /// Popover surface shared by `TagMenu` and `TagFormPopover`.
+    func tagMenuSurface(width: CGFloat) -> some View { modifier(TagMenuSurface(width: width)) }
+}
+
+private struct TagMenuSurface: ViewModifier {
+    var width: CGFloat
+    @Environment(\.tokens) private var t
+
+    func body(content: Content) -> some View {
+        content
+            .padding(Geo.Menu.padding + 1)
+            .frame(width: width)
+            .background {
+                RoundedRectangle(cornerRadius: Geo.Menu.radius).fill(t.pop)
+                    .shadow(color: t.popShadow, radius: Geo.Menu.shadow.radius, y: Geo.Menu.shadow.y)
+            }
+            .overlay(RoundedRectangle(cornerRadius: Geo.Menu.radius).strokeBorder(t.border, lineWidth: 1))
     }
 }
 
@@ -297,73 +427,188 @@ extension TagMenu where Footer == EmptyView {
     }
 }
 
-extension Geo {
-    enum NewTag {
-        static let marginTop: CGFloat = 5
-        static let marginSide: CGFloat = 2
-        static let marginBottom: CGFloat = 2
-        static let padTop: CGFloat = 6
-        static let fieldHeight: CGFloat = 30
-        static let fieldRadius: CGFloat = 8
-        static let fieldPad = (leading: CGFloat(8), trailing: CGFloat(3))
-        static let gap: CGFloat = 6
-        static let font: CGFloat = 12.5
-        static let inputHeight: CGFloat = 24
-        static let addHeight: CGFloat = 22
-        static let addPadX: CGFloat = 8
-        static let addRadius: CGFloat = 6
-        static let addFont: CGFloat = 11.5
-        static let hintFont: CGFloat = 11
-        static let hintPad = (top: CGFloat(6), side: CGFloat(6), bottom: CGFloat(2))
-    }
-}
-
-/// Bottom of the assign-tag menu: divider, `# New tag [Add]` field, hint. Enter adds, Esc closes the menu.
-struct NewTagField: View {
-    @Binding var text: String
-    var canAdd: Bool
-    var onAdd: () -> Void = {}
-    var onCancel: () -> Void = {}
+/// One `TagMenu` row. Editable rows always show pencil / trash between the label and the ✓ slot.
+private struct TagMenuRow: View {
+    var option: TagMenuOption
+    var selected: Bool
+    var edit: TagMenuEditing?
+    var onSelect: () -> Void
     @Environment(\.tokens) private var t
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: Geo.NewTag.gap) {
-                Text("#").font(Typo.ui(Geo.NewTag.font, .bold)).foregroundStyle(t.faint)
-                DockTextField(text: $text, placeholder: "New tag", font: Typo.ui(Geo.NewTag.font))
-                    .frame(height: Geo.NewTag.inputHeight)
-                    .onSubmit(onAdd)
-                    .onKeyPress(.escape) { onCancel(); return .handled }
-                Button(action: onAdd) {
-                    Text("Add")
-                        .font(Typo.ui(Geo.NewTag.addFont, .bold))
-                        .foregroundStyle(canAdd ? Tokens.onTint : t.offFg)
-                        .padding(.horizontal, Geo.NewTag.addPadX)
-                        .frame(height: Geo.NewTag.addHeight)
-                        .background(RoundedRectangle(cornerRadius: Geo.NewTag.addRadius).fill(canAdd ? t.accent : t.btnOff))
-                        .contentShape(Rectangle())
+        Button(action: onSelect) {
+            HStack(spacing: Geo.Menu.rowGap) {
+                Circle().fill(option.dot ?? .clear)
+                    .overlay { if option.dot == nil { Circle().strokeBorder(t.muted, lineWidth: 1.5) } }
+                    .frame(width: 8, height: 8)
+                Text(option.label).lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
+                HStack(spacing: 0) {
+                    if let count = option.count { Text("\(count)").font(Typo.ui(11)).foregroundStyle(t.faint) }
+                    if option.editable, edit != nil { Color.clear.frame(width: 2 * Geo.TagTool.size, height: 1) } // room for the buttons below
                 }
-                .buttonStyle(.plain)
-                .disabled(!canAdd)
+                Icon(.check, size: 12, stroke: 3)
+                    .opacity(selected ? 1 : 0)
+                    .frame(width: Geo.Menu.checkSlot)
             }
-            .padding(.leading, Geo.NewTag.fieldPad.leading + 1)
-            .padding(.trailing, Geo.NewTag.fieldPad.trailing + 1)
-            .frame(height: Geo.NewTag.fieldHeight)
-            .background(RoundedRectangle(cornerRadius: Geo.NewTag.fieldRadius).fill(t.inset))
-            .overlay(RoundedRectangle(cornerRadius: Geo.NewTag.fieldRadius).strokeBorder(t.border, lineWidth: 1))
-
-            Text("Typing #tag in the todo works too")
-                .font(Typo.ui(Geo.NewTag.hintFont))
-                .foregroundStyle(t.faint)
-                .fixedSize(horizontal: false, vertical: true)
-                .padding(.top, Geo.NewTag.hintPad.top)
-                .padding(.horizontal, Geo.NewTag.hintPad.side)
-                .padding(.bottom, Geo.NewTag.hintPad.bottom)
+            .font(Typo.ui(Geo.Menu.font, .medium))
+            .foregroundStyle(t.text)
+            .padding(.horizontal, Geo.Menu.rowPadX)
+            .frame(height: Geo.Menu.rowHeight)
+            .background(RoundedRectangle(cornerRadius: Geo.Menu.rowRadius).fill(selected ? t.ctrl : .clear))
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
+        .overlay(alignment: .trailing) {
+            if option.editable, let edit {
+                HStack(spacing: 0) {
+                    tool(.pencil, "Edit tag \(option.label)", t.muted) { edit.onEdit(option.id) }
+                    tool(.trash, "Delete tag \(option.label)", t.red) { edit.onDelete(option.id) }
+                }
+                .padding(.trailing, Geo.Menu.rowPadX + Geo.Menu.checkSlot + Geo.Menu.rowGap)
+            }
+        }
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    private func tool(_ glyph: Glyph, _ label: String, _ fg: Color, _ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Icon(glyph, size: 12).foregroundStyle(fg)
+                .frame(width: Geo.TagTool.size, height: Geo.TagTool.size)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+    }
+}
+
+extension Geo {
+    enum NewTag {
+        static let marginTop: CGFloat = 5
+        static let padTop: CGFloat = 6
+        static let fieldHeight: CGFloat = 30
+        static let fieldRadius: CGFloat = 8
+        static let fieldPad = (leading: CGFloat(8), trailing: CGFloat(8))
+        static let gap: CGFloat = 6
+        static let font: CGFloat = 12.5
+        static let inputHeight: CGFloat = 24
+        static let buttonHeight: CGFloat = 26
+        static let buttonPadX: CGFloat = 12
+        static let buttonRadius: CGFloat = 7
+        static let buttonFont: CGFloat = 12
+        static let swatch: CGFloat = 22
+        static let formGap: CGFloat = 12
+        static let formPad: CGFloat = 4 // inside the menu padding, so the form lines up with the rows' text
+    }
+
+    /// Pencil / trash button in an editable tag row.
+    enum TagTool {
+        static let size: CGFloat = 22
+    }
+}
+
+/// Bottom of the assign-tag and filter menus: divider and a `＋ New tag` row that opens the `TagFormPopover`.
+struct NewTagButton: View {
+    var action: () -> Void
+    @Environment(\.tokens) private var t
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: Geo.Menu.rowGap) {
+                Icon(.plus, size: 11, stroke: 2.8)
+                Text("New tag")
+                Spacer(minLength: 0)
+            }
+            .font(Typo.ui(Geo.Menu.font, .medium))
+            .foregroundStyle(t.text2)
+            .padding(.horizontal, Geo.Menu.rowPadX)
+            .frame(height: Geo.Menu.rowHeight)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
         .padding(.top, Geo.NewTag.padTop)
         .overlay(alignment: .top) { Rectangle().fill(t.line).frame(height: 1) }
         .padding(.top, Geo.NewTag.marginTop)
-        .padding(.horizontal, Geo.NewTag.marginSide)
-        .padding(.bottom, Geo.NewTag.marginBottom)
+        .accessibilityLabel("New tag")
+    }
+}
+
+/// Name + colour popup that takes the place of a tag menu's list (new tag and edit tag): `# name` field, one swatch per
+/// palette colour, Cancel / Add (Save while editing). Enter saves, Esc cancels.
+struct TagFormPopover: View {
+    @Binding var name: String
+    @Binding var hex: UInt32
+    var editing: Bool
+    var canSave: Bool
+    var width: CGFloat
+    var onSave: () -> Void
+    var onCancel: () -> Void
+    @Environment(\.tokens) private var t
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Geo.NewTag.formGap) {
+            TagMenuHeader(title: editing ? "EDIT TAG" : "NEW TAG")
+            field
+            HStack(spacing: 0) {
+                ForEach(NotesStore.tagPalette, id: \.self) { swatch($0) }
+            }
+            .padding(.horizontal, Geo.NewTag.formPad)
+            HStack(spacing: Geo.NewTag.gap) {
+                Spacer(minLength: 0)
+                button("Cancel", fg: t.text2, bg: t.btn2, action: onCancel)
+                button(editing ? "Save" : "Add", fg: canSave ? Tokens.onTint : t.offFg, bg: canSave ? t.accent : t.btnOff, action: onSave)
+                    .disabled(!canSave)
+            }
+            .padding(.horizontal, Geo.NewTag.formPad)
+        }
+        .padding(.bottom, Geo.NewTag.formPad)
+        .tagMenuSurface(width: width)
+    }
+
+    private var field: some View {
+        HStack(spacing: Geo.NewTag.gap) {
+            Text("#").font(Typo.ui(Geo.NewTag.font, .bold)).foregroundStyle(t.faint)
+            DockTextField(text: $name, placeholder: "Tag name", font: Typo.ui(Geo.NewTag.font), autofocus: true)
+                .frame(height: Geo.NewTag.inputHeight)
+                .onSubmit { if canSave { onSave() } }
+                .onKeyPress(.escape) { onCancel(); return .handled }
+        }
+        .padding(.horizontal, Geo.NewTag.fieldPad.leading)
+        .frame(height: Geo.NewTag.fieldHeight)
+        .background(RoundedRectangle(cornerRadius: Geo.NewTag.fieldRadius).fill(t.inset))
+        .overlay(RoundedRectangle(cornerRadius: Geo.NewTag.fieldRadius).strokeBorder(t.border, lineWidth: 1))
+        .padding(.horizontal, Geo.NewTag.formPad)
+    }
+
+    private func swatch(_ color: UInt32) -> some View {
+        let on = color == hex
+        return Button { hex = color } label: {
+            Circle().fill(Color(hex: color))
+                .frame(width: Geo.NewTag.swatch, height: Geo.NewTag.swatch)
+                .overlay { if on { Icon(.check, size: 11, stroke: 3.4).foregroundStyle(Tokens.onTint) } }
+                .background { // box-shadow: 0 0 0 2px pop, 0 0 0 4px colour, like the tint swatches
+                    if on {
+                        Circle().fill(Color(hex: color)).padding(-2 * Geo.Appearance.ringWidth)
+                        Circle().fill(t.pop).padding(-Geo.Appearance.ringWidth)
+                    }
+                }
+                .frame(maxWidth: .infinity)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Colour #\(String(color, radix: 16))")
+        .accessibilityAddTraits(on ? .isSelected : [])
+    }
+
+    private func button(_ title: String, fg: Color, bg: Color, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(Typo.ui(Geo.NewTag.buttonFont, .bold))
+                .foregroundStyle(fg)
+                .padding(.horizontal, Geo.NewTag.buttonPadX)
+                .frame(height: Geo.NewTag.buttonHeight)
+                .background(RoundedRectangle(cornerRadius: Geo.NewTag.buttonRadius).fill(bg))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }

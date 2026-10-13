@@ -63,17 +63,18 @@ struct GaugeRow: View {
 }
 
 /// 30 pt ring (r 15 in a 36 viewBox, stroke 4), starts at 12 o'clock, round cap except at 0 %.
-/// Used by the peek, which is always on black, so its colours are fixed rather than themed.
+/// Used by the peek, which follows the shell: black in dark theme, light in light theme.
 struct RingGauge: View {
     var percent: Int?
+    @Environment(\.tokens) private var t
 
     var body: some View {
         let k = Geo.Peek.ring / Geo.Peek.ringViewBox
         let p = Double(percent ?? 0) / 100
-        let color = percent.map { Fixed.darkTokens.gaugeColor($0) } ?? Fixed.runningDot
+        let color = percent.map { t.gaugeColor($0) } ?? Fixed.runningDot
         ZStack {
             ZStack {
-                Circle().stroke(Fixed.peekRingTrack, lineWidth: Geo.Peek.ringStroke * k)
+                Circle().stroke(t.isDark ? Fixed.peekRingTrack : t.track, lineWidth: Geo.Peek.ringStroke * k)
                 Circle()
                     .trim(from: 0, to: p)
                     .stroke(color, style: StrokeStyle(lineWidth: Geo.Peek.ringStroke * k, lineCap: p > 0 ? .round : .butt))

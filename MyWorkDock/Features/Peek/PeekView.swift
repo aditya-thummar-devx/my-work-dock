@@ -1,6 +1,6 @@
 import SwiftUI
 
-// Peek (hover): two ears hugging their content around the hardware notch. Always on black.
+// Peek (hover): two ears hugging their content around the hardware notch. Black in dark theme, light in light.
 // DESIGN_SPEC §4; markup from Prototype.dc.html lines 56–88.
 
 struct PeekExtents: Equatable {
@@ -17,11 +17,16 @@ enum PeekMetrics {
         }
         return PeekExtents(left: width(PeekLeftEar(data: data)), right: width(PeekRightEar(data: data)))
     }
+
+    /// claudex off: one ear on the right of the notch, with the hint.
+    @MainActor
+    static let hintExtents = PeekExtents(left: 0, right: NSHostingView(rootView: PeekHintEar().fixedSize()).fittingSize.width.rounded())
 }
 
 struct PeekView: View {
     var data: PeekData
     var extents: PeekExtents
+    @Environment(\.tokens) private var t
 
     var body: some View {
         HStack(spacing: 0) {
@@ -31,16 +36,45 @@ struct PeekView: View {
             PeekRightEar(data: data)
                 .frame(width: extents.right, alignment: .leading)
         }
-        .foregroundStyle(Fixed.peekText)
+        .foregroundStyle(t.text)
         .frame(width: Geo.keepOutWidth + extents.left + extents.right, height: Geo.peek.height)
         .contentShape(Rectangle())
     }
 }
 
+/// Peek while the claudex menu is off: nothing to show, so it invites a click.
+struct PeekHintView: View {
+    @Environment(\.tokens) private var t
+
+    var body: some View {
+        HStack(spacing: 0) {
+            Color.clear.frame(width: Geo.keepOutWidth)
+            PeekHintEar().frame(width: PeekMetrics.hintExtents.right, alignment: .leading)
+        }
+        .foregroundStyle(t.text)
+        .frame(width: Geo.keepOutWidth + PeekMetrics.hintExtents.right, height: Geo.peek.height)
+        .contentShape(Rectangle())
+    }
+}
+
+struct PeekHintEar: View {
+    @Environment(\.tokens) private var t
+
+    var body: some View {
+        Text("Tap to see magic ✨")
+            .font(Typo.ui(Geo.Peek.nameSize, .bold))
+            .foregroundStyle(t.text2)
+            .lineLimit(1)
+            .padding(.leading, Geo.Peek.rightPadding.leading)
+            .padding(.trailing, Geo.Peek.rightPadding.trailing)
+    }
+}
+
 struct PeekLeftEar: View {
     var data: PeekData
+    @Environment(\.tokens) private var t
 
-    private var fg: Color { data.isPool ? Fixed.poolFg : Fixed.ssoFg }
+    private var fg: Color { data.isPool ? (t.isDark ? Fixed.poolFg : Fixed.poolFgLight) : t.boot }
     private var bg: Color { data.isPool ? Fixed.poolBg : Fixed.ssoBg }
 
     var body: some View {
@@ -82,6 +116,7 @@ struct PeekRightEar: View {
 
 private struct PeekRingUnit: View {
     var bar: PeekBar
+    @Environment(\.tokens) private var t
 
     var body: some View {
         HStack(spacing: Geo.Peek.ringToTextGap) {
@@ -90,7 +125,7 @@ private struct PeekRingUnit: View {
                 Text(bar.label)
                     .font(Typo.ui(Geo.Peek.labelSize, .heavy))
                     .tracking(Geo.Peek.modeTracking)
-                    .foregroundStyle(bar.isHot ? Fixed.peekLabelHot : Fixed.peekLabel)
+                    .foregroundStyle(bar.isHot ? (t.isDark ? Fixed.peekLabelHot : t.red) : t.faint)
                 reset
             }
         }
@@ -100,15 +135,15 @@ private struct PeekRingUnit: View {
     @ViewBuilder private var reset: some View {
         let font = Typo.ui(Geo.Peek.resetSize, .semibold)
         if bar.percent == nil {
-            Text("no reading").font(font).foregroundStyle(Fixed.peekReset)
+            Text("no reading").font(font).foregroundStyle(t.text2)
         } else if let r = bar.reset {
             HStack(spacing: 3) {
                 Image(systemName: "arrow.clockwise").font(Typo.ui(Geo.Peek.resetIcon, .semibold))
                 Text(r).font(font)
             }
-            .foregroundStyle(Fixed.peekReset)
+            .foregroundStyle(t.text2)
         } else {
-            Text("idle").font(font).foregroundStyle(Fixed.peekReset)
+            Text("idle").font(font).foregroundStyle(t.text2)
         }
     }
 }

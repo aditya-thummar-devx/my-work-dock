@@ -50,28 +50,54 @@ struct TodoMenus: View {
 
     private func options(counts: Bool) -> [TagMenuOption] {
         store.tagOrder.map {
-            TagMenuOption(id: $0, label: "#\($0)", dot: TagPalette.dot($0, custom: store.customColor($0), in: t), count: counts ? store.count(of: $0) : nil)
+            TagMenuOption(id: $0, label: "#\($0)", dot: TagPalette.dot($0, custom: store.customColor($0), in: t),
+                          count: counts ? store.count(of: $0) : nil, editable: store.canEditTag($0))
+        }
+    }
+
+    private var edit: TagMenuEditing {
+        TagMenuEditing(onEdit: { store.openTagForm(editing: $0) }, onDelete: store.deleteTag)
+    }
+
+    /// The tag list, or the name + colour popup in its place while one is open.
+    @ViewBuilder private func menu<L: View>(width: CGFloat, @ViewBuilder list: () -> L) -> some View {
+        if store.tagFormOpen {
+            TagFormPopover(name: $store.newTag, hex: $store.tagHex, editing: store.editingTag != nil, canSave: store.canAddNewTag,
+                           width: width, onSave: store.saveTagForm, onCancel: store.cancelTagForm)
+        } else {
+            list()
         }
     }
 
     var body: some View {
+        if store.filterMenuOpen || store.tagMenuOpen {
+            // Outside click closes, like the claudex sort menu.
+            Color.clear.contentShape(Rectangle()).onTapGesture(perform: store.closeMenus)
+        }
         if store.filterMenuOpen {
             // Right-aligned with the filter button, which sits left of the search circle (or the open search field).
             let searchWidth = store.searchOpen ? Geo.Search.width : Geo.Search.height
-            TagMenu(title: "FILTER BY TAG",
-                    options: [TagMenuOption(id: "all", label: "All", dot: nil, count: store.todos.count)] + options(counts: true),
-                    selected: store.filterTag, width: Geo.Filter.menuWidth, onSelect: store.pickFilter)
-                .offset(x: -(searchWidth + Geo.SubTab.navGap), y: Geo.Chrome.subNavTop + Geo.Filter.menuTop)
+            menu(width: Geo.Filter.menuWidth) {
+                TagMenu(title: "FILTER BY TAG",
+                        options: [TagMenuOption(id: "all", label: "All", dot: nil, count: store.todos.count)] + options(counts: true),
+                        selected: store.filterTag, width: Geo.Filter.menuWidth, onSelect: store.pickFilter, edit: edit,
+                        maxRows: Geo.Filter.maxRows) {
+                    NewTagButton { store.openTagForm() }
+                }
+            }
+            .offset(x: -(searchWidth + Geo.SubTab.navGap), y: Geo.Chrome.subNavTop + Geo.Filter.menuTop)
         }
         if store.tagMenuOpen {
-            TagMenu(title: "ASSIGN TAG",
-                    options: [TagMenuOption(id: "", label: "No tag", dot: nil, count: nil)] + options(counts: false),
-                    selected: store.todoTag ?? "", width: Geo.TagPicker.menuWidth,
-                    onSelect: { store.pickTodoTag($0.isEmpty ? nil : $0) }) {
-                NewTagField(text: $store.newTag, canAdd: store.canAddNewTag, onAdd: store.addNewTag, onCancel: store.cancelNewTag)
+            menu(width: Geo.TagPicker.menuWidth) {
+                TagMenu(title: "ASSIGN TAG",
+                        options: [TagMenuOption(id: "", label: "No tag", dot: nil, count: nil)] + options(counts: false),
+                        selected: store.todoTag ?? "", width: Geo.TagPicker.menuWidth,
+                        onSelect: { store.pickTodoTag($0.isEmpty ? nil : $0) }, edit: edit) {
+                    NewTagButton { store.openTagForm() }
+                }
             }
-                .offset(x: -Geo.TagPicker.menuRight,
-                        y: Geo.Chrome.subNavTop + Geo.SubTab.height + Geo.Chrome.contentTop + Geo.TagPicker.menuTop)
+            .offset(x: -Geo.TagPicker.menuRight,
+                    y: Geo.Chrome.subNavTop + Geo.SubTab.height + Geo.Chrome.contentTop + Geo.TagPicker.menuTop)
         }
     }
 }
@@ -184,19 +210,46 @@ struct TagPickerButton: View {
     }
 }
 
+/// Todos grouped by the day they were added: a heading and a grouped list per day, all in one scroller.
 struct TodoList: View {
-    var store: NotesStore
+    @Bindable var store: NotesStore
+    @Environment(\.tokens) private var t
 
     var body: some View {
-        let todos = store.visibleTodos
-        GroupedList(count: todos.count, rowHeight: Geo.Row.todoHeight, scrolls: true) { i in
-            let todo = todos[i]
-            TodoRow(todo: todo, tagColor: store.customColor(todo.tag)) { store.toggle(todo.id) }
+        DockScroll {
+            VStack(alignment: .leading, spacing: Geo.DayHeading.gap) {
+                ForEach(store.sections) { section in
+                    VStack(alignment: .leading, spacing: Geo.DayHeading.headerGap) {
+                        HStack(spacing: 6) {
+                            Text(section.title.uppercased())
+                            Text("\(section.todos.count)").font(Typo.mono(Geo.DayHeading.font))
+                        }
+                        .font(Typo.ui(Geo.DayHeading.font, .semibold))
+                        .foregroundStyle(t.faint)
+                        .padding(.leading, 4)
+                        GroupedList(count: section.todos.count, rowHeight: Geo.Row.todoHeight) { i in
+                            let todo = section.todos[i]
+                            TodoRow(todo: todo, tagColor: store.customColor(todo.tag), editing: store.editId == todo.id,
+                                    editText: $store.editDraft,
+                                    onToggle: { store.toggle(todo.id) }, onEdit: { store.startEdit(todo.id) },
+                                    onDelete: { store.delete(todo.id) }, onSave: store.saveEdit, onCancel: store.cancelEdit)
+                        }
+                    }
+                }
+            }
         }
+        .frame(maxHeight: .infinity, alignment: .top)
     }
 }
 
 extension Geo {
+    /// Day heading above each todo list.
+    enum DayHeading {
+        static let font: CGFloat = 11
+        static let gap: CGFloat = 14 // between one day's list and the next heading
+        static let headerGap: CGFloat = 6
+    }
+
     /// Filter dropdown button in the sub-nav and its menu.
     enum Filter {
         static let height: CGFloat = 32
@@ -207,8 +260,9 @@ extension Geo {
         static let icon: CGFloat = 13
         static let dot: CGFloat = 7
         static let chevron: CGFloat = 10
-        static let menuWidth: CGFloat = 200
+        static let menuWidth: CGFloat = 232
         static let menuTop: CGFloat = 38 // below the sub-nav row's top edge
+        static let maxRows = 7 // the list scrolls past this, keeping the menu inside the panel
     }
 
     /// Tag button in the quick-add row and its menu (offsets are from the row's border box).
@@ -221,7 +275,7 @@ extension Geo {
         static let font: CGFloat = 12
         static let icon: CGFloat = 12
         static let chevron: CGFloat = 10
-        static let menuWidth: CGFloat = 196
+        static let menuWidth: CGFloat = 232
         static let menuTop: CGFloat = 49 // `top: 48` from the padding edge + the 1 pt border
         static let menuRight: CGFloat = 41 // `right: 40` + the border
     }

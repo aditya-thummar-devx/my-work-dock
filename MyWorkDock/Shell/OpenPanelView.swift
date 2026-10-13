@@ -4,26 +4,40 @@ import SwiftUI
 /// Notes is real (M3); the other tabs are empty until their milestones.
 struct OpenPanelView: View {
     var model: NotchModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: 0) {
             TopRow(model: model)
-            switch model.mainTab {
-            case .notes: NotesScreen(model: model)
-            case .emulator: EmulatorScreen(model: model)
-            case .claudex: ClaudexScreen(model: model)
+            // ZStack so outgoing and incoming screens overlap during the crossfade instead of sharing the VStack's height.
+            ZStack(alignment: .top) {
+                if model.enabledTabs.isEmpty {
+                    MenusOffGuide(onOpenSettings: model.settings ? {} : model.toggleSettings).transition(.opacity)
+                } else {
+                    switch model.mainTab {
+                    case .notes: NotesScreen(model: model).transition(.opacity)
+                    case .emulator: EmulatorScreen(model: model).transition(.opacity)
+                    case .claudex: ClaudexScreen(model: model).transition(.opacity)
+                    }
+                }
             }
+            .frame(maxHeight: .infinity, alignment: .top)
+            .animation(reduceMotion ? nil : .easeOut(duration: Geo.tabContentFade), value: model.mainTab)
             Footer(model: model)
                 .padding(.top, Geo.Chrome.footerTop)
         }
         .padding(.horizontal, Geo.Chrome.insetX)
         .padding(.bottom, Geo.Chrome.insetBottom)
         .frame(width: Geo.open.width, height: Geo.open.height, alignment: .top)
-        .overlay(alignment: .topTrailing) {
+        .overlay {
             if model.settings {
-                AppearancePopover(theme: model.theme, systemIsDark: model.appearance.isDark, tint: model.tint, onTheme: model.setTheme, onTint: model.setTint, onClose: model.toggleSettings)
-                    .padding(.top, Geo.Chrome.popoverTop).padding(.trailing, Geo.Chrome.popoverRight)
-                    .transition(.opacity)
+                ZStack(alignment: .topTrailing) {
+                    Color.clear.contentShape(Rectangle()).onTapGesture(perform: model.toggleSettings) // outside click closes, like the claudex sort menu
+                    SettingsPopover(theme: model.theme, systemIsDark: model.appearance.isDark, tint: model.tint, disabled: model.disabled,
+                                    onTheme: model.setTheme, onTint: model.setTint, onFeature: model.setEnabled, onClose: model.toggleSettings)
+                        .padding(.top, Geo.Chrome.popoverTop).padding(.trailing, Geo.Chrome.popoverRight)
+                }
+                .transition(.opacity)
             }
         }
         .animation(.easeOut(duration: Geo.popoverFade), value: model.settings)
@@ -39,15 +53,17 @@ private struct TopRow: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            PillTabs(items: MainTab.allCases.map { PillTabItem(id: $0.rawValue, label: $0.label, glyph: $0.glyph) },
-                     selection: model.mainTab.rawValue) { id in
-                model.setMainTab(MainTab(rawValue: id) ?? .notes)
+            if !model.enabledTabs.isEmpty {
+                PillTabs(items: model.enabledTabs.map { PillTabItem(id: $0.rawValue, label: $0.label, glyph: $0.glyph) },
+                         selection: model.mainTab.rawValue) { id in
+                    model.setMainTab(MainTab(rawValue: id) ?? .notes)
+                }
             }
 
             Spacer(minLength: Geo.keepOutWidth)
 
             HStack(spacing: Geo.Chrome.rightClusterGap) {
-                LocalIPChip(store: model.localIP)
+                if model.isEnabled(.localIP) { LocalIPChip(store: model.localIP) }
 
                 IconButton(glyph: .pin, label: "Pin panel open",
                            fill: model.pinned ? t.accent : t.ctrl,
@@ -69,6 +85,7 @@ private struct Footer: View {
     @Environment(\.tokens) private var t
 
     private var footerText: StatusMessage {
+        if model.enabledTabs.isEmpty { return StatusMessage(text: "All menus are off") }
         func failed(_ why: String?) -> StatusMessage? { why.map { StatusMessage(text: "Could not save: \($0)", isError: true) } }
         switch model.mainTab {
         case .notes:
@@ -84,9 +101,9 @@ private struct Footer: View {
             Text(footerText.text).foregroundStyle(footerText.isError ? t.orange : t.faint)
             Spacer()
             HStack(spacing: Geo.Chrome.footerGap) {
-                if let snippets = model.activeSnippets, snippets.deleted != nil {
+                if let undo = model.pendingUndo {
                     DockButton(title: "Undo", glyph: nil, metrics: ButtonMetrics(height: Geo.Chrome.footerButtonHeight, radius: Geo.Chrome.footerButtonRadius, padLeading: Geo.Chrome.footerButtonPaddingX, padTrailing: Geo.Chrome.footerButtonPaddingX, font: 12),
-                               tone: .tint, weight: .bold, action: snippets.undo)
+                               tone: .tint, weight: .bold, action: undo)
                 }
                 HStack(spacing: 0) {
                     Text("⌥Space").font(Typo.mono(12)).foregroundStyle(t.text2)
@@ -108,6 +125,30 @@ private struct Footer: View {
         .foregroundStyle(t.faint)
         .padding(.top, Geo.Chrome.footerPaddingTop + 1) // + the 1 pt border-top, which is a row of its own in CSS
         .overlay(alignment: .top) { Rectangle().fill(t.line).frame(height: 1) }
+    }
+}
+
+/// Every menu switched off: the content area explains how to get one back.
+private struct MenusOffGuide: View {
+    var onOpenSettings: () -> Void
+    @Environment(\.tokens) private var t
+
+    var body: some View {
+        VStack(spacing: 10) {
+            Icon(.sliders, size: 26).foregroundStyle(t.muted)
+            Text("All menus are off").font(Typo.display(18)).tracking(-0.4)
+            Text("Open Settings with the sliders button at the top right, choose Menus, and switch one on.")
+                .font(Typo.ui(13))
+                .foregroundStyle(t.text2)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 320)
+            DockButton(title: "Open settings", glyph: .sliders,
+                       metrics: ButtonMetrics(height: Geo.Chrome.footerButtonHeight, radius: Geo.Chrome.footerButtonRadius, padLeading: Geo.Chrome.footerButtonPaddingX, padTrailing: Geo.Chrome.footerButtonPaddingX, font: 12),
+                       tone: .tint, weight: .bold, action: onOpenSettings)
+                .padding(.top, 4)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .accessibilityElement(children: .combine)
     }
 }
 

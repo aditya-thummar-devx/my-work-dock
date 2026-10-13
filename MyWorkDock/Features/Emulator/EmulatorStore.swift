@@ -140,6 +140,13 @@ final class EmulatorStore {
         }
     }
 
+    /// Emulator menu switched off: no more polling. `startMonitoring()` can start it again.
+    func stopMonitoring() {
+        monitor?.cancel()
+        monitor = nil
+        pendingBoot = [:]
+    }
+
     func refresh() { Task { await refreshAll() } }
 
     func refreshAll() async {

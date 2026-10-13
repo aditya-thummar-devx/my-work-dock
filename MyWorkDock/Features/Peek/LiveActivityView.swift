@@ -21,7 +21,7 @@ struct LiveActivityView: View {
                         .opacity(entrance && dim ? 0.35 : 1)
                     Text("Booting")
                 }
-                .foregroundStyle(t.accent)
+                .foregroundStyle(t.ink)
                 Spacer()
                 Text(name)
             }
@@ -30,13 +30,13 @@ struct LiveActivityView: View {
             Spacer(minLength: 0)
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
-                    Capsule().fill(Fixed.liveTrack)
-                    Capsule().fill(t.accent).frame(width: geo.size.width * (progressOverride ?? fill))
+                    Capsule().fill(t.isDark ? Fixed.liveTrack : t.track)
+                    Capsule().fill(t.ink).frame(width: geo.size.width * (progressOverride ?? fill))
                 }
             }
             .frame(height: Geo.Live.barHeight)
         }
-        .foregroundStyle(Fixed.liveText)
+        .foregroundStyle(t.text)
         .padding(.horizontal, Geo.Live.paddingX)
         .padding(.bottom, Geo.Live.paddingBottom)
         .frame(width: Geo.live.width, height: Geo.live.height)

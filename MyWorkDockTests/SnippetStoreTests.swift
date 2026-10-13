@@ -122,6 +122,17 @@ final class SnippetStoreTests: XCTestCase {
         XCTAssertEqual(store.items.map(\.id), [1, 2, 3]) // back at its original place, not the filtered one
     }
 
+    func testEmptyListHasItsOwnText() {
+        let commands = SnippetStore(.commands, url: nil, seed: [])
+        let prompts = SnippetStore(.prompts, url: nil, seed: [])
+        XCTAssertTrue(commands.items.isEmpty)
+        XCTAssertEqual(commands.kind.emptyTitle, "No commands saved yet")
+        XCTAssertEqual(commands.kind.emptyHint, "Type or paste a command above, then press Enter.")
+        XCTAssertEqual(prompts.kind.emptyTitle, "No prompts saved yet")
+        XCTAssertEqual(prompts.kind.emptyHint, "Write a prompt above, then press Enter.")
+        XCTAssertEqual(commands.footer, "0 saved commands")
+    }
+
     func testSubTabSwitchResetClosesTheSearch() {
         let store = SnippetStore.sample(.prompts)
         store.openSearch()

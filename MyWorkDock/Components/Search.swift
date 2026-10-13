@@ -72,26 +72,30 @@ struct SearchControl: View {
 
 /// Dashed placeholder that fills the content area when a filter or a search hides everything.
 struct EmptyState: View {
+    var title = "Nothing here"
     var message: String
-    var action: String
+    /// Button label; nil hides the button (nothing to clear, the add field is already on screen).
+    var action: String?
     var onAction: () -> Void = {}
     @Environment(\.tokens) private var t
 
     var body: some View {
         VStack(spacing: Geo.Empty.gap) {
-            Text("Nothing here").font(Typo.display(Geo.Empty.titleFont)).foregroundStyle(t.text)
+            Text(title).font(Typo.display(Geo.Empty.titleFont)).foregroundStyle(t.text)
             Text(message).font(Typo.ui(Geo.Empty.messageFont)).foregroundStyle(t.faint)
-            Button(action: onAction) {
-                Text(action)
-                    .font(Typo.ui(Geo.Empty.buttonFont, .semibold))
-                    .foregroundStyle(t.text)
-                    .padding(.horizontal, Geo.Empty.buttonPadX)
-                    .frame(height: Geo.Empty.buttonHeight)
-                    .background(RoundedRectangle(cornerRadius: Geo.Empty.buttonRadius).fill(t.ctrl))
-                    .contentShape(Rectangle())
+            if let action {
+                Button(action: onAction) {
+                    Text(action)
+                        .font(Typo.ui(Geo.Empty.buttonFont, .semibold))
+                        .foregroundStyle(t.text)
+                        .padding(.horizontal, Geo.Empty.buttonPadX)
+                        .frame(height: Geo.Empty.buttonHeight)
+                        .background(RoundedRectangle(cornerRadius: Geo.Empty.buttonRadius).fill(t.ctrl))
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .padding(.top, Geo.Empty.buttonTop)
             }
-            .buttonStyle(.plain)
-            .padding(.top, Geo.Empty.buttonTop)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .overlay(RoundedRectangle(cornerRadius: Geo.Empty.radius).strokeBorder(t.border, style: StrokeStyle(lineWidth: 1, dash: Geo.Empty.dash)))

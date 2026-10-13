@@ -7,9 +7,9 @@ struct NotchShape: Shape {
     var bottomRadius: CGFloat
     var shoulder: CGFloat = Geo.shoulder
 
-    var animatableData: CGFloat {
-        get { bottomRadius }
-        set { bottomRadius = newValue }
+    var animatableData: AnimatablePair<CGFloat, CGFloat> {
+        get { .init(bottomRadius, shoulder) }
+        set { (bottomRadius, shoulder) = (newValue.first, newValue.second) }
     }
 
     func path(in rect: CGRect) -> Path {

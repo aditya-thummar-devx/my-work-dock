@@ -24,14 +24,14 @@ enum Geo {
     static let keepOutWidth: CGFloat = 200
     static let keepOutHeight: CGFloat = 32
 
+    /// Idle size on a screen with no hardware notch; with one, idle is the notch's own size (`NotchModel.notch`).
     static let idle = (width: CGFloat(190), height: CGFloat(32), radius: CGFloat(14))
+    /// Idle corners matching the physical notch (~4 pt top flare, ~8 pt bottom; Apple publishes no radii, tune by eye).
+    static let hardwareNotch = (shoulder: CGFloat(4), radius: CGFloat(8))
     /// Peek width is not fixed: `keepOutWidth + leftEar + rightEar`, ears hug their content.
     static let peek = (height: CGFloat(48), radius: CGFloat(22))
     static let live = (width: CGFloat(520), height: CGFloat(70), radius: CGFloat(26))
     static let open = (width: CGFloat(760), height: CGFloat(480), radius: CGFloat(36))
-
-    /// Black cut-out drawn on the light open panel to stand in for the hardware notch.
-    static let cutout = (width: CGFloat(200), height: CGFloat(32), radius: CGFloat(14), shoulder: CGFloat(7))
 
     // MARK: Motion
 
@@ -51,6 +51,9 @@ enum Geo {
     static let fadeOffsetY: CGFloat = -6
     static let fadeScale: CGFloat = 0.985
     static let popoverFade = 0.22
+    /// Main-tab switch: the active pill slides and its label expands over `tabSwitch` (shell curve), screens crossfade over `tabContentFade`.
+    static let tabSwitch = 0.3
+    static let tabContentFade = 0.18
     /// Live-activity fill: eases toward full over a typical simulator boot (the prototype fakes a 2.4 s one).
     static let liveFillDuration = 25.0
 

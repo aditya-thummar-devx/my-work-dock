@@ -139,34 +139,27 @@ extension EnvironmentValues {
 // MARK: - Colours that don't change with theme or tint
 
 enum Fixed {
-    /// Shell fill everywhere except the open panel in light theme (which uses `Tokens.panel`).
+    /// Hardware-notch black. The shell itself fills with `Tokens.panel` (black in dark, light grey in light).
     static let shell = Color.black
     static let runningDot = Color(hex: 0x30D158)
 
-    // Peek (always on black)
+    // Peek (on black in dark theme; light theme uses Tokens)
     static let peekText = Color(hex: 0xF5F5F7)
-    static let peekReset = Color(hex: 0xC7C7CC)
-    static let peekLabel = Color(hex: 0x8E8E93)
     static let peekLabelHot = Color(hex: 0xFF6B6B)
     static let peekRingTrack = Color(hex: 0xFFFFFF, opacity: 0.14)
     static let poolFg = Color(hex: 0x5CE1E6)
+    /// Pool text on the light shell, where the cyan is unreadable.
+    static let poolFgLight = Color(hex: 0x0B7F86)
     static let poolBg = Color(hex: 0x5CE1E6, opacity: 0.18)
-    static let ssoFg = Color(hex: 0xC9B8FF)
     static let ssoBg = Color(hex: 0xC9B8FF, opacity: 0.2)
 
-    // Live activity (always on black)
-    static let liveText = Color(hex: 0xF5F5F7)
+    // Live activity (on black in dark theme; light theme uses Tokens)
     static let liveTrack = Color(hex: 0xFFFFFF, opacity: 0.12)
-
-    /// Light-theme hardware-notch cut-out.
-    static let cutout = Color.black
 
     // Components (Prototype.dc.html inline styles)
     /// Destructive confirm button fill and its white text, in both themes.
     static let danger = Color(hex: 0xE5484D)
     static let onDanger = Color.white
-    /// The peek is always on black, so its gauges use the dark-theme gauge colours.
-    static let darkTokens = Tokens(mode: .dark, tint: .lime)
     /// `input::placeholder` colour.
     static let placeholder = Color(hex: 0x8A8A92)
     /// Running device card border and glow (`rgba(48,209,88,…)`).

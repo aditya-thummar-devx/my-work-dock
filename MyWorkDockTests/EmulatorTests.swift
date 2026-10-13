@@ -165,4 +165,32 @@ final class EmulatorStoreTests: XCTestCase {
         try? await Task.sleep(for: .milliseconds(50))
         XCTAssertEqual(ran, 1)
     }
+
+    func testMonitoringCanBeStoppedAndStartedAgain() async {
+        final class Calls: @unchecked Sendable {
+            private let lock = NSLock()
+            private var n = 0
+            func bump() { lock.withLock { n += 1 } }
+            var count: Int { lock.withLock { n } }
+        }
+        let live = EmulatorStore()
+        let calls = Calls()
+        live.runner = { _, _ in calls.bump(); return ProcessResult(status: 1, out: "", err: "") }
+        live.findTool = { _ in nil }
+        live.startMonitoring()
+        try? await Task.sleep(for: .milliseconds(150))
+        let first = calls.count
+        XCTAssertGreaterThan(first, 0) // the loop reads right away
+        live.stopMonitoring()
+        live.startMonitoring() // only possible once stop has cleared the old loop
+        try? await Task.sleep(for: .milliseconds(150))
+        XCTAssertGreaterThan(calls.count, first)
+        live.stopMonitoring()
+    }
+
+    func testSampleStoreNeverMonitors() {
+        let s = store()
+        s.startMonitoring()
+        s.stopMonitoring() // nothing was started: must not crash
+    }
 }
