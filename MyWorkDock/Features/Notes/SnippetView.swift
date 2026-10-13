@@ -12,7 +12,10 @@ struct SnippetScreen: View {
     var body: some View {
         VStack(spacing: Geo.Surface.fieldGap) {
             if store.kind == .prompts { PromptAddBar(store: store) } else { SnippetAddBar(store: store) }
-            if store.isSearching && store.visibleItems.isEmpty {
+            if store.items.isEmpty {
+                EmptyState(title: store.kind.emptyTitle, message: store.kind.emptyHint)
+                    .padding(.bottom, Geo.Surface.fieldGap) // same flex gap as TodoView's empty state
+            } else if store.isSearching && store.visibleItems.isEmpty {
                 EmptyState(message: store.emptyText, action: "Clear search", onAction: store.closeSearch)
                 // The prototype's empty list still draws its 2 pt border + fill under the box (and keeps its flex gap).
                 GroupedList(count: 0, rowHeight: Geo.Row.snippetHeight) { _ in EmptyView() }

@@ -11,6 +11,9 @@ enum SnippetKind {
     var file: String { self == .commands ? "commands.json" : "prompts.json" }
     var placeholder: String { self == .commands ? "Paste or type a command, press Enter" : "Paste or write a prompt, press Enter" }
     var seed: [String] { self == .commands ? SampleData.commands : SampleData.prompts }
+    /// Shown instead of the list when nothing is saved.
+    var emptyTitle: String { "No \(noun)s saved yet" }
+    var emptyHint: String { self == .commands ? "Type or paste a command above, then press Enter." : "Write a prompt above, then press Enter." }
 }
 
 struct SnippetItem: Identifiable, Codable, Equatable {

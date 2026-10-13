@@ -44,9 +44,10 @@ enum SampleData {
     static let now: Date = Calendar.current.date(from: DateComponents(year: 2026, month: 10, day: 13, hour: 12))!
 
     static let usageRows: [UsageRow] = accounts.map {
-        UsageRow(account: $0.id, active: $0.active, tier: $0.plan,
-                 session: Gauge(pct: $0.session.percent, at: $0.session.reset.isEmpty ? nil : $0.session.reset),
-                 week: Gauge(pct: $0.week.percent, at: $0.week.reset), updated: "live")
+        let (s, w) = ($0.session!, $0.week!) // sample accounts always have readings
+        return UsageRow(account: $0.id, active: $0.active, tier: $0.plan,
+                        session: Gauge(pct: s.percent, at: s.reset.isEmpty ? nil : s.reset),
+                        week: Gauge(pct: w.percent, at: w.reset), updated: "live")
     }
 
     private static func member(_ name: String, _ plan: String, _ net: Double, _ s: (Int, String)?, _ w: (Int, String)?, marked: Bool = false) -> PoolMember {

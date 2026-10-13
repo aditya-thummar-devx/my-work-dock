@@ -40,6 +40,7 @@ enum Fragments {
         .chrome("04-todo-tag-menu@menu", rect: r(500, 146, 204, 262)) { $0.notes.toggleTagMenu() },
         .chrome("05-todo-tag-menu-new-tag@menu", rect: r(500, 146, 204, 262)) {
             $0.notes.toggleTagMenu()
+            $0.notes.openTagForm()
             $0.notes.newTag = "design"
         },
         .chrome("08-todo-filter-menu@menu", rect: r(540, 90, 204, 208)) {

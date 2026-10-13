@@ -127,6 +127,16 @@ final class NotchModelTests: XCTestCase {
         XCTAssertEqual(model.mode, .open)
     }
 
+    func testIdleIsTheHardwareNotchWhenOneExists() {
+        XCTAssertEqual(model.geometry.width, Geo.idle.width)
+        model.setNotch(CGSize(width: 156, height: 28))
+        let g = model.geometry
+        XCTAssertEqual([g.width, g.height, g.radius, g.shoulder],
+                       [156, 28, Geo.hardwareNotch.radius, Geo.hardwareNotch.shoulder])
+        model.setNotch(nil)
+        XCTAssertEqual(model.geometry.width, Geo.idle.width)
+    }
+
     func testPeekHugsItsEarsAroundTheCentredKeepOut() {
         model.pointer(inside: true)
         let g = model.geometry, e = model.peekExtents
@@ -134,5 +144,85 @@ final class NotchModelTests: XCTestCase {
         XCTAssertEqual(g.centerOffset, (e.right - e.left) / 2)
         // The shell's left edge sits `left + 100` pt from the hardware-notch centre.
         XCTAssertEqual(g.centerOffset - g.width / 2, -(e.left + Geo.keepOutWidth / 2))
+    }
+
+    // MARK: Settings › Menus
+
+    func testFeatureRawValuesAreStable() {
+        // Stored in UserDefaults as "disabledFeatures".
+        XCTAssertEqual(Feature.allCases.map(\.rawValue), ["notes", "claudex", "emulator", "localIP"])
+    }
+
+    func testDisablingTheCurrentMenuMovesToTheNextEnabledOne() {
+        model.setMainTab(.notes)
+        model.setEnabled(.notes, false)
+        XCTAssertEqual(model.enabledTabs, [.claudex, .emulator])
+        XCTAssertEqual(model.mainTab, .claudex)
+        model.setEnabled(.claudex, false)
+        XCTAssertEqual(model.mainTab, .emulator)
+        model.setEnabled(.emulator, false)
+        XCTAssertTrue(model.enabledTabs.isEmpty)
+        model.setEnabled(.notes, true)
+        XCTAssertEqual(model.enabledTabs, [.notes])
+        XCTAssertEqual(model.mainTab, .notes)
+    }
+
+    func testCycleMainTabWrapsAndSkipsDisabledMenus() {
+        model.setMainTab(.notes)
+        model.cycleMainTab()
+        XCTAssertEqual(model.mainTab, .claudex)
+        model.cycleMainTab()
+        XCTAssertEqual(model.mainTab, .emulator)
+        model.cycleMainTab()
+        XCTAssertEqual(model.mainTab, .notes)
+        model.setEnabled(.claudex, false)
+        model.cycleMainTab()
+        XCTAssertEqual(model.mainTab, .emulator)
+        model.setEnabled(.emulator, false)
+        model.cycleMainTab()
+        XCTAssertEqual(model.mainTab, .notes) // one menu left: nothing to cycle to
+    }
+
+    func testDisabledNotesIgnoresSearchAndUndoEvenWhileItIsTheLastTab() {
+        model.setNotesTab(.commands)
+        XCTAssertNotNil(model.activeSnippets)
+        model.setEnabled(.claudex, false)
+        model.setEnabled(.emulator, false)
+        model.setEnabled(.notes, false) // mainTab stays .notes: nothing else to move to
+        XCTAssertEqual(model.mainTab, .notes)
+        XCTAssertNil(model.activeSnippets)
+        XCTAssertNil(model.pendingUndo)
+    }
+
+    func testEmulatorOffHidesTheLiveActivity() {
+        model.emulator.showBootingSample()
+        XCTAssertEqual(model.mode, .live)
+        model.setEnabled(.emulator, false)
+        XCTAssertNil(model.bootingName)
+        XCTAssertEqual(model.mode, .idle)
+        model.bootingOverride = "iPhone 16 Plus"
+        XCTAssertEqual(model.mode, .idle)
+        model.setEnabled(.emulator, true)
+        XCTAssertEqual(model.mode, .live)
+    }
+
+    func testClaudexOffPeeksWithTheHintOnTheRightOfTheNotch() {
+        XCTAssertFalse(model.peekHint)
+        model.setEnabled(.claudex, false)
+        model.pointer(inside: true)
+        XCTAssertEqual(model.mode, .peek)
+        XCTAssertTrue(model.peekHint)
+        let hint = PeekMetrics.hintExtents
+        XCTAssertGreaterThan(hint.right, 0)
+        XCTAssertEqual(hint.left, 0)
+        XCTAssertEqual(model.geometry.width, Geo.keepOutWidth + hint.right)
+        XCTAssertEqual(model.geometry.centerOffset, hint.right / 2)
+    }
+
+    func testTurningAMenuBackOnRestoresItsPeekAndTab() {
+        model.setEnabled(.claudex, false)
+        model.setEnabled(.claudex, true)
+        XCTAssertFalse(model.peekHint)
+        XCTAssertEqual(model.enabledTabs, MainTab.allCases)
     }
 }

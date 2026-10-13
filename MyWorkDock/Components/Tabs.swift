@@ -37,6 +37,11 @@ struct PillTabs: View {
     var selection: String
     var onSelect: (String) -> Void = { _ in }
     @Environment(\.tokens) private var t
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Namespace private var pill
+
+    private static let slide = Animation.timingCurve(
+        Geo.shellCurve.x1, Geo.shellCurve.y1, Geo.shellCurve.x2, Geo.shellCurve.y2, duration: Geo.tabSwitch)
 
     var body: some View {
         HStack(spacing: Geo.Chrome.tabsGap) {
@@ -45,13 +50,15 @@ struct PillTabs: View {
                 Button { onSelect(item.id) } label: {
                     HStack(spacing: Geo.Chrome.tabContentGap) {
                         Icon(item.glyph, size: Geo.Chrome.tabIcon)
-                        if on { Text(item.label).font(Typo.ui(13, .semibold)) }
+                        if on { Text(item.label).font(Typo.ui(13, .semibold)).transition(.opacity) }
                     }
                     .padding(.leading, on ? Geo.Chrome.tabActivePadding.leading : 0)
                     .padding(.trailing, on ? Geo.Chrome.tabActivePadding.trailing : 0)
                     .frame(minWidth: Geo.Chrome.tabInactiveMinWidth, minHeight: Geo.Chrome.tabHeight)
                     .foregroundStyle(on ? Tokens.onTint : t.muted)
-                    .background(Capsule().fill(on ? t.accent : .clear))
+                    .background {
+                        if on { Capsule().fill(t.accent).matchedGeometryEffect(id: "pill", in: pill) }
+                    }
                     .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
@@ -59,6 +66,7 @@ struct PillTabs: View {
                 .accessibilityAddTraits(on ? .isSelected : [])
             }
         }
+        .animation(reduceMotion ? nil : Self.slide, value: selection)
         .padding(Geo.Chrome.tabsPadding)
         .background(Capsule().fill(t.ctrl))
     }
@@ -85,6 +93,8 @@ struct SubTabItem: Identifiable {
 struct SubTabs: View {
     var items: [SubTabItem]
     var selection: String
+    /// Pill colour of the active tab; the popover passes `ctrl`, since `subOn` is the same white as the light popover.
+    var activeFill: Color?
     var onSelect: (String) -> Void = { _ in }
     @Environment(\.tokens) private var t
 
@@ -104,7 +114,7 @@ struct SubTabs: View {
                     .padding(.leading, Geo.SubTab.pad.leading)
                     .padding(.trailing, Geo.SubTab.pad.trailing)
                     .frame(height: Geo.SubTab.height)
-                    .background(Capsule().fill(on ? t.subOn : .clear))
+                    .background(Capsule().fill(on ? activeFill ?? t.subOn : .clear))
                     .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)

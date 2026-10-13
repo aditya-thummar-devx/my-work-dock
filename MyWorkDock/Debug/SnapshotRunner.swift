@@ -146,6 +146,7 @@ enum SnapshotRunner {
         },
         State("05-todo-tag-menu-new-tag", .panel) {
             $0.notes.toggleTagMenu()
+            $0.notes.openTagForm()
             $0.notes.newTag = "design"
             $0.openPanel()
         },
@@ -193,6 +194,17 @@ enum SnapshotRunner {
             addedPrompt($0)
             $0.prompts.openSearch()
             $0.prompts.query = "zzz"
+            $0.openPanel()
+        },
+        // Nothing saved yet: the add bar and the empty-list text.
+        State("21-notes-commands-empty", .panel) {
+            prototypeNotes($0, .commands)
+            for item in $0.commands.items { $0.commands.delete(item.id) }
+            $0.openPanel()
+        },
+        State("22-notes-prompts-empty", .panel) {
+            prototypeNotes($0, .prompts)
+            for item in $0.prompts.items { $0.prompts.delete(item.id) }
             $0.openPanel()
         },
         State("37-settings-appearance-dark", .panel) {
@@ -255,6 +267,21 @@ enum SnapshotRunner {
             $0.toggleSettings()
             $0.openPanel()
             $0.localIP.show(.idle, ip: "192.168.1.31")
+        },
+        // No reference design: Settings › Menus and what the panel / peek show when menus are off.
+        State.fragment("47-settings-menus-dark", rect: CGRect(x: 440, y: 46, width: 300, height: 330)) {
+            SettingsPopover(theme: .dark, tint: .lime, disabled: [.emulator], page: .menus)
+        },
+        State.fragment("48-settings-menus-light", theme: .light, rect: CGRect(x: 440, y: 46, width: 300, height: 330)) {
+            SettingsPopover(theme: .light, tint: .lime, disabled: [.claudex, .localIP], page: .menus)
+        },
+        State("49-menus-all-off", .panel) { model in
+            Feature.allCases.forEach { model.setEnabled($0, false) }
+            model.openPanel()
+        },
+        State("50-peek-claudex-off", .notch) {
+            $0.setEnabled(.claudex, false)
+            $0.pointer(inside: true)
         },
         State("16-notes-prompts-multiline-input", .panel) {
             prototypeNotes($0, .prompts)
@@ -379,8 +406,10 @@ enum SnapshotRunner {
 
     /// Shots 06+ come after the tag `design` was created in 05: it exists (colour #FFD86B) and is picked for the next todo.
     static func designTag(_ model: NotchModel) {
+        model.notes.toggleTagMenu()
+        model.notes.openTagForm()
         model.notes.newTag = "design"
-        model.notes.addNewTag()
+        model.notes.saveTagForm() // from the assign menu, so the tag is picked and the menu closes
     }
 
     /// The prototype shots 07–20 were captured after "Polish notch spring animation" had been added with the tag

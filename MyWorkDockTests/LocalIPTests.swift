@@ -91,4 +91,31 @@ final class LocalIPTests: XCTestCase {
         model.openPanel()
         XCTAssertEqual(model.localIP.ip, "10.0.0.9")
     }
+
+    func testSwitchingTheChipOffEndsAClickInFlight() async {
+        let store = LocalIPStore(read: { "192.168.1.24" })
+        var copied = 0
+        store.copyToClipboard = { _ in copied += 1 }
+        store.pause = { _ in try? await Task.sleep(for: .seconds(5)) }
+        let run = store.click()
+        store.stopMonitoring()
+        await run?.value
+        XCTAssertEqual(store.phase, .idle)
+        XCTAssertEqual(copied, 0)
+    }
+
+    func testSampleStoreNeverWatchesTheNetwork() {
+        let store = LocalIPStore.sample()
+        store.startMonitoring() // only the running app's store has a monitor
+        store.stopMonitoring()
+        XCTAssertEqual(store.ip, "192.168.1.24")
+    }
+
+    func testOpeningThePanelDoesNotReadTheAddressWhileTheChipIsOff() {
+        let model = NotchModel(sample: true)
+        model.setEnabled(.localIP, false)
+        model.localIP.read = { "10.0.0.9" }
+        model.openPanel()
+        XCTAssertEqual(model.localIP.ip, "192.168.1.24")
+    }
 }

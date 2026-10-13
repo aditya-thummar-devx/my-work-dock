@@ -24,23 +24,16 @@ struct NotchContainer: View {
     var body: some View {
         let g = model.geometry
         let t = model.tokens
-        let shadowOpacity = model.mode == .idle ? 0 : (model.lightOpen ? Geo.shadow.lightOpenOpacity : Geo.shadow.opacity)
+        let shadowOpacity = model.mode == .idle ? 0 : (model.isLight ? Geo.shadow.lightOpenOpacity : Geo.shadow.opacity)
 
         ZStack(alignment: .top) {
-            NotchShape(bottomRadius: g.radius)
-                .fill(model.lightOpen ? t.panel : Fixed.shell)
+            NotchShape(bottomRadius: g.radius, shoulder: g.shoulder)
+                .fill(t.panel)
                 .shadow(color: .black.opacity(shadowOpacity), radius: Geo.shadow.blur / 2, x: 0, y: Geo.shadow.y)
                 .frame(width: g.width, height: g.height)
 
-            ZStack(alignment: .top) {
-                content
-                    .animation(reduceMotion ? nil : .easeOut(duration: Geo.fadeOut), value: model.mode)
-                if model.lightOpen {
-                    NotchShape(bottomRadius: Geo.cutout.radius, shoulder: Geo.cutout.shoulder)
-                        .fill(Fixed.cutout)
-                        .frame(width: Geo.cutout.width, height: Geo.cutout.height)
-                }
-            }
+            content
+                .animation(reduceMotion ? nil : .easeOut(duration: Geo.fadeOut), value: model.mode)
             .frame(width: g.width, height: g.height, alignment: .top)
             .clipShape(UnevenRoundedRectangle(bottomLeadingRadius: g.radius, bottomTrailingRadius: g.radius))
         }
@@ -59,7 +52,7 @@ struct NotchContainer: View {
         .offset(x: g.centerOffset)
         .animation(reduceMotion ? .easeInOut(duration: 0.12) : model.shrinking ? Self.shellCloseCurve : Self.shellCurve, value: g)
         .animation(.easeOut(duration: 0.4), value: shadowOpacity)
-        .animation(.easeInOut(duration: 0.3), value: model.lightOpen)
+        .animation(.easeInOut(duration: 0.3), value: model.isLight)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .environment(\.tokens, t)
     }
@@ -79,15 +72,23 @@ struct NotchContainer: View {
                 .accessibilityAction { model.openPanel() }
                 .transition(.identity)
         case .peek:
-            PeekView(data: model.peek, extents: model.peekExtents)
-                .onTapGesture { model.openPanel() }
-                .accessibilityElement()
-                .accessibilityLabel("\(model.peek.name), \(model.peek.isPool ? "pool" : "single sign-on"). " + model.peek.bars.map { "\($0.label) \($0.percent.map { "\($0) percent" } ?? "no reading")" }.joined(separator: ", "))
-                .accessibilityHint("Opens MyWorkDock")
-                .accessibilityAddTraits(.isButton)
-                .accessibilityAction { model.openPanel() }
-                .modifier(Entrance(timing: Geo.fadePeekLive))
-                .transition(Self.contentSwap)
+            Group {
+                if model.peekHint {
+                    PeekHintView()
+                        .accessibilityElement()
+                        .accessibilityLabel("Tap to see magic")
+                } else {
+                    PeekView(data: model.peek, extents: model.peekExtents)
+                        .accessibilityElement()
+                        .accessibilityLabel("\(model.peek.name), \(model.peek.isPool ? "pool" : "single sign-on"). " + model.peek.bars.map { "\($0.label) \($0.percent.map { "\($0) percent" } ?? "no reading")" }.joined(separator: ", "))
+                }
+            }
+            .onTapGesture { model.openPanel() }
+            .accessibilityHint("Opens MyWorkDock")
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction { model.openPanel() }
+            .modifier(Entrance(timing: Geo.fadePeekLive))
+            .transition(Self.contentSwap)
         case .live:
             LiveActivityView(name: model.bootingName ?? "")
                 .accessibilityElement()

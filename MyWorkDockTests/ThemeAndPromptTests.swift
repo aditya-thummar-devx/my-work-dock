@@ -21,13 +21,20 @@ final class ThemeAndPromptTests: XCTestCase {
         model.openPanel()
         model.appearance.set(isDark: true)
         XCTAssertTrue(model.tokens.isDark)
-        XCTAssertFalse(model.lightOpen)
+        XCTAssertFalse(model.isLight)
         model.appearance.set(isDark: false)
         XCTAssertFalse(model.tokens.isDark)
-        XCTAssertTrue(model.lightOpen) // draws the light panel with the black notch cut-out
+        XCTAssertTrue(model.isLight) // the whole shell (idle, peek, live and open) draws white
         model.setTheme(.dark)
         model.appearance.set(isDark: false)
         XCTAssertTrue(model.tokens.isDark) // an explicit choice ignores macOS
+    }
+
+    func testCollapsedShellIsLightInLightTheme() {
+        let model = NotchModel(sample: true)
+        model.setTheme(.light)
+        XCTAssertNotEqual(model.mode, .open)
+        XCTAssertTrue(model.isLight)
     }
 
     func testLiveObserverFollowsNSAppAppearance() async throws {

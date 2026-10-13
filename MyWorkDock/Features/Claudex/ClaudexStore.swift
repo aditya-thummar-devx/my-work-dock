@@ -121,8 +121,7 @@ final class ClaudexStore {
     var accountCards: [AccountSample] {
         let rows = (usage.data ?? []).filter { !maxOnly || is5x($0.tier) }
         return sort.apply(rows) { key(name: $0.account, session: $0.session, week: $0.week) }.map {
-            AccountSample(id: $0.account, plan: $0.tier, session: reading($0.session) ?? Reading(percent: 0, reset: "no reading"),
-                          week: reading($0.week) ?? Reading(percent: 0, reset: "no reading"), active: $0.active)
+            AccountSample(id: $0.account, plan: $0.tier, session: reading($0.session), week: reading($0.week), active: $0.active)
         }
     }
 

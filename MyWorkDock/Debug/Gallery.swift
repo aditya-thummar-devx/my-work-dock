@@ -178,7 +178,7 @@ struct Gallery: View {
         }
         section("Popover · Menu") {
             HStack(alignment: .top, spacing: 16) {
-                AppearancePopover(theme: t.isDark ? .dark : .light, tint: t.tint)
+                SettingsPopover(theme: t.isDark ? .dark : .light, tint: t.tint)
                 MenuPopover(options: Array(SampleData.sortOptions.prefix(4)), selected: 1)
             }
         }

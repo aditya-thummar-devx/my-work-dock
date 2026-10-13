@@ -36,12 +36,17 @@ final class NotchWindowController {
             MainActor.assumeIsolated { self?.pointerMoved() }
             return event
         }) { monitors.append(m) }
-        // ⌘F opens search in the visible Notes tab; the panel has no menu bar to carry the shortcut.
+        // ⌘F opens search in the visible Notes tab; Tab cycles the main menu (not while typing in a field).
+        // The panel has no menu bar to carry either shortcut.
         if let m = NSEvent.addLocalMonitorForEvents(matching: .keyDown, handler: { [weak self] event in
             MainActor.assumeIsolated {
-                guard let self, self.panel.isKeyWindow, self.model.mode == .open,
-                      event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
-                      event.charactersIgnoringModifiers == "f" else { return event }
+                guard let self, self.panel.isKeyWindow, self.model.mode == .open else { return event }
+                let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+                if event.keyCode == 48, flags.isEmpty, !(self.panel.firstResponder is NSText) {
+                    self.model.cycleMainTab()
+                    return nil
+                }
+                guard flags == .command, event.charactersIgnoringModifiers == "f" else { return event }
                 self.model.openSearch()
                 return nil
             }
@@ -71,7 +76,9 @@ final class NotchWindowController {
             cx = (l.maxX + r.minX) / 2
             NSLog("MyWorkDock: hardware notch %.0f pt wide, %.0f pt tall, centre x %.1f",
                   r.minX - l.maxX, screen.safeAreaInsets.top, cx)
+            model.setNotch(CGSize(width: r.minX - l.maxX, height: screen.safeAreaInsets.top))
         } else {
+            model.setNotch(nil)
             NSLog("MyWorkDock: no hardware notch on this screen; drawing a %.0f x %.0f pill", Geo.idle.width, Geo.idle.height)
         }
         centerX = cx
