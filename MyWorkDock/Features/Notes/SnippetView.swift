@@ -1,0 +1,90 @@
+import SwiftUI
+
+extension SnippetKind {
+    /// Commands are mono, prompts use the regular UI font (DESIGN_SPEC §5 Notes › Prompts).
+    var font: Font { self == .commands ? Typo.mono(13) : Typo.ui(13) }
+}
+
+/// Notes › Commands and Notes › Prompts: the add field and the grouped list, one view for both kinds.
+struct SnippetScreen: View {
+    var store: SnippetStore
+
+    var body: some View {
+        VStack(spacing: Geo.Surface.fieldGap) {
+            if store.kind == .prompts { PromptAddBar(store: store) } else { SnippetAddBar(store: store) }
+            if store.isSearching && store.visibleItems.isEmpty {
+                EmptyState(message: store.emptyText, action: "Clear search", onAction: store.closeSearch)
+                // The prototype's empty list still draws its 2 pt border + fill under the box (and keeps its flex gap).
+                GroupedList(count: 0, rowHeight: Geo.Row.snippetHeight) { _ in EmptyView() }
+            } else {
+                SnippetList(store: store)
+            }
+        }
+    }
+}
+
+struct SnippetAddBar: View {
+    @Bindable var store: SnippetStore
+    @Environment(\.tokens) private var t
+
+    var body: some View {
+        FieldBar(text: $store.draft, placeholder: store.kind.placeholder, font: store.kind.font,
+                 padLeading: 14, padTrailing: 6) {
+            Text(store.kind.glyph).font(Typo.mono(14)).foregroundStyle(t.ink)
+        } trailing: {
+            DockButton(title: "Add", glyph: nil, metrics: .add, tone: .tint, weight: .bold, action: store.add)
+        }
+        .onSubmit(store.add)
+    }
+}
+
+/// Prompts: a 2…5 row text area, `N lines` meta and Add at the bottom right. ↵ adds, ⇧↵ is a new line.
+struct PromptAddBar: View {
+    @Bindable var store: SnippetStore
+    @Environment(\.tokens) private var t
+
+    var body: some View {
+        let rows = PromptRows.add(store.draft)
+        HStack(alignment: .top, spacing: 10) {
+            Text(store.kind.glyph).font(Typo.mono(14)).foregroundStyle(t.ink)
+                .frame(height: Geo.Prompt.lineHeight)
+            DockTextArea(text: $store.draft, placeholder: "Write a prompt… ↵ to add, ⇧↵ for a new line", rows: rows, onCommit: store.add)
+            HStack(spacing: Geo.Prompt.metaGap) {
+                Text(PromptRows.meta(store.draft)).font(Typo.ui(Geo.Prompt.metaFont)).foregroundStyle(t.faint).lineLimit(1).fixedSize()
+                DockButton(title: "Add", glyph: nil, metrics: .add, tone: .tint, weight: .bold, action: store.add)
+            }
+            .frame(height: CGFloat(rows) * Geo.Prompt.lineHeight, alignment: .bottom)
+        }
+        .padding(.top, Geo.Prompt.addPad.top + 1)
+        .padding(.leading, Geo.Prompt.addPad.leading + 1)
+        .padding(.bottom, Geo.Prompt.addPad.bottom + 1)
+        .padding(.trailing, Geo.Prompt.addPad.trailing + 1)
+        .background(RoundedRectangle(cornerRadius: Geo.Surface.fieldRadius).fill(t.card))
+        .overlay(RoundedRectangle(cornerRadius: Geo.Surface.fieldRadius).strokeBorder(t.border, lineWidth: 1))
+    }
+}
+
+/// Prompts search in the sub-nav: the shared search control, `N found`.
+struct PromptNavTrailing: View {
+    @Bindable var store: SnippetStore
+
+    var body: some View {
+        SearchControl(open: store.searchOpen, query: $store.query, placeholder: "Search prompts", count: store.foundText,
+                      onOpen: store.openSearch, onClose: store.closeSearch)
+    }
+}
+
+struct SnippetList: View {
+    @Bindable var store: SnippetStore
+
+    var body: some View {
+        let items = store.visibleItems
+        GroupedList(count: items.count, rowHeight: Geo.Row.snippetHeight, scrolls: true, autoHeight: store.kind == .prompts) { i in
+            let item = items[i]
+            SnippetRow(kind: store.kind, text: item.text, copied: store.copiedId == item.id, editing: store.editId == item.id,
+                       editText: $store.editDraft,
+                       onCopy: { store.copy(item.id) }, onEdit: { store.startEdit(item.id) },
+                       onDelete: { store.delete(item.id) }, onSave: store.saveEdit, onCancel: store.cancelEdit)
+        }
+    }
+}

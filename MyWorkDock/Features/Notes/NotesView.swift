@@ -1,0 +1,228 @@
+import SwiftUI
+
+enum NotesTab: String {
+    case todo, commands, prompts
+}
+
+/// Notes: sub-nav (TODO / Commands / Prompts) plus the active tab's content. Fills the open panel between the top row and the footer.
+struct NotesScreen: View {
+    var model: NotchModel
+    @Environment(\.tokens) private var t
+
+    var body: some View {
+        VStack(spacing: 0) {
+            SubNavRow(items: [SubTabItem("todo", "TODO", count: model.notes.leftCount),
+                              SubTabItem("commands", "Commands", count: model.commands.items.count),
+                              SubTabItem("prompts", "Prompts", count: model.prompts.items.count)],
+                      selection: model.notesTab.rawValue,
+                      onSelect: { model.setNotesTab(NotesTab(rawValue: $0) ?? .todo) }) {
+                switch model.notesTab {
+                case .todo: TodoNavTrailing(store: model.notes)
+                case .commands: Text("One line each · copy, edit or delete").font(Typo.ui(12)).foregroundStyle(t.faint)
+                case .prompts: PromptNavTrailing(store: model.prompts)
+                }
+            }
+            .padding(.top, Geo.Chrome.subNavTop)
+
+            Group {
+                switch model.notesTab {
+                case .todo: TodoView(store: model.notes)
+                case .commands: SnippetScreen(store: model.commands)
+                case .prompts: SnippetScreen(store: model.prompts)
+                }
+            }
+            .padding(.top, Geo.Chrome.contentTop)
+            .frame(maxHeight: .infinity, alignment: .top)
+        }
+        .overlay(alignment: .topTrailing) {
+            if model.notesTab == .todo { TodoMenus(store: model.notes) }
+        }
+    }
+}
+
+// MARK: TODO
+
+/// Tag and filter dropdowns. Drawn over the whole Notes area, not over their buttons: they stay inside their
+/// parent's bounds (so clicks reach them) and above the list. Offsets are from the area's top-trailing corner.
+struct TodoMenus: View {
+    @Bindable var store: NotesStore
+    @Environment(\.tokens) private var t
+
+    private func options(counts: Bool) -> [TagMenuOption] {
+        store.tagOrder.map {
+            TagMenuOption(id: $0, label: "#\($0)", dot: TagPalette.dot($0, custom: store.customColor($0), in: t), count: counts ? store.count(of: $0) : nil)
+        }
+    }
+
+    var body: some View {
+        if store.filterMenuOpen {
+            // Right-aligned with the filter button, which sits left of the search circle (or the open search field).
+            let searchWidth = store.searchOpen ? Geo.Search.width : Geo.Search.height
+            TagMenu(title: "FILTER BY TAG",
+                    options: [TagMenuOption(id: "all", label: "All", dot: nil, count: store.todos.count)] + options(counts: true),
+                    selected: store.filterTag, width: Geo.Filter.menuWidth, onSelect: store.pickFilter)
+                .offset(x: -(searchWidth + Geo.SubTab.navGap), y: Geo.Chrome.subNavTop + Geo.Filter.menuTop)
+        }
+        if store.tagMenuOpen {
+            TagMenu(title: "ASSIGN TAG",
+                    options: [TagMenuOption(id: "", label: "No tag", dot: nil, count: nil)] + options(counts: false),
+                    selected: store.todoTag ?? "", width: Geo.TagPicker.menuWidth,
+                    onSelect: { store.pickTodoTag($0.isEmpty ? nil : $0) }) {
+                NewTagField(text: $store.newTag, canAdd: store.canAddNewTag, onAdd: store.addNewTag, onCancel: store.cancelNewTag)
+            }
+                .offset(x: -Geo.TagPicker.menuRight,
+                        y: Geo.Chrome.subNavTop + Geo.SubTab.height + Geo.Chrome.contentTop + Geo.TagPicker.menuTop)
+        }
+    }
+}
+
+/// Sub-nav right side: tag filter dropdown, then search.
+struct TodoNavTrailing: View {
+    @Bindable var store: NotesStore
+
+    var body: some View {
+        TagFilterButton(store: store)
+        SearchControl(open: store.searchOpen, query: $store.query, placeholder: "Search todos", count: store.foundText,
+                      onOpen: store.openSearch, onClose: store.closeSearch)
+    }
+}
+
+/// `All tags ▾` / `● #bug ▾` (tinted with the tag colour) and its menu.
+struct TagFilterButton: View {
+    var store: NotesStore
+    @Environment(\.tokens) private var t
+
+    var body: some View {
+        let tag = store.filterTag == "all" ? nil : store.filterTag
+        let colors = tag.map { TagPalette.button($0, custom: store.customColor($0), in: t) }
+        Button(action: store.toggleFilterMenu) {
+            HStack(spacing: Geo.Filter.gap) {
+                Icon(.funnel, size: Geo.Filter.icon)
+                if let tag { Circle().fill(TagPalette.dot(tag, custom: store.customColor(tag), in: t)).frame(width: Geo.Filter.dot, height: Geo.Filter.dot) }
+                Text(tag.map { "#\($0)" } ?? "All tags")
+                Icon(.chevronDown, size: Geo.Filter.chevron, stroke: 2.8)
+            }
+            .font(Typo.ui(Geo.Filter.font, .semibold))
+            .foregroundStyle(colors?.fg ?? t.text)
+            .padding(.leading, Geo.Filter.padLeading)
+            .padding(.trailing, Geo.Filter.padTrailing)
+            .frame(height: Geo.Filter.height)
+            .background(Capsule().fill(colors?.bg ?? t.ctrl))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(tag.map { "Filter by tag: \($0). Change filter" } ?? "Filter by tag")
+    }
+}
+
+struct TodoView: View {
+    var store: NotesStore
+
+    var body: some View {
+        VStack(spacing: Geo.Surface.fieldGap) {
+            QuickAddBar(store: store)
+            if store.visibleTodos.isEmpty {
+                EmptyState(message: "No todos match \(store.emptyWhat).", action: "Clear filters", onAction: store.clearFilters)
+                    .padding(.bottom, Geo.Surface.fieldGap) // the prototype's empty list still takes its flex gap
+            } else {
+                TodoList(store: store)
+            }
+        }
+    }
+}
+
+struct QuickAddBar: View {
+    @Bindable var store: NotesStore
+    @Environment(\.tokens) private var t
+
+    var body: some View {
+        FieldBar(text: $store.draft, placeholder: "Add a todo, press Enter", font: Typo.ui(13.5),
+                 padLeading: 14, padTrailing: 8) {
+            Icon(.plus, size: 16, stroke: 2.4).foregroundStyle(t.ink)
+        } trailing: {
+            HStack(spacing: 8) {
+                TagPickerButton(tag: store.todoTag, custom: store.todoTag.flatMap(store.customColor), action: store.toggleTagMenu)
+                Button(action: store.addTodo) {
+                    Text("↵").font(Typo.mono(12)).foregroundStyle(t.text2)
+                        .padding(.horizontal, 9).frame(height: 28)
+                        .background(RoundedRectangle(cornerRadius: 8).fill(t.btn2))
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Add todo")
+            }
+        }
+        .onSubmit(store.addTodo)
+    }
+}
+
+/// `🏷 #bug ▾` in the quick-add row: the tag colour tints it; `Tag` while none is picked.
+struct TagPickerButton: View {
+    var tag: String?
+    var custom: Color?
+    var action: () -> Void
+    @Environment(\.tokens) private var t
+
+    var body: some View {
+        let colors = tag.map { TagPalette.button($0, custom: custom, in: t) }
+        Button(action: action) {
+            HStack(spacing: Geo.TagPicker.gap) {
+                Icon(.tag, size: Geo.TagPicker.icon)
+                Text(tag.map { "#\($0)" } ?? "Tag")
+                Icon(.chevronDown, size: Geo.TagPicker.chevron, stroke: 2.8)
+            }
+            .font(Typo.ui(Geo.TagPicker.font, .semibold))
+            .foregroundStyle(colors?.fg ?? t.text2)
+            .padding(.leading, Geo.TagPicker.padLeading)
+            .padding(.trailing, Geo.TagPicker.padTrailing)
+            .frame(height: Geo.TagPicker.height)
+            .background(RoundedRectangle(cornerRadius: Geo.TagPicker.radius).fill(colors?.bg ?? t.btn2))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(tag.map { "Tag for new todo: \($0). Change tag" } ?? "Assign a tag to the new todo")
+    }
+}
+
+struct TodoList: View {
+    var store: NotesStore
+
+    var body: some View {
+        let todos = store.visibleTodos
+        GroupedList(count: todos.count, rowHeight: Geo.Row.todoHeight, scrolls: true) { i in
+            let todo = todos[i]
+            TodoRow(todo: todo, tagColor: store.customColor(todo.tag)) { store.toggle(todo.id) }
+        }
+    }
+}
+
+extension Geo {
+    /// Filter dropdown button in the sub-nav and its menu.
+    enum Filter {
+        static let height: CGFloat = 32
+        static let padLeading: CGFloat = 11
+        static let padTrailing: CGFloat = 10
+        static let gap: CGFloat = 7
+        static let font: CGFloat = 12.5
+        static let icon: CGFloat = 13
+        static let dot: CGFloat = 7
+        static let chevron: CGFloat = 10
+        static let menuWidth: CGFloat = 200
+        static let menuTop: CGFloat = 38 // below the sub-nav row's top edge
+    }
+
+    /// Tag button in the quick-add row and its menu (offsets are from the row's border box).
+    enum TagPicker {
+        static let height: CGFloat = 28
+        static let radius: CGFloat = 8
+        static let padLeading: CGFloat = 9
+        static let padTrailing: CGFloat = 8
+        static let gap: CGFloat = 5
+        static let font: CGFloat = 12
+        static let icon: CGFloat = 12
+        static let chevron: CGFloat = 10
+        static let menuWidth: CGFloat = 196
+        static let menuTop: CGFloat = 49 // `top: 48` from the padding edge + the 1 pt border
+        static let menuRight: CGFloat = 41 // `right: 40` + the border
+    }
+}
