@@ -94,7 +94,8 @@ enum Geo {
         static let footerGap: CGFloat = 12
 
         // Settings popover
-        static let popoverWidth: CGFloat = 300
+        /// Wide enough for the three settings tabs (Appearance, Menus, Clipboard) beside the close button.
+        static let popoverWidth: CGFloat = 336
         static let popoverTop: CGFloat = 46
         static let popoverRight: CGFloat = 20
         static let popoverPadding: CGFloat = 14

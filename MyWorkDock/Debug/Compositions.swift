@@ -4,7 +4,8 @@ import SwiftUI
 // They hold no behaviour.
 
 enum SubNav {
-    static let notes = [SubTabItem("todo", "TODO", count: 3), SubTabItem("commands", "Commands", count: 6), SubTabItem("prompts", "Prompts", count: 5)]
+    static let notes = [SubTabItem("todo", "TODO", count: 3), SubTabItem("commands", "Commands", count: 6), SubTabItem("prompts", "Prompts", count: 5),
+                         SubTabItem("links", "Links", count: 4)]
     static let claudex = [SubTabItem("usage", "Usage", count: 3), SubTabItem("pool", "Pool", count: 11),
                           SubTabItem("play", "Playground"), SubTabItem("health", "Health")]
     static let emulator = [SubTabItem("devices", "Devices", glyph: .phone), SubTabItem("wireless", "Wireless", glyph: .wifi),

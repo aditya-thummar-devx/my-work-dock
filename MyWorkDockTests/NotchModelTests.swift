@@ -181,11 +181,12 @@ final class NotchModelTests: XCTestCase {
 
     func testFeatureRawValuesAreStable() {
         // Stored in UserDefaults as "disabledFeatures".
-        XCTAssertEqual(Feature.allCases.map(\.rawValue), ["notes", "claudex", "emulator", "localIP"])
+        XCTAssertEqual(Feature.allCases.map(\.rawValue), ["clipboard", "notes", "claudex", "emulator", "localIP"])
     }
 
     func testDisablingTheCurrentMenuMovesToTheNextEnabledOne() {
         model.setMainTab(.notes)
+        model.setEnabled(.clipboard, false)
         model.setEnabled(.notes, false)
         XCTAssertEqual(model.enabledTabs, [.claudex, .emulator])
         XCTAssertEqual(model.mainTab, .claudex)
@@ -199,17 +200,27 @@ final class NotchModelTests: XCTestCase {
     }
 
     func testCycleMainTabWrapsAndSkipsDisabledMenus() {
-        model.setMainTab(.notes)
+        model.setMainTab(.clipboard)
+        model.cycleMainTab()
+        XCTAssertEqual(model.mainTab, .notes)
         model.cycleMainTab()
         XCTAssertEqual(model.mainTab, .claudex)
         model.cycleMainTab()
         XCTAssertEqual(model.mainTab, .emulator)
         model.cycleMainTab()
-        XCTAssertEqual(model.mainTab, .notes)
+        XCTAssertEqual(model.mainTab, .clipboard)
         model.setEnabled(.claudex, false)
+        model.setMainTab(.notes)
         model.cycleMainTab()
         XCTAssertEqual(model.mainTab, .emulator)
         model.setEnabled(.emulator, false)
+        XCTAssertEqual(model.mainTab, .clipboard) // the disabled current menu hands over to the first enabled one
+        model.cycleMainTab()
+        XCTAssertEqual(model.mainTab, .notes)
+        model.cycleMainTab()
+        XCTAssertEqual(model.mainTab, .clipboard)
+        model.setEnabled(.clipboard, false)
+        XCTAssertEqual(model.mainTab, .notes)
         model.cycleMainTab()
         XCTAssertEqual(model.mainTab, .notes) // one menu left: nothing to cycle to
     }
@@ -220,6 +231,8 @@ final class NotchModelTests: XCTestCase {
         XCTAssertTrue(model.open)
         XCTAssertEqual(model.mainTab, .notes)
         XCTAssertEqual(model.notesTab, .prompts)
+        model.show(.notes, notes: .links)
+        XCTAssertEqual(model.notesTab, .links)
         model.show(.emulator)
         XCTAssertEqual(model.mainTab, .emulator)
         model.setEnabled(.claudex, false)
@@ -232,6 +245,9 @@ final class NotchModelTests: XCTestCase {
         model.cycleInnerTab()
         XCTAssertEqual(model.notesTab, .commands)
         model.cycleInnerTab()
+        XCTAssertEqual(model.notesTab, .prompts)
+        model.cycleInnerTab()
+        XCTAssertEqual(model.notesTab, .links)
         model.cycleInnerTab()
         XCTAssertEqual(model.notesTab, .todo)
         model.setMainTab(.claudex)
@@ -267,9 +283,45 @@ final class NotchModelTests: XCTestCase {
         XCTAssertNil(model.claudex.detailName)
     }
 
+
+    func testClipboardIsTheFirstMenuAndHasItsOwnHotkeyAndSearch() {
+        XCTAssertEqual(model.mainTab, .clipboard)
+        XCTAssertEqual(model.enabledTabs.first, .clipboard)
+        model.openSearch() // ⌘F
+        XCTAssertTrue(model.clipboard.searchOpen)
+        model.setMainTab(.claudex)
+        model.show(.clipboard) // ⌘⇧V
+        XCTAssertTrue(model.open)
+        XCTAssertEqual(model.mainTab, .clipboard)
+    }
+
+    func testLoweringTheClipboardLimitAsksFirstAndRaisingItDoesNot() async {
+        var n = 0
+        model.clipboard.changeCount = { n }
+        model.clipboard.readText = { "clip \(n)" }
+        for i in 1...5 { n = i; model.clipboard.poll() } // five untagged clips (the sample ones are tagged)
+        model.setClipboardLimit(2)
+        XCTAssertNotNil(model.confirmer.pending) // would delete 3
+        XCTAssertEqual(model.confirmer.pending?.confirmTitle, "Delete 3")
+        XCTAssertEqual(model.clipboard.limit, ClipboardStore.defaultLimit)
+        model.confirmer.cancel()
+        XCTAssertEqual(model.clipboard.items.count, 4 + 5)
+        model.setClipboardLimit(2)
+        await model.confirmer.pending?.run() // what the sheet's Delete button does
+        model.confirmer.cancel() // (tests clear the sheet by hand)
+        XCTAssertEqual(model.clipboard.limit, 2)
+        XCTAssertEqual(model.clipboard.items.count, 4 + 2) // the four tagged samples stay
+        model.setClipboardLimit(500) // raising deletes nothing: applied at once
+        XCTAssertNil(model.confirmer.pending)
+        XCTAssertEqual(model.clipboard.limit, 500)
+    }
+
     func testDisabledNotesIgnoresSearchAndUndoEvenWhileItIsTheLastTab() {
+
+        model.setMainTab(.notes)
         model.setNotesTab(.commands)
         XCTAssertNotNil(model.activeSnippets)
+        model.setEnabled(.clipboard, false)
         model.setEnabled(.claudex, false)
         model.setEnabled(.emulator, false)
         model.setEnabled(.notes, false) // mainTab stays .notes: nothing else to move to

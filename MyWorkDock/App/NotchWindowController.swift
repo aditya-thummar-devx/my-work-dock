@@ -58,7 +58,7 @@ final class NotchWindowController {
             MainActor.assumeIsolated { self?.pointerMoved() }
             return event
         }) { monitors.append(m) }
-        // ⌘F opens search in the visible Notes tab; Tab cycles the main menu, Shift+Tab its sub-tabs (not while typing in a field).
+        // ⌘F opens search in the visible Clipboard or Notes tab; Tab cycles the main menu, Shift+Tab its sub-tabs (not while typing in a field).
         // The panel has no menu bar to carry either shortcut.
         if let m = NSEvent.addLocalMonitorForEvents(matching: .keyDown, handler: { [weak self] event in
             MainActor.assumeIsolated {
