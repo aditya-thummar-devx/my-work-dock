@@ -51,6 +51,10 @@ targets:
         # Ad-hoc signing for local dev.
         CODE_SIGN_IDENTITY: "-"
         CODE_SIGN_STYLE: Manual
+      configs:
+        Release:
+          # Xcode adds the debugger entitlement (get-task-allow) to ad-hoc builds; Debug needs it to attach, shipped builds don't.
+          CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO
 
   MyWorkDockTests:
     type: bundle.unit-test
