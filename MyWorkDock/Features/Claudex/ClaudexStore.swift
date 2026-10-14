@@ -1,7 +1,7 @@
 import Foundation
 import Observation
 
-enum ClaudexTab: String { case usage, pool, play, health }
+enum ClaudexTab: String, CaseIterable { case usage, pool, play, health }
 
 /// One claudex read: what the parser made of it, and the raw text it came from, so a panel can fall back to
 /// plain text (with a ⚠) when the parser no longer recognises the output.

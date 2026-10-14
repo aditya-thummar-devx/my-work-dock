@@ -506,17 +506,28 @@ extension Geo {
     }
 }
 
-/// Bottom of the assign-tag and filter menus: divider and a `＋ New tag` row that opens the `TagFormPopover`.
+/// Footer of the tag menus: divider, then `＋ New tag` (opens the `TagFormPopover`) and, at the right, an optional second
+/// action (`✎ Manage` in the pickers, `✓ Done` in the manage list).
 struct NewTagButton: View {
     var action: () -> Void
+    var trailing: (title: String, glyph: Glyph, action: () -> Void)?
     @Environment(\.tokens) private var t
 
     var body: some View {
+        HStack(spacing: 0) {
+            row("New tag", .plus, action).frame(maxWidth: .infinity, alignment: .leading)
+            if let trailing { row(trailing.title, trailing.glyph, trailing.action) }
+        }
+        .padding(.top, Geo.NewTag.padTop)
+        .overlay(alignment: .top) { Rectangle().fill(t.line).frame(height: 1) }
+        .padding(.top, Geo.NewTag.marginTop)
+    }
+
+    private func row(_ title: String, _ glyph: Glyph, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
             HStack(spacing: Geo.Menu.rowGap) {
-                Icon(.plus, size: 11, stroke: 2.8)
-                Text("New tag")
-                Spacer(minLength: 0)
+                Icon(glyph, size: 11, stroke: 2.8)
+                Text(title)
             }
             .font(Typo.ui(Geo.Menu.font, .medium))
             .foregroundStyle(t.text2)
@@ -525,10 +536,7 @@ struct NewTagButton: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .padding(.top, Geo.NewTag.padTop)
-        .overlay(alignment: .top) { Rectangle().fill(t.line).frame(height: 1) }
-        .padding(.top, Geo.NewTag.marginTop)
-        .accessibilityLabel("New tag")
+        .accessibilityLabel(title)
     }
 }
 

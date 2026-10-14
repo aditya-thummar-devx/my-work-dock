@@ -3,7 +3,7 @@ import Carbon.HIToolbox
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var controller: NotchWindowController?
-    private var hotKey: HotKey?
+    private var hotKeys: [HotKey] = []
     private var statusItem: NSStatusItem?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -22,9 +22,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // No automatic login item: "Open at login" in the right-click menu is the only way to turn it on.
         let controller = NotchWindowController(model: model)
         self.controller = controller
-        hotKey = HotKey(keyCode: kVK_Space, modifiers: optionKey) { [weak controller] in
-            controller?.model.togglePanel()
-        }
+        let cmdShift = cmdKey | shiftKey
+        // A combo another app already owns gives nil and is skipped.
+        let keys: [HotKey?] = [
+            HotKey(keyCode: kVK_Space, modifiers: optionKey) { [weak controller] in controller?.model.togglePanel() },
+            HotKey(keyCode: kVK_ANSI_V, modifiers: cmdShift) { [weak controller] in controller?.model.show(.notes, notes: .prompts) },
+            HotKey(keyCode: kVK_ANSI_E, modifiers: cmdShift) { [weak controller] in controller?.model.show(.emulator) },
+            HotKey(keyCode: kVK_ANSI_X, modifiers: cmdShift) { [weak controller] in controller?.model.show(.claudex) },
+        ]
+        hotKeys = keys.compactMap { $0 }
         addStatusItem()
     }
 

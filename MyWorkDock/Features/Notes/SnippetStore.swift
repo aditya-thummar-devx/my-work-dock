@@ -10,6 +10,7 @@ enum SnippetKind {
     /// `commands.json` is the v1 file name, kept so saved commands survive the upgrade.
     var file: String { self == .commands ? "commands.json" : "prompts.json" }
     var placeholder: String { self == .commands ? "Paste or type a command, press Enter" : "Paste or write a prompt, press Enter" }
+    /// Sample content for snapshots and tests only; the real lists start empty.
     var seed: [String] { self == .commands ? SampleData.commands : SampleData.prompts }
     /// Shown instead of the list when nothing is saved.
     var emptyTitle: String { "No \(noun)s saved yet" }
@@ -51,7 +52,7 @@ final class SnippetStore {
             ?? seed.enumerated().map { SnippetItem(id: $0.offset + 1, text: $0.element) }
     }
 
-    static func persistent(_ kind: SnippetKind) -> SnippetStore { SnippetStore(kind, url: JSONFile.url(kind.file), seed: kind.seed) }
+    static func persistent(_ kind: SnippetKind) -> SnippetStore { SnippetStore(kind, url: JSONFile.url(kind.file), seed: []) }
     static func sample(_ kind: SnippetKind) -> SnippetStore { SnippetStore(kind, url: nil, seed: kind.seed) }
 
     /// Query as matched: trimmed and lower-cased.

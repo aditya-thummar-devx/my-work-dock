@@ -1,6 +1,6 @@
 import SwiftUI
 
-enum NotesTab: String {
+enum NotesTab: String, CaseIterable {
     case todo, commands, prompts
 }
 
@@ -8,6 +8,9 @@ enum NotesTab: String {
 struct NotesScreen: View {
     var model: NotchModel
     @Environment(\.tokens) private var t
+    /// Coordinate space of the Notes area: where the edited todo's tag button reports its frame.
+    static let space = "notes"
+    @State private var editTagButton = CGRect.zero
 
     var body: some View {
         VStack(spacing: 0) {
@@ -34,8 +37,10 @@ struct NotesScreen: View {
             .padding(.top, Geo.Chrome.contentTop)
             .frame(maxHeight: .infinity, alignment: .top)
         }
+        .coordinateSpace(name: Self.space)
+        .onPreferenceChange(EditTagButtonFrameKey.self) { editTagButton = $0 }
         .overlay(alignment: .topTrailing) {
-            if model.notesTab == .todo { TodoMenus(store: model.notes) }
+            if model.notesTab == .todo { TodoMenus(store: model.notes, editTagButton: editTagButton) }
         }
     }
 }
@@ -46,31 +51,41 @@ struct NotesScreen: View {
 /// parent's bounds (so clicks reach them) and above the list. Offsets are from the area's top-trailing corner.
 struct TodoMenus: View {
     @Bindable var store: NotesStore
+    /// Frame of the edited todo's tag button in the Notes area; its menu opens right under (or over) it.
+    var editTagButton = CGRect.zero
     @Environment(\.tokens) private var t
 
-    private func options(counts: Bool) -> [TagMenuOption] {
+    private func options(counts: Bool, editable: Bool = false) -> [TagMenuOption] {
         store.tagOrder.map {
             TagMenuOption(id: $0, label: "#\($0)", dot: TagPalette.dot($0, custom: store.customColor($0), in: t),
-                          count: counts ? store.count(of: $0) : nil, editable: store.canEditTag($0))
+                          count: counts ? store.count(of: $0) : nil, editable: editable)
         }
     }
 
-    private var edit: TagMenuEditing {
-        TagMenuEditing(onEdit: { store.openTagForm(editing: $0) }, onDelete: store.deleteTag)
+    /// `New tag` and, once there is a tag to manage, `Manage`.
+    private var footer: some View {
+        NewTagButton(action: { store.openTagForm() },
+                     trailing: store.tagOrder.isEmpty ? nil : ("Manage", .pencil, store.openTagManage))
     }
 
-    /// The tag list, or the name + colour popup in its place while one is open.
+    /// The name + colour popup, else the manage list (every tag with edit / delete, shared by both menus), else the picker list.
     @ViewBuilder private func menu<L: View>(width: CGFloat, @ViewBuilder list: () -> L) -> some View {
         if store.tagFormOpen {
             TagFormPopover(name: $store.newTag, hex: $store.tagHex, editing: store.editingTag != nil, canSave: store.canAddNewTag,
                            width: width, onSave: store.saveTagForm, onCancel: store.cancelTagForm)
+        } else if store.tagManageOpen {
+            TagMenu(title: "MANAGE TAGS", options: options(counts: true, editable: true), selected: "", width: width,
+                    edit: TagMenuEditing(onEdit: { store.openTagForm(editing: $0) }, onDelete: store.deleteTag),
+                    maxRows: Geo.Filter.maxRows) {
+                NewTagButton(action: { store.openTagForm() }, trailing: ("Done", .check, store.closeTagManage))
+            }
         } else {
             list()
         }
     }
 
     var body: some View {
-        if store.filterMenuOpen || store.tagMenuOpen {
+        if store.filterMenuOpen || store.tagMenuOpen || store.editTagMenuOpen {
             // Outside click closes, like the claudex sort menu.
             Color.clear.contentShape(Rectangle()).onTapGesture(perform: store.closeMenus)
         }
@@ -80,9 +95,9 @@ struct TodoMenus: View {
             menu(width: Geo.Filter.menuWidth) {
                 TagMenu(title: "FILTER BY TAG",
                         options: [TagMenuOption(id: "all", label: "All", dot: nil, count: store.todos.count)] + options(counts: true),
-                        selected: store.filterTag, width: Geo.Filter.menuWidth, onSelect: store.pickFilter, edit: edit,
+                        selected: store.filterTag, width: Geo.Filter.menuWidth, onSelect: store.pickFilter,
                         maxRows: Geo.Filter.maxRows) {
-                    NewTagButton { store.openTagForm() }
+                    footer
                 }
             }
             .offset(x: -(searchWidth + Geo.SubTab.navGap), y: Geo.Chrome.subNavTop + Geo.Filter.menuTop)
@@ -92,12 +107,29 @@ struct TodoMenus: View {
                 TagMenu(title: "ASSIGN TAG",
                         options: [TagMenuOption(id: "", label: "No tag", dot: nil, count: nil)] + options(counts: false),
                         selected: store.todoTag ?? "", width: Geo.TagPicker.menuWidth,
-                        onSelect: { store.pickTodoTag($0.isEmpty ? nil : $0) }, edit: edit) {
-                    NewTagButton { store.openTagForm() }
+                        onSelect: { store.pickTodoTag($0.isEmpty ? nil : $0) }) {
+                    footer
                 }
             }
             .offset(x: -Geo.TagPicker.menuRight,
                     y: Geo.Chrome.subNavTop + Geo.SubTab.height + Geo.Chrome.contentTop + Geo.TagPicker.menuTop)
+        }
+        if store.editTagMenuOpen, editTagButton != .zero {
+            // Right edge on the button's, below it; in the lower half of the area it opens upward instead.
+            GeometryReader { geo in
+                let above = editTagButton.midY > geo.size.height / 2
+                menu(width: Geo.TagPicker.menuWidth) {
+                    TagMenu(title: "ASSIGN TAG",
+                            options: [TagMenuOption(id: "", label: "No tag", dot: nil, count: nil)] + options(counts: false),
+                            selected: store.editTag, width: Geo.TagPicker.menuWidth,
+                            onSelect: { store.pickEditTag($0.isEmpty ? nil : $0) }) {
+                        footer
+                    }
+                }
+                .frame(width: Geo.TagPicker.menuWidth, height: above ? max(editTagButton.minY - 4, 0) : nil,
+                       alignment: above ? .bottom : .top)
+                .offset(x: max(editTagButton.maxX - Geo.TagPicker.menuWidth, 0), y: above ? 0 : editTagButton.maxY + 4)
+            }
         }
     }
 }
@@ -186,6 +218,8 @@ struct QuickAddBar: View {
 struct TagPickerButton: View {
     var tag: String?
     var custom: Color?
+    /// What the tag is for, in the accessibility label.
+    var noun = "new todo"
     var action: () -> Void
     @Environment(\.tokens) private var t
 
@@ -206,7 +240,7 @@ struct TagPickerButton: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(tag.map { "Tag for new todo: \($0). Change tag" } ?? "Assign a tag to the new todo")
+        .accessibilityLabel(tag.map { "Tag for \(noun): \($0). Change tag" } ?? "Assign a tag to the \(noun)")
     }
 }
 
@@ -230,7 +264,8 @@ struct TodoList: View {
                         GroupedList(count: section.todos.count, rowHeight: Geo.Row.todoHeight) { i in
                             let todo = section.todos[i]
                             TodoRow(todo: todo, tagColor: store.customColor(todo.tag), editing: store.editId == todo.id,
-                                    editText: $store.editDraft,
+                                    editText: $store.editDraft, editTag: store.editTag, editTagColor: store.customColor(store.editTag),
+                                    onEditTag: store.toggleEditTagMenu,
                                     onToggle: { store.toggle(todo.id) }, onEdit: { store.startEdit(todo.id) },
                                     onDelete: { store.delete(todo.id) }, onSave: store.saveEdit, onCancel: store.cancelEdit)
                         }

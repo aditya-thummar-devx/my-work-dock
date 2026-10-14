@@ -2,7 +2,7 @@ import Foundation
 import Observation
 
 enum EmuPlatform: String { case android, ios }
-enum EmulatorTab: String { case devices, wireless, tunnel }
+enum EmulatorTab: String, CaseIterable { case devices, wireless, tunnel }
 
 struct AdbTarget: Equatable {
     var serial: String

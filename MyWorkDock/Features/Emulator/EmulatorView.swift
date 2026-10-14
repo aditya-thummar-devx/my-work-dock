@@ -11,7 +11,7 @@ struct EmulatorScreen: View {
             SubNavRow(items: [SubTabItem("devices", "Devices", glyph: .phone), SubTabItem("wireless", "Wireless", glyph: .wifi),
                               SubTabItem("tunnel", "Tunnel", glyph: .arrows)],
                       selection: tab.rawValue,
-                      onSelect: { model.emulatorTab = EmulatorTab(rawValue: $0) ?? .devices; store.targetMenuOpen = false }) {
+                      onSelect: { model.setEmulatorTab(EmulatorTab(rawValue: $0) ?? .devices) }) {
                 if tab == .tunnel { TunnelTargetButton(store: store) } else { EmulatorNavTrailing(store: store, tab: tab) }
             }
             .padding(.top, Geo.Chrome.subNavTop)
