@@ -113,11 +113,14 @@ enum SnapshotRunner {
     /// Names match the reference PNGs in `screenshots/artboards` and `screenshots/prototype`.
     /// States whose content isn't built yet are not listed; `compare-all.sh` reports them as missing.
     static let states: [State] = screenStates + Fragments.all + [
-        State("settings-clipboard", .panel, content: .fragment(rect: CGRect(x: 404, y: 46, width: 336, height: 480),
+        State("settings-clipboard", .panel, content: .fragment(rect: CGRect(x: 330, y: 46, width: 410, height: 480),
                                                                view: { AnyView(SettingsPopover(theme: .dark, tint: .lime, page: .clipboard, clipboardLimit: 500)) })) { $0.openPanel() },
         // Settings › Menus: the popover keeps its natural height, so this shows whether every row still fits the panel.
-        State("settings-menus", .panel, content: .fragment(rect: CGRect(x: 404, y: 46, width: 336, height: 480),
+        State("settings-menus", .panel, content: .fragment(rect: CGRect(x: 330, y: 46, width: 410, height: 480),
                                                            view: { AnyView(SettingsPopover(theme: .dark, tint: .lime, page: .menus)) })) { $0.openPanel() },
+        State("settings-version", .panel, content: .fragment(rect: CGRect(x: 330, y: 46, width: 410, height: 480),
+                                                             view: { AnyView(SettingsPopover(theme: .dark, tint: .lime, page: .version, version: "0.1.0 (1)",
+                                                                                             updatedAt: Date(timeIntervalSince1970: 1_790_000_000), onCheckForUpdates: {})) })) { $0.openPanel() },
         State("gallery-dark", .gallery, content: .gallery) { $0.setTheme(.dark) },
         State("gallery-light", .gallery, content: .gallery) { $0.setTheme(.light) },
     ]
