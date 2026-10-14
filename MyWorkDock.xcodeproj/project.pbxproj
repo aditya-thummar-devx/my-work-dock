@@ -27,6 +27,7 @@
 		69C96EA425D71957CD2DD204 /* SVGPath.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E1258D4A7B0AAFCFF40DFAC /* SVGPath.swift */; };
 		69E11E9F1A6F7F890F7F6942 /* NotesStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6012369D297796DE2112E7CD /* NotesStore.swift */; };
 		69FF85DB36C675A0BB594C13 /* ThemeAndPromptTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06A9D639A94715A109911E18 /* ThemeAndPromptTests.swift */; };
+		6A06471A6C3982BB6C963BF3 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 8D8B6ADF485BF0BF8A50A25E /* Assets.xcassets */; };
 		6F95E27AAF88CC1AD321CDAD /* BricolageGrotesque[opsz,wdth,wght].ttf in Resources */ = {isa = PBXBuildFile; fileRef = 23A00F3978AF0B6A67D99157 /* BricolageGrotesque[opsz,wdth,wght].ttf */; };
 		7112E5D6EE9AF0C68C419A8E /* LocalIPStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11AC69D3018C5A1EF74B75E1 /* LocalIPStore.swift */; };
 		785209BE27C667A2B7C6670F /* EmulatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7866DFEBEB0F586C0417F719 /* EmulatorTests.swift */; };
@@ -111,6 +112,7 @@
 		82755D82FE8EEBBFD0E04732 /* Fragments.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Fragments.swift; sourceTree = "<group>"; };
 		82C5EDB22D2C108813EB0BD6 /* OpenPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenPanelView.swift; sourceTree = "<group>"; };
 		858F6609858992D96433DB80 /* Surfaces.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Surfaces.swift; sourceTree = "<group>"; };
+		8D8B6ADF485BF0BF8A50A25E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		9560B277AF811CBA16AF9406 /* NotchContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchContainer.swift; sourceTree = "<group>"; };
 		9973D49E4E706206141196C5 /* Tokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tokens.swift; sourceTree = "<group>"; };
 		A2811D63DAF1BDB46FBF9172 /* MyWorkDock.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MyWorkDock.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -188,6 +190,7 @@
 		2212ABFB8AD5174D81B1AF4F /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				8D8B6ADF485BF0BF8A50A25E /* Assets.xcassets */,
 				58A3624382D10E25CB8AD7C2 /* Fonts */,
 			);
 			path = Resources;
@@ -424,6 +427,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				6A06471A6C3982BB6C963BF3 /* Assets.xcassets in Resources */,
 				6F95E27AAF88CC1AD321CDAD /* BricolageGrotesque[opsz,wdth,wght].ttf in Resources */,
 				5E65EC8287E549466ECA3E00 /* GeistMono[wght].ttf in Resources */,
 				B21ED8F73D62619EBB015952 /* Geist[wght].ttf in Resources */,

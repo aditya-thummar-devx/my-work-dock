@@ -4,6 +4,7 @@ import Carbon.HIToolbox
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var controller: NotchWindowController?
     private var hotKey: HotKey?
+    private var statusItem: NSStatusItem?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         FontRegistry.registerAll()
@@ -24,5 +25,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         hotKey = HotKey(keyCode: kVK_Space, modifiers: optionKey) { [weak controller] in
             controller?.model.togglePanel()
         }
+        addStatusItem()
     }
+
+    private func addStatusItem() {
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        let icon = NSImage(named: "MenuBarIcon")
+        icon?.isTemplate = true
+        icon?.size = NSSize(width: 18, height: 18)
+        item.button?.image = icon
+        let menu = NSMenu()
+        menu.addItem(withTitle: "Show / Hide MyWorkDock", action: #selector(togglePanel), keyEquivalent: "").target = self
+        menu.addItem(.separator())
+        menu.addItem(withTitle: "Quit MyWorkDock", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        item.menu = menu
+        statusItem = item
+    }
+
+    @objc private func togglePanel() { MainActor.assumeIsolated { controller?.model.togglePanel() } }
 }
