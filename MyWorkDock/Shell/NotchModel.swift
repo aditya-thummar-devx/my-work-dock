@@ -4,12 +4,13 @@ import Observation
 typealias DisplayID = CGDirectDisplayID
 
 enum MainTab: String, CaseIterable, Identifiable {
-    case notes, claudex, emulator
+    case clipboard, notes, claudex, emulator
 
     var id: String { rawValue }
     var label: String { self == .claudex ? "claudex" : rawValue.capitalized }
     var glyph: Glyph {
         switch self {
+        case .clipboard: .clipboard
         case .notes: .notes
         case .claudex: .gauge
         case .emulator: .phone
@@ -17,6 +18,7 @@ enum MainTab: String, CaseIterable, Identifiable {
     }
     var feature: Feature {
         switch self {
+        case .clipboard: .clipboard
         case .notes: .notes
         case .claudex: .claudex
         case .emulator: .emulator
@@ -26,11 +28,12 @@ enum MainTab: String, CaseIterable, Identifiable {
 
 /// What Settings › Menus can switch off. The raw values are stored in UserDefaults.
 enum Feature: String, CaseIterable, Identifiable {
-    case notes, claudex, emulator, localIP
+    case clipboard, notes, claudex, emulator, localIP
 
     var id: String { rawValue }
     var label: String {
         switch self {
+        case .clipboard: "Clipboard"
         case .notes: "Notes"
         case .claudex: "claudex"
         case .emulator: "Emulator"
@@ -39,6 +42,7 @@ enum Feature: String, CaseIterable, Identifiable {
     }
     var glyph: Glyph {
         switch self {
+        case .clipboard: .clipboard
         case .notes: .notes
         case .claudex: .gauge
         case .emulator: .phone
@@ -65,8 +69,9 @@ final class NotchModel {
     private(set) var settings = false
     /// True when the last mode change made the shell smaller; the container then uses the shrink curve.
     private(set) var shrinking = false
-    var mainTab: MainTab = .notes
+    var mainTab: MainTab = .clipboard
     var notesTab: NotesTab = .todo
+    let clipboard: ClipboardStore
     let notes: NotesStore
     let commands: SnippetStore
     let prompts: SnippetStore
@@ -113,6 +118,7 @@ final class NotchModel {
             disabled = Set((defaults.stringArray(forKey: "disabledFeatures") ?? []).compactMap(Feature.init(rawValue:)))
             showOnAllDisplays = defaults.bool(forKey: "showOnAllDisplays")
         }
+        clipboard = sample ? .sample() : .live()
         notes = sample ? .sample() : NotesStore()
         commands = sample ? .sample(.commands) : .persistent(.commands)
         prompts = sample ? .sample(.prompts) : .persistent(.prompts)
@@ -200,6 +206,7 @@ final class NotchModel {
             open = false
             settings = false
             claudex.closeDetail()
+            clipboard.closeMenus()
         }
         changed()
     }
@@ -231,6 +238,7 @@ final class NotchModel {
     func setMainTab(_ tab: MainTab) {
         mainTab = tab
         claudex.closeDetail()
+        clipboard.closeMenus()
         notes.cancelEdit()
         commands.cancelEdit()
         prompts.cancelEdit()
@@ -251,6 +259,7 @@ final class NotchModel {
             return all[((all.firstIndex(of: v) ?? 0) + 1) % all.count]
         }
         switch mainTab {
+        case .clipboard: break
         case .notes: setNotesTab(next(notesTab))
         case .claudex: claudex.select(next(claudex.tab))
         case .emulator: setEmulatorTab(next(emulatorTab))
@@ -270,14 +279,26 @@ final class NotchModel {
         notes.resetTransient()
     }
 
-    /// ⌘F while the panel is key: opens the search of the visible Notes tab (TODO or Prompts).
+    /// ⌘F while the panel is key: opens the search of the visible Clipboard or Notes tab (TODO or Prompts).
     func openSearch() {
+        if mainTab == .clipboard, isEnabled(.clipboard) { return clipboard.openSearch() }
         guard mainTab == .notes, isEnabled(.notes) else { return }
         switch notesTab {
         case .todo: notes.openSearch()
         case .prompts: prompts.openSearch()
         case .commands: break
         }
+    }
+
+    /// Settings › Clipboard › Keep: lowering the limit would delete clips, so that asks first; raising it applies at once.
+    func setClipboardLimit(_ raw: Int) {
+        let n = ClipboardStore.clamp(raw)
+        let drop = clipboard.removalCount(at: n)
+        guard drop > 0 else { return clipboard.setLimit(n) }
+        confirmer.ask(ConfirmRequest(title: "Keep only the last \(n) untagged clips?", command: "Delete the \(drop) oldest untagged clips",
+                                     note: "Tagged and pinned clips stay. This can't be undone.", confirmTitle: "Delete \(drop)", danger: true) { [weak self] in
+            self?.clipboard.setLimit(n)
+        })
     }
 
     func openPanel() {
@@ -294,6 +315,7 @@ final class NotchModel {
         hover = false
         settings = false
         claudex.closeDetail()
+        clipboard.closeMenus()
         changed()
     }
 
@@ -302,7 +324,7 @@ final class NotchModel {
         open ? closePanel() : openPanel()
     }
 
-    /// ⌘⇧P / ⌘⇧E / ⌘⇧X: opens the panel on `tab` (and Notes sub-tab `sub`). No-op if that menu is switched off.
+    /// ⌘⇧V / ⌘⇧P / ⌘⇧E / ⌘⇧X: opens the panel on `tab` (and Notes sub-tab `sub`). No-op if that menu is switched off.
     func show(_ tab: MainTab, notes sub: NotesTab? = nil) {
         guard isEnabled(tab.feature) else { return }
         if mainTab != tab { setMainTab(tab) }
@@ -343,6 +365,9 @@ final class NotchModel {
 
     private func applyServices(only feature: Feature?) {
         func apply(_ f: Feature) -> Bool { feature == nil || feature == f }
+        if apply(.clipboard) {
+            if isEnabled(.clipboard) { clipboard.startMonitoring() } else { clipboard.stopMonitoring() }
+        }
         if apply(.emulator) {
             if isEnabled(.emulator) { emulator.startMonitoring() } else { emulator.stopMonitoring() }
         }
