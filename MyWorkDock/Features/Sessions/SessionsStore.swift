@@ -94,6 +94,28 @@ final class SessionsStore {
 
     #if DEBUG
     func setTranscriptsForTesting(_ t: [Transcript]) { transcripts = t }
+
+    /// Snapshots: a board with two groups.
+    func loadSample() {
+        func tx(_ id: String, _ title: String, _ project: String, _ branch: String?, _ hoursAgo: Double, _ tokens: Int?) -> Transcript {
+            Transcript(id: id, cwd: "/w/\(project)", project: project, branch: branch, title: title,
+                       lastActivity: Date().addingTimeInterval(-hoursAgo * 3600), model: "claude-opus-5-5", contextTokens: tokens, contextWindow: 200_000)
+        }
+        transcripts = [
+            tx("s1", "Add the product schema to Strapi", "foxtale-admin", "feat/schema", 0.2, 152_000),
+            tx("s2", "Fix checkout coupon rounding", "foxtale-web", "main", 3, 61_000),
+            tx("s3", "Port the Sessions board to Swift", "my-work-dock", "sessions-mascot", 0.5, 98_000),
+            tx("s4", "Notch island redesign", "peekaboo", "island-design", 26, 40_000),
+            tx("s5", "Reminders with custom tunes", "peekaboo", "reminders", 30, nil),
+        ]
+        create("Foxtale")
+        create("Devx tools")
+        if groups.count >= 2 {
+            move("s1", to: groups[0].id); move("s2", to: groups[0].id); move("s3", to: groups[1].id)
+        }
+        installedTerminals = [.terminal, .warp]
+        message = nil
+    }
     #endif
 
     func title(for id: String) -> String? { transcripts.first { $0.id == id }?.title ?? titles[id] }

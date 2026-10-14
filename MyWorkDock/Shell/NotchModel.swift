@@ -84,6 +84,10 @@ final class NotchModel {
     let localIP: LocalIPStore
     let agents: AgentStore
     let sessions: SessionsStore
+    let mascot: MascotSettings
+    /// Settings › Mascot changed / agent state changed (the mascot window listens).
+    @ObservationIgnored var onMascotChange: (() -> Void)?
+    @ObservationIgnored var onAgentsChange: (() -> Void)?
     /// The user's choice; `resolvedTheme` is what is drawn.
     private(set) var theme: ThemeMode = .dark
     let appearance: AppearanceObserver
@@ -133,12 +137,14 @@ final class NotchModel {
         localIP = sample ? .sample() : .live()
         agents = sample ? .sample() : .live()
         sessions = sample ? .sample() : .live()
+        mascot = MascotSettings(defaults: sample ? nil : .standard)
         if !sample { peek = claudex.peekData } // snapshots keep the prototype's POOL sample
         peekExtents = PeekMetrics.measure(peek)
         claudex.onData = { [weak self] in self?.refreshPeek() }
         agents.onData = { [weak self] in
             guard let self else { return }
             self.sessions.ensureTitles(self.agents.sessions.map(\.transcriptID))
+            self.onAgentsChange?()
         }
         if let first = enabledTabs.first, !enabledTabs.contains(mainTab) { mainTab = first }
     }
@@ -272,6 +278,17 @@ final class NotchModel {
         case .claudex: claudex.select(next(claudex.tab))
         case .emulator: setEmulatorTab(next(emulatorTab))
         }
+    }
+
+    func setMascotEnabled(_ on: Bool) {
+        mascot.setEnabled(on)
+        if on && !MascotGeometry.trusted { MascotGeometry.requestAccess() }
+        onMascotChange?()
+    }
+
+    func setMascotKind(_ k: MascotKind) {
+        mascot.setKind(k)
+        onMascotChange?()
     }
 
     /// Agents › Show on board.

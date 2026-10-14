@@ -3,6 +3,7 @@ import Carbon.HIToolbox
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var controller: NotchWindowController?
+    private var mascot: MascotController?
     private var hotKeys: [HotKey] = []
     private var statusItem: NSStatusItem?
 
@@ -21,6 +22,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         MainActor.assumeIsolated { model.startServices() }
         // No automatic login item: "Open at login" in the right-click menu is the only way to turn it on.
         let controller = NotchWindowController(model: model)
+        let mascot = MainActor.assumeIsolated { MascotController(model: model) }
+        self.mascot = mascot
+        MainActor.assumeIsolated {
+            model.onMascotChange = { [weak mascot] in mascot?.apply() }
+            model.onAgentsChange = { [weak mascot] in mascot?.agentsChanged() }
+            mascot.apply()
+        }
         self.controller = controller
         let cmdShift = cmdKey | shiftKey
         // A combo another app already owns gives nil and is skipped.

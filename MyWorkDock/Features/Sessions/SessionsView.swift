@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 struct SessionsScreen: View {
     var model: NotchModel
     @Environment(\.tokens) private var t
+    @Environment(\.staticRender) private var staticRender
 
     var body: some View {
         let store = model.sessions
@@ -16,19 +17,25 @@ struct SessionsScreen: View {
             if store.transcripts.isEmpty {
                 EmptyHint(text: store.loading ? "Reading your Claude Code sessions…" : "No Claude Code sessions in the last 30 days.")
             } else {
+                let board = HStack(alignment: .top, spacing: 10) {
+                    ForEach(store.columns) { col in BoardColumn(store: store, column: col) }
+                    if store.groupFilter == .all { NewGroupColumn(store: store) }
+                }
+                if staticRender {
+                    // Snapshots can't draw a ScrollView's content (see DockScroll).
+                    Color.clear.frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .overlay(alignment: .topLeading) { board }
+                        .clipped()
+                } else {
                 ScrollViewReader { proxy in
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(alignment: .top, spacing: 10) {
-                            ForEach(store.columns) { col in BoardColumn(store: store, column: col) }
-                            if store.groupFilter == .all { NewGroupColumn(store: store) }
-                        }
-                    }
+                    ScrollView(.horizontal, showsIndicators: false) { board }
                     .onChange(of: store.focusID) { _, id in
                         guard let id else { return }
                         withAnimation(.easeOut(duration: 0.3)) { proxy.scrollTo(id, anchor: .center) }
                     }
                 }
                 .frame(maxHeight: .infinity, alignment: .top)
+                }
             }
         }
         .task { await store.refresh() }
@@ -101,6 +108,7 @@ private struct MenuChip<Items: View>: View {
 private struct BoardColumn: View {
     var store: SessionsStore
     var column: SessionsStore.Column
+    @Environment(\.staticRender) private var staticRender
     @State private var renaming = false
     @State private var name = ""
     @State private var targeted = false
@@ -126,7 +134,7 @@ private struct BoardColumn: View {
                 }
             }
             .frame(height: 24)
-            ScrollView(.vertical, showsIndicators: false) {
+            DockScroll {
                 VStack(spacing: 8) {
                     ForEach(column.items) { tx in SessionCard(store: store, transcript: tx).id(tx.id) }
                     if column.items.isEmpty {
@@ -142,10 +150,31 @@ private struct BoardColumn: View {
         .background(RoundedRectangle(cornerRadius: 16).fill(column.isGroup ? t.card : Color.clear))
         .overlay(RoundedRectangle(cornerRadius: 16)
             .strokeBorder(targeted ? t.accent : t.line, style: StrokeStyle(lineWidth: targeted ? 1.5 : 1, dash: column.isGroup ? [] : [4, 3])))
-        .dropDestination(for: String.self) { ids, _ in
-            for id in ids { store.move(id, to: column.id) }
-            return !ids.isEmpty
-        } isTargeted: { targeted = $0 }
+        .modifier(DropTarget(enabled: !staticRender) { ids in for id in ids { store.move(id, to: column.id) } } targeted: { targeted = $0 })
+    }
+}
+
+/// Drag and drop is live-only: snapshots can't render it.
+private struct DropTarget: ViewModifier {
+    var enabled: Bool
+    var onDrop: ([String]) -> Void
+    var targeted: (Bool) -> Void
+
+    func body(content: Content) -> some View {
+        if enabled {
+            content.dropDestination(for: String.self) { ids, _ in onDrop(ids); return !ids.isEmpty } isTargeted: { targeted($0) }
+        } else {
+            content
+        }
+    }
+}
+
+private struct DragSource: ViewModifier {
+    var enabled: Bool
+    var id: String
+
+    func body(content: Content) -> some View {
+        if enabled { content.draggable(id) } else { content }
     }
 }
 
@@ -171,6 +200,7 @@ private struct NewGroupColumn: View {
 private struct SessionCard: View {
     var store: SessionsStore
     var transcript: Transcript
+    @Environment(\.staticRender) private var staticRender
     @State private var busy = false
     @Environment(\.tokens) private var t
 
@@ -215,7 +245,7 @@ private struct SessionCard: View {
         .padding(10)
         .background(RoundedRectangle(cornerRadius: 12).fill(t.list))
         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(focused ? t.accent : t.listLine, lineWidth: focused ? 1.5 : 1))
-        .draggable(tx.id)
+        .modifier(DragSource(enabled: !staticRender, id: tx.id))
     }
 
     static func ago(_ d: Date, now: Date = Date()) -> String {

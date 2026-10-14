@@ -43,6 +43,27 @@ final class AgentStore {
     /// Designs / snapshots: no server, no files.
     static func sample() -> AgentStore { AgentStore(core: AgentCore(ttyLookup: { _ in nil }), installer: nil, live: false) }
 
+    #if DEBUG
+    /// Snapshots: a few live sessions, a permission request and a question.
+    func loadSample() {
+        func m(_ event: String, _ session: String, _ cwd: String, _ payload: [String: JSONValue], id: String = UUID().uuidString, reply: Bool = false, term: String? = nil) -> HookMessage {
+            var p = payload
+            p["session_id"] = .string(session)
+            return HookMessage(v: 1, id: id, agent: "claude", event: event, cwd: cwd, pid: nil, payload: .object(p), expects_reply: reply, term: term)
+        }
+        _ = core.handle(m("UserPromptSubmit", "a1", "/w/foxtale-admin", ["prompt": .string("Add the product schema")], term: "WarpTerminal")) { _ in }
+        _ = core.handle(m("PreToolUse", "a1", "/w/foxtale-admin", ["tool_name": .string("Bash"), "tool_input": .object(["command": .string("npm run build")])])) { _ in }
+        _ = core.handle(m("Stop", "b2", "/w/peekaboo", [:], term: "Apple_Terminal")) { _ in }
+        _ = core.handle(m("PermissionRequest", "a1", "/w/foxtale-admin", ["tool_name": .string("Bash"),
+                                                                          "tool_input": .object(["command": .string("rm -rf dist && npm run build")])], id: "p1", reply: true)) { _ in }
+        _ = core.handle(m("PreToolUse", "c3", "/w/my-work-dock", ["tool_name": .string("AskUserQuestion"), "tool_input": .object(["questions": .array([
+            .object(["question": .string("Which database should the sessions board use?"), "multiSelect": .bool(false),
+                     "options": .array([.object(["label": .string("SQLite")]), .object(["label": .string("JSON files")]), .object(["label": .string("Core Data")])])])
+        ])])], id: "q1", reply: true)) { _ in }
+        hooks = .init(installed: true, stale: false)
+    }
+    #endif
+
     var waitingCount: Int { pending.count }
 
     var footer: String {

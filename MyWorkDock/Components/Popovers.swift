@@ -48,7 +48,7 @@ extension Geo {
 
 /// Settings: Appearance (theme, tint) and Menus (which features are on). Applies everywhere.
 struct SettingsPopover: View {
-    enum Page: String { case appearance, menus }
+    enum Page: String { case appearance, menus, mascot }
 
     var theme: ThemeMode
     /// What macOS is in right now; only shown while `theme == .system`.
@@ -61,13 +61,28 @@ struct SettingsPopover: View {
     var onFeature: (Feature, Bool) -> Void = { _, _ in }
     var onAllDisplays: (Bool) -> Void = { _ in }
     var onClose: () -> Void = {}
+    var mascotOn = false
+    var mascotKind: MascotKind = .kunoichi
+    var trashFound = true
+    var onMascotOn: (Bool) -> Void = { _ in }
+    var onMascotKind: (MascotKind) -> Void = { _ in }
+    var onAccessibility: () -> Void = {}
     @State private var page: Page
     @Environment(\.tokens) private var t
 
     init(theme: ThemeMode, systemIsDark: Bool = true, tint: Tint, disabled: Set<Feature> = [], allDisplays: Bool = false, page: Page = .appearance,
          onTheme: @escaping (ThemeMode) -> Void = { _ in }, onTint: @escaping (Tint) -> Void = { _ in },
          onFeature: @escaping (Feature, Bool) -> Void = { _, _ in }, onAllDisplays: @escaping (Bool) -> Void = { _ in },
-         onClose: @escaping () -> Void = {}) {
+         onClose: @escaping () -> Void = {},
+         mascotOn: Bool = false, mascotKind: MascotKind = .kunoichi, trashFound: Bool = true,
+         onMascotOn: @escaping (Bool) -> Void = { _ in }, onMascotKind: @escaping (MascotKind) -> Void = { _ in },
+         onAccessibility: @escaping () -> Void = {}) {
+        self.mascotOn = mascotOn
+        self.mascotKind = mascotKind
+        self.trashFound = trashFound
+        self.onMascotOn = onMascotOn
+        self.onMascotKind = onMascotKind
+        self.onAccessibility = onAccessibility
         self.theme = theme
         self.systemIsDark = systemIsDark
         self.tint = tint
@@ -84,7 +99,8 @@ struct SettingsPopover: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Geo.Chrome.popoverGap) {
             HStack {
-                SubTabs(items: [SubTabItem(Page.appearance.rawValue, "Appearance"), SubTabItem(Page.menus.rawValue, "Menus")],
+                SubTabs(items: [SubTabItem(Page.appearance.rawValue, "Appearance"), SubTabItem(Page.menus.rawValue, "Menus"),
+                                SubTabItem(Page.mascot.rawValue, "Mascot")],
                         selection: page.rawValue, activeFill: t.ctrl) { page = Page(rawValue: $0) ?? .appearance }
                 Spacer()
                 IconButton(glyph: .close, label: "Close settings", size: Geo.Appearance.closeSize,
@@ -95,6 +111,8 @@ struct SettingsPopover: View {
                 AppearanceSection(theme: theme, systemIsDark: systemIsDark, tint: tint, onTheme: onTheme, onTint: onTint)
             case .menus:
                 MenusSection(disabled: disabled, allDisplays: allDisplays, onFeature: onFeature, onAllDisplays: onAllDisplays)
+            case .mascot:
+                MascotSection(on: mascotOn, kind: mascotKind, trashFound: trashFound, onOn: onMascotOn, onKind: onMascotKind, onAccessibility: onAccessibility)
             }
         }
         .padding(Geo.Chrome.popoverPadding + 1)
@@ -158,6 +176,64 @@ private struct MenusSection: View {
         .buttonStyle(.plain)
         .accessibilityLabel(label)
         .accessibilityValue(on ? "On" : "Off")
+    }
+}
+
+/// Settings › Mascot: a character on the Dock's Trash that speaks agent requests.
+private struct MascotSection: View {
+    var on: Bool
+    var kind: MascotKind
+    var trashFound: Bool
+    var onOn: (Bool) -> Void
+    var onKind: (MascotKind) -> Void
+    var onAccessibility: () -> Void
+    @Environment(\.tokens) private var t
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Geo.Chrome.popoverGap) {
+            Text("Mascot").font(Typo.ui(Geo.Appearance.sectionFont, .semibold)).foregroundStyle(t.faint)
+            Button { onOn(!on) } label: {
+                HStack(spacing: Geo.Menu.rowGap) {
+                    Icon(.chat, size: Geo.Appearance.themeIcon).foregroundStyle(on ? t.text : t.muted)
+                    Text("Show mascot on the Trash").font(Typo.ui(Geo.Menu.font, .medium)).foregroundStyle(on ? t.text : t.text2)
+                    Spacer(minLength: 0)
+                    SwitchPill(on: on)
+                }
+                .padding(.horizontal, Geo.Menu.rowPadX)
+                .frame(height: Geo.Appearance.menuRowHeight)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Show mascot on the Trash")
+            .accessibilityValue(on ? "On" : "Off")
+            if on {
+                HStack(spacing: 6) {
+                    ForEach(MascotKind.allCases) { k in
+                        Button { onKind(k) } label: {
+                            VStack(spacing: 4) {
+                                MascotCharacter(kind: k, talking: false).frame(width: 46, height: 50)
+                                Text(k.name).font(Typo.ui(11, .semibold)).foregroundStyle(k == kind ? t.text : t.muted)
+                            }
+                            .padding(6)
+                            .background(RoundedRectangle(cornerRadius: 12).fill(k == kind ? t.ctrl : Color.clear))
+                            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(k == kind ? t.accent : t.border, lineWidth: 1))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(k.name)
+                    }
+                }
+                if !trashFound {
+                    HStack(spacing: 8) {
+                        Text("To sit exactly on the Trash, allow MyWorkDock in Accessibility. Until then it sits at the bottom-right.")
+                            .font(Typo.ui(Geo.Appearance.noteFont)).foregroundStyle(t.faint).fixedSize(horizontal: false, vertical: true)
+                        DockButton(title: "Allow", glyph: nil, metrics: .card, tone: .secondary, action: onAccessibility)
+                    }
+                }
+            }
+            Text("Sits on the Dock's Trash and asks you about agent requests in a speech bubble — answer right there.")
+                .font(Typo.ui(Geo.Appearance.noteFont)).foregroundStyle(t.faint)
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 }
 
