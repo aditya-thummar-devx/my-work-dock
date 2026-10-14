@@ -93,6 +93,9 @@ final class NotchModel {
     private(set) var peekExtents = PeekExtents(left: 0, right: 0)
     /// Settings › Menus: also draw the shell on every other display. Off = one shell on the notch (or pointer) display.
     private(set) var showOnAllDisplays = false
+    /// Settings › Version: "1.0 (1)", and when this version first ran here (an install or an update). nil in snapshots and tests.
+    let version = NotchModel.versionLabel
+    private(set) var updatedAt: Date?
     /// Display whose shell peeks / opens; the others stay idle. nil (snapshots) = every shell follows `mode`.
     private(set) var activeDisplay: DisplayID?
 
@@ -120,6 +123,11 @@ final class NotchModel {
             tint = defaults.string(forKey: "tint").flatMap(Tint.init(rawValue:)) ?? .lime
             disabled = Set((defaults.stringArray(forKey: "disabledFeatures") ?? []).compactMap(Feature.init(rawValue:)))
             showOnAllDisplays = defaults.bool(forKey: "showOnAllDisplays")
+            if defaults.string(forKey: "seenVersion") != version {
+                defaults.set(version, forKey: "seenVersion")
+                defaults.set(Date(), forKey: "updatedAt")
+            }
+            updatedAt = defaults.object(forKey: "updatedAt") as? Date
         }
         clipboard = sample ? .sample() : .live()
         notes = sample ? .sample() : NotesStore()
@@ -388,6 +396,11 @@ final class NotchModel {
             if isEnabled(.localIP) { localIP.startMonitoring() } else { localIP.stopMonitoring() }
         }
         if apply(.claudex), isEnabled(.claudex) { Task { await claudex.refresh() } }
+    }
+
+    private static var versionLabel: String {
+        let info = Bundle.main.infoDictionary
+        return "\(info?["CFBundleShortVersionString"] ?? "?") (\(info?["CFBundleVersion"] ?? "?"))"
     }
 
     func toggleSettings() {

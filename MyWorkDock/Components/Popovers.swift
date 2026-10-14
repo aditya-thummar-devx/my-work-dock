@@ -49,7 +49,7 @@ extension Geo {
 
 /// Settings: Appearance (theme, tint), Menus (which features are on) and Clipboard (history size). Applies everywhere.
 struct SettingsPopover: View {
-    enum Page: String { case appearance, menus, clipboard }
+    enum Page: String { case appearance, menus, clipboard, version }
 
     var theme: ThemeMode
     /// What macOS is in right now; only shown while `theme == .system`.
@@ -58,6 +58,10 @@ struct SettingsPopover: View {
     var disabled: Set<Feature> = []
     var allDisplays = false
     var clipboardLimit = ClipboardStore.defaultLimit
+    var version = ""
+    var updatedAt: Date?
+    /// nil in debug builds (no updater): the Version page then says so instead of showing the button.
+    var onCheckForUpdates: (() -> Void)?
     var onTheme: (ThemeMode) -> Void = { _ in }
     var onTint: (Tint) -> Void = { _ in }
     var onFeature: (Feature, Bool) -> Void = { _, _ in }
@@ -68,7 +72,8 @@ struct SettingsPopover: View {
     @Environment(\.tokens) private var t
 
     init(theme: ThemeMode, systemIsDark: Bool = true, tint: Tint, disabled: Set<Feature> = [], allDisplays: Bool = false, page: Page = .appearance,
-         clipboardLimit: Int = ClipboardStore.defaultLimit,
+         clipboardLimit: Int = ClipboardStore.defaultLimit, version: String = "", updatedAt: Date? = nil,
+         onCheckForUpdates: (() -> Void)? = nil,
          onTheme: @escaping (ThemeMode) -> Void = { _ in }, onTint: @escaping (Tint) -> Void = { _ in },
          onFeature: @escaping (Feature, Bool) -> Void = { _, _ in }, onAllDisplays: @escaping (Bool) -> Void = { _ in },
          onClipboardLimit: @escaping (Int) -> Void = { _ in }, onClose: @escaping () -> Void = {}) {
@@ -78,6 +83,9 @@ struct SettingsPopover: View {
         self.disabled = disabled
         self.allDisplays = allDisplays
         self.clipboardLimit = clipboardLimit
+        self.version = version
+        self.updatedAt = updatedAt
+        self.onCheckForUpdates = onCheckForUpdates
         self.onClipboardLimit = onClipboardLimit
         self.onTheme = onTheme
         self.onTint = onTint
@@ -91,7 +99,7 @@ struct SettingsPopover: View {
         VStack(alignment: .leading, spacing: Geo.Chrome.popoverGap) {
             HStack {
                 SubTabs(items: [SubTabItem(Page.appearance.rawValue, "Appearance"), SubTabItem(Page.menus.rawValue, "Menus"),
-                                SubTabItem(Page.clipboard.rawValue, "Clipboard")],
+                                SubTabItem(Page.clipboard.rawValue, "Clipboard"), SubTabItem(Page.version.rawValue, "Version")],
                         selection: page.rawValue, activeFill: t.ctrl) { page = Page(rawValue: $0) ?? .appearance }
                 Spacer()
                 IconButton(glyph: .close, label: "Close settings", size: Geo.Appearance.closeSize,
@@ -104,6 +112,8 @@ struct SettingsPopover: View {
                 MenusSection(disabled: disabled, allDisplays: allDisplays, onFeature: onFeature, onAllDisplays: onAllDisplays)
             case .clipboard:
                 ClipboardSection(limit: clipboardLimit, onLimit: onClipboardLimit)
+            case .version:
+                VersionSection(version: version, updatedAt: updatedAt, onCheck: onCheckForUpdates)
             }
         }
         .padding(Geo.Chrome.popoverPadding + 1)
@@ -114,6 +124,44 @@ struct SettingsPopover: View {
                 .shadow(color: t.popShadow, radius: Geo.Chrome.popoverShadow.blur / 2, y: Geo.Chrome.popoverShadow.y)
         }
         .overlay(RoundedRectangle(cornerRadius: Geo.Chrome.popoverRadius).strokeBorder(t.border, lineWidth: 1))
+    }
+}
+
+/// Settings › Version: what is installed, when it arrived, and a manual update check (Sparkle shows its own window).
+private struct VersionSection: View {
+    var version: String
+    var updatedAt: Date?
+    var onCheck: (() -> Void)?
+    @Environment(\.tokens) private var t
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Geo.Chrome.popoverGap) {
+            Text("About").font(Typo.ui(Geo.Appearance.sectionFont, .semibold)).foregroundStyle(t.faint)
+            VStack(spacing: 0) {
+                row("Current version", version)
+                row("Last updated", updatedAt?.formatted(date: .abbreviated, time: .shortened) ?? "—")
+            }
+            .padding(.top, Geo.Appearance.pullUp)
+            if let onCheck {
+                DockButton(title: "Check for updates", glyph: .refresh, metrics: .save, tone: .tint, weight: .bold, action: onCheck)
+            }
+            Text(onCheck == nil ? "Update checks are off in debug builds."
+                                : "Updates are checked every hour, downloaded quietly and installed when the dock is idle.")
+                .font(Typo.ui(Geo.Appearance.noteFont))
+                .foregroundStyle(t.faint)
+                .lineSpacing(Typo.lineSpacing(size: Geo.Appearance.noteFont, lineHeight: 1.4))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func row(_ label: String, _ value: String) -> some View {
+        HStack {
+            Text(label).font(Typo.ui(Geo.Menu.font, .medium)).foregroundStyle(t.text)
+            Spacer(minLength: 0)
+            Text(value).font(Typo.mono(Geo.Menu.font)).foregroundStyle(t.text2)
+        }
+        .padding(.horizontal, Geo.Menu.rowPadX)
+        .frame(height: Geo.Appearance.menuRowHeight)
     }
 }
 
