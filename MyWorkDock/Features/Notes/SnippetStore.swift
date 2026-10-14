@@ -78,6 +78,8 @@ final class SnippetStore {
     private(set) var saveError: String?
     var editDraft = ""
     private(set) var copiedId: Int?
+    /// Toast telling the user an item is copied with a double-click.
+    private(set) var hintShown = false
     /// Last deleted item and where it was, for Undo. Cleared by the next add or undo.
     private(set) var deleted: (item: SnippetItem, index: Int)?
     /// Sub-nav search (Prompts and Links in the UI); never saved.
@@ -88,6 +90,13 @@ final class SnippetStore {
     @ObservationIgnored var copyToClipboard: (String) -> Void = Clipboard.copy
     @ObservationIgnored var openURL: (URL) -> Void = { NSWorkspace.shared.open($0) }
     @ObservationIgnored private var copyTask: Task<Void, Never>?
+    /// Row clicked once and still waiting for its second click.
+    @ObservationIgnored private var tapId: Int?
+    @ObservationIgnored private var tapTask: Task<Void, Never>?
+    @ObservationIgnored var doubleClickInterval = NSEvent.doubleClickInterval
+    static let hintTime: TimeInterval = 1.8
+    /// Waits `seconds`; tests replace it so the sequence finishes at once.
+    @ObservationIgnored var pause: (TimeInterval) async -> Void = { try? await Task.sleep(for: .seconds($0)) }
 
     /// `url == nil` keeps everything in memory (snapshots, tests). Reads `url` if it exists, otherwise starts from `seed`.
     init(_ kind: SnippetKind, url: URL?, seed: [String]) {
@@ -168,6 +177,10 @@ final class SnippetStore {
         draft = ""
         deleted = nil
         copiedId = nil
+        tapTask?.cancel()
+        tapTask = nil
+        tapId = nil
+        hintShown = false
         closeSearch()
     }
 
@@ -181,6 +194,33 @@ final class SnippetStore {
             guard !Task.isCancelled else { return }
             self?.copiedId = nil
         }
+    }
+
+    /// Click on an item's text. A second click within the double-click interval copies it; if none comes, the hint toast
+    /// about the double-click shows. Returns the running sequence so tests can wait for it.
+    @discardableResult
+    func tap(_ id: Int) -> Task<Void, Never>? {
+        tapTask?.cancel()
+        tapTask = nil
+        if tapId == id {
+            tapId = nil
+            hintShown = false
+            copy(id)
+            return nil
+        }
+        tapId = id
+        let run = Task { [weak self] in
+            guard let self else { return }
+            await pause(doubleClickInterval)
+            guard !Task.isCancelled else { return }
+            tapId = nil
+            hintShown = true
+            await pause(Self.hintTime)
+            guard !Task.isCancelled else { return }
+            hintShown = false
+        }
+        tapTask = run
+        return run
     }
 
     /// A saved link as a URL: text with a scheme is used as written, anything else gets `https://`. nil when it is not a URL.
