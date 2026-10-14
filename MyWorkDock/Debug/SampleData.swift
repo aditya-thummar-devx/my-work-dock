@@ -206,6 +206,13 @@ enum SampleData {
         "watchman watch-del-all && rm -rf node_modules && yarn",
     ]
 
+    static let links = [
+        "https://github.com/aditya-thummar-devx/my-work-dock",
+        "https://reactnative.dev/docs/getting-started",
+        "https://developer.apple.com/app-store-connect/",
+        "https://linear.app/devxlabs/team/ENG/active",
+    ]
+
     static let prompts = [
         "Review this PR like a senior RN engineer.\n1. Performance and unnecessary re-renders\n2. iOS / Android platform gotchas\n3. Missing tests\nEnd with a 3-line summary and a ship / don’t-ship call.",
         "Write release notes for this build from the commit list. Group by Features, Fixes, Chores. Keep it client-friendly and skip internal refactors unless they change behaviour.",

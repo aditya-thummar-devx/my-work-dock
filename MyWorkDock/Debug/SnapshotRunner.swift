@@ -248,6 +248,17 @@ enum SnapshotRunner {
             for item in $0.prompts.items { $0.prompts.delete(item.id) }
             $0.openPanel()
         },
+        // Notes › Links (no prototype shot): the list, and with the search open.
+        State("47-notes-links", .panel) {
+            prototypeNotes($0, .links)
+            $0.openPanel()
+        },
+        State("48-notes-links-search", .panel) {
+            prototypeNotes($0, .links)
+            $0.links.openSearch()
+            $0.links.query = "github"
+            $0.openPanel()
+        },
         State("37-settings-appearance-dark", .panel) {
             $0.setTheme(.dark)
             tunnelWithSettings($0)

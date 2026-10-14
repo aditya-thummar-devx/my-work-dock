@@ -126,6 +126,17 @@ final class EmulatorStoreTests: XCTestCase {
         XCTAssertEqual(s.confirmer.pending?.command, "adb -s emulator-5554 reverse --remove-all")
     }
 
+    func testRestartAdbServerAsksThenKillsAndStarts() async {
+        let s = store()
+        let calls = recording(s)
+        s.restartAdbServer()
+        XCTAssertEqual(s.confirmer.pending?.command, "adb kill-server && adb start-server")
+        XCTAssertTrue(calls().isEmpty)
+        s.confirmer.confirm()
+        try? await Task.sleep(for: .milliseconds(100))
+        XCTAssertEqual(Array(calls().prefix(2)), ["adb kill-server", "adb start-server"])
+    }
+
     func testDuplicateTunnelIsNotAsked() {
         let s = store() // sample already has :8081 -> :8081
         s.runTunnel()

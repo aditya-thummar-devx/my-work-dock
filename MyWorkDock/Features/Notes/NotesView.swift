@@ -1,10 +1,10 @@
 import SwiftUI
 
 enum NotesTab: String, CaseIterable {
-    case todo, commands, prompts
+    case todo, commands, prompts, links
 }
 
-/// Notes: sub-nav (TODO / Commands / Prompts) plus the active tab's content. Fills the open panel between the top row and the footer.
+/// Notes: sub-nav (TODO / Commands / Prompts / Links) plus the active tab's content. Fills the open panel between the top row and the footer.
 struct NotesScreen: View {
     var model: NotchModel
     @Environment(\.tokens) private var t
@@ -16,13 +16,15 @@ struct NotesScreen: View {
         VStack(spacing: 0) {
             SubNavRow(items: [SubTabItem("todo", "TODO", count: model.notes.leftCount),
                               SubTabItem("commands", "Commands", count: model.commands.items.count),
-                              SubTabItem("prompts", "Prompts", count: model.prompts.items.count)],
+                              SubTabItem("prompts", "Prompts", count: model.prompts.items.count),
+                              SubTabItem("links", "Links", count: model.links.items.count)],
                       selection: model.notesTab.rawValue,
                       onSelect: { model.setNotesTab(NotesTab(rawValue: $0) ?? .todo) }) {
                 switch model.notesTab {
                 case .todo: TodoNavTrailing(store: model.notes)
                 case .commands: Text("One line each · copy, edit or delete").font(Typo.ui(12)).foregroundStyle(t.faint)
                 case .prompts: PromptNavTrailing(store: model.prompts)
+                case .links: PromptNavTrailing(store: model.links)
                 }
             }
             .padding(.top, Geo.Chrome.subNavTop)
@@ -32,6 +34,7 @@ struct NotesScreen: View {
                 case .todo: TodoView(store: model.notes)
                 case .commands: SnippetScreen(store: model.commands)
                 case .prompts: SnippetScreen(store: model.prompts)
+                case .links: SnippetScreen(store: model.links)
                 }
             }
             .padding(.top, Geo.Chrome.contentTop)
@@ -91,7 +94,7 @@ struct TodoMenus: View {
         }
         if store.filterMenuOpen {
             // Right-aligned with the filter button, which sits left of the search circle (or the open search field).
-            let searchWidth = store.searchOpen ? Geo.Search.width : Geo.Search.height
+            let searchWidth = store.searchOpen ? Geo.Search.todoWidth : Geo.Search.height
             menu(width: Geo.Filter.menuWidth) {
                 TagMenu(title: "FILTER BY TAG",
                         options: [TagMenuOption(id: "all", label: "All", dot: nil, count: store.todos.count)] + options(counts: true),
@@ -141,7 +144,7 @@ struct TodoNavTrailing: View {
     var body: some View {
         TagFilterButton(store: store)
         SearchControl(open: store.searchOpen, query: $store.query, placeholder: "Search todos", count: store.foundText,
-                      onOpen: store.openSearch, onClose: store.closeSearch)
+                      width: Geo.Search.todoWidth, onOpen: store.openSearch, onClose: store.closeSearch)
     }
 }
 
