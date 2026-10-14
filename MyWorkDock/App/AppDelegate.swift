@@ -19,6 +19,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         MainActor.assumeIsolated { SnapshotRunner.applyStartState(to: model) }
         #endif
         MainActor.assumeIsolated { model.startServices() }
+        // Debug builds are never updated: they would fetch release builds over themselves.
+        #if !DEBUG
+        MainActor.assumeIsolated {
+            let updater = Updater(isIdle: { [unowned model] in model.isIdle })
+            model.checkForUpdates = { updater.checkForUpdates() }
+        }
+        #endif
         // No automatic login item: "Open at login" in the right-click menu is the only way to turn it on.
         let controller = NotchWindowController(model: model)
         self.controller = controller
@@ -44,6 +51,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         item.button?.image = icon
         let menu = NSMenu()
         menu.addItem(withTitle: "Show / Hide MyWorkDock", action: #selector(togglePanel), keyEquivalent: "").target = self
+        #if !DEBUG
+        menu.addItem(withTitle: "Check for Updates…", action: #selector(checkForUpdates), keyEquivalent: "").target = self
+        #endif
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit MyWorkDock", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         item.menu = menu
@@ -51,4 +61,5 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func togglePanel() { MainActor.assumeIsolated { controller?.model.togglePanel() } }
+    @objc private func checkForUpdates() { MainActor.assumeIsolated { controller?.model.checkForUpdates?() } }
 }

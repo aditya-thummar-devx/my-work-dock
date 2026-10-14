@@ -51,6 +51,7 @@ struct NotchContainer: View {
             Button(SMAppService.mainApp.status == .enabled ? "✓ Open at login" : "Open at login") {
                 if SMAppService.mainApp.status == .enabled { try? SMAppService.mainApp.unregister() } else { try? SMAppService.mainApp.register() }
             }
+            if let check = model.checkForUpdates { Button("Check for Updates…", action: check) }
             Button("Quit MyWorkDock") { NSApp.terminate(nil) }
             #if DEBUG
             Button(model.bootingOverride == nil ? "Debug: simulate boot" : "Debug: stop boot") {
