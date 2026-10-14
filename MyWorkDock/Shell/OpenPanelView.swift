@@ -15,6 +15,7 @@ struct OpenPanelView: View {
                     MenusOffGuide(onOpenSettings: model.settings ? {} : model.toggleSettings).transition(.opacity)
                 } else {
                     switch model.mainTab {
+                    case .clipboard: ClipboardScreen(store: model.clipboard).transition(.opacity)
                     case .notes: NotesScreen(model: model).transition(.opacity)
                     case .emulator: EmulatorScreen(model: model).transition(.opacity)
                     case .claudex: ClaudexScreen(model: model).transition(.opacity)
@@ -34,8 +35,10 @@ struct OpenPanelView: View {
                 ZStack(alignment: .topTrailing) {
                     Color.clear.contentShape(Rectangle()).onTapGesture(perform: model.toggleSettings) // outside click closes, like the claudex sort menu
                     SettingsPopover(theme: model.theme, systemIsDark: model.appearance.isDark, tint: model.tint, disabled: model.disabled,
-                                    allDisplays: model.showOnAllDisplays, onTheme: model.setTheme, onTint: model.setTint,
-                                    onFeature: model.setEnabled, onAllDisplays: model.setShowOnAllDisplays, onClose: model.toggleSettings)
+                                    allDisplays: model.showOnAllDisplays, clipboardLimit: model.clipboard.limit,
+                                    onTheme: model.setTheme, onTint: model.setTint,
+                                    onFeature: model.setEnabled, onAllDisplays: model.setShowOnAllDisplays,
+                                    onClipboardLimit: model.setClipboardLimit, onClose: model.toggleSettings)
                         .padding(.top, Geo.Chrome.popoverTop).padding(.trailing, Geo.Chrome.popoverRight)
                 }
                 .transition(.opacity)
@@ -89,6 +92,7 @@ private struct Footer: View {
         if model.enabledTabs.isEmpty { return StatusMessage(text: "All menus are off") }
         func failed(_ why: String?) -> StatusMessage? { why.map { StatusMessage(text: "Could not save: \($0)", isError: true) } }
         switch model.mainTab {
+        case .clipboard: return failed(model.clipboard.saveError) ?? StatusMessage(text: model.clipboard.footer)
         case .notes:
             if let snippets = model.activeSnippets { return failed(snippets.saveError) ?? StatusMessage(text: snippets.footer) }
             return failed(model.notes.saveError) ?? StatusMessage(text: model.notes.footer)

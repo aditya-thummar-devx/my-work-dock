@@ -47,6 +47,9 @@ struct EmulatorNavTrailing: View {
             let p = EmuPlatform(rawValue: id) ?? .ios
             if wireless { store.wplatform = p } else { store.platform = p }
         }
+        if wireless && store.wplatform == .android {
+            IconButton(glyph: .power, label: "Restart adb server", size: 32, action: store.restartAdbServer).help("Restart adb server")
+        }
         IconButton(glyph: .refresh, label: "Refresh", size: 32, action: store.refresh)
     }
 }

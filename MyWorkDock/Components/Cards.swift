@@ -335,7 +335,7 @@ struct InlineEditField: View {
     }
 }
 
-/// Command / prompt row: glyph (`$` / `✦`), text, Copy / edit / delete. Editing swaps in an input with Save and cancel.
+/// Command / prompt / link row: glyph (`$` / `✦` / `↗`), text, [Open for links,] Copy / edit / delete. Editing swaps in an input with Save and cancel.
 /// Commands are one line on a fixed 44 pt row. Prompts keep their line breaks, show at most 3 lines (ellipsis after)
 /// and grow, with everything top-aligned.
 struct SnippetRow: View {
@@ -345,6 +345,7 @@ struct SnippetRow: View {
     var editing = false
     /// Edit-field text; nil draws `text` statically (snapshots).
     var editText: Binding<String>?
+    var onOpen: () -> Void = {}
     var onCopy: () -> Void = {}
     var onEdit: () -> Void = {}
     var onDelete: () -> Void = {}
@@ -400,6 +401,9 @@ struct SnippetRow: View {
                 .lineLimit(1)
                 .truncationMode(.tail)
                 .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        if kind == .links {
+            DockButton(title: "Open", glyph: .globe, iconSize: 12, metrics: .copy, tone: .ctrl, action: onOpen)
         }
         DockButton(title: copied ? "Copied" : "Copy", glyph: copied ? .check : .copy, iconSize: 12,
                    iconStroke: copied ? 3 : 2.2, metrics: .copy, tone: copied ? .copied : .ctrl, action: onCopy)
