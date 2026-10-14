@@ -239,6 +239,7 @@ struct RoundCheck: View {
                 .overlay(Circle().strokeBorder(t.ring, lineWidth: done ? 0 : Geo.Chip.roundCheckBorder))
                 .overlay { if done { Icon(.check, size: 12, stroke: 3.4).foregroundStyle(Tokens.onTint) } }
                 .frame(width: Geo.Chip.roundCheck, height: Geo.Chip.roundCheck)
+                .contentShape(Circle()) // the empty state is a clear fill, which a plain button would not hit-test
         }
         .buttonStyle(.plain)
         .accessibilityLabel((done ? "Mark not done" : "Mark done") + (title.isEmpty ? "" : ": \(title)"))
