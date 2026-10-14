@@ -98,6 +98,8 @@ final class NotchModel {
 
     /// Called after every state change so the window layer can update hit-testing and key status.
     @ObservationIgnored var onChange: (() -> Void)?
+    /// Set by the app delegate once the updater runs (release builds only); nil hides "Check for Updates…".
+    @ObservationIgnored var checkForUpdates: (() -> Void)?
     /// Schedules `work` after `delay` seconds and returns a cancel closure. Injected by tests.
     @ObservationIgnored var schedule: (TimeInterval, @escaping @MainActor () -> Void) -> () -> Void = { delay, work in
         let item = DispatchWorkItem { MainActor.assumeIsolated { work() } }
@@ -305,6 +307,11 @@ final class NotchModel {
                                      note: "Tagged and pinned clips stay. This can't be undone.", confirmTitle: "Delete \(drop)", danger: true) { [weak self] in
             self?.clipboard.setLimit(n)
         })
+    }
+
+    /// Nothing on screen or in flight that a relaunch would interrupt; the updater waits for this before installing.
+    var isIdle: Bool {
+        !open && !hover && confirmer.pending == nil && emulator.bootingName == nil && emulator.pendingBoot.isEmpty && claudex.busyMember == nil
     }
 
     func openPanel() {

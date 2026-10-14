@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 # Build Release and package build/MyWorkDock-<version>.dmg: app + Applications shortcut, Peek icon on the mounted volume.
 #
-#   scripts/make-dmg.sh
+#   scripts/make-dmg.sh                       # version from project.yml
+#   VERSION=0.1.1 BUILD=57 scripts/make-dmg.sh  # what release.sh passes
 #
 # Ad-hoc signed, so it only opens cleanly on this Mac. Other Macs need Developer ID signing + notarization.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-xcodebuild -project MyWorkDock.xcodeproj -scheme MyWorkDock -configuration Release -derivedDataPath build build -quiet
+xcodebuild -project MyWorkDock.xcodeproj -scheme MyWorkDock -configuration Release -derivedDataPath build build -quiet \
+  ${VERSION:+MARKETING_VERSION=$VERSION} ${BUILD:+CURRENT_PROJECT_VERSION=$BUILD}
 APP=build/Build/Products/Release/MyWorkDock.app
 VER=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APP/Contents/Info.plist")
 DMG=build/MyWorkDock-$VER.dmg
