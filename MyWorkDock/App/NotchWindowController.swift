@@ -22,6 +22,7 @@ final class NotchWindowController {
         let host = FirstMouseHostingView(rootView: NotchRoot(model: model))
         host.sizingOptions = []
         panel.contentView = host
+        panel.onEscape = { [weak model] in model?.closePanel() }
 
         reposition()
         panel.orderFrontRegardless()
