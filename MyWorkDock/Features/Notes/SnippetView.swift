@@ -1,11 +1,11 @@
 import SwiftUI
 
 extension SnippetKind {
-    /// Commands are mono, prompts use the regular UI font (DESIGN_SPEC §5 Notes › Prompts).
+    /// Commands are mono, prompts and links use the regular UI font (DESIGN_SPEC §5 Notes › Prompts).
     var font: Font { self == .commands ? Typo.mono(13) : Typo.ui(13) }
 }
 
-/// Notes › Commands and Notes › Prompts: the add field and the grouped list, one view for both kinds.
+/// Notes › Commands, Prompts and Links: the add field and the grouped list, one view for all kinds.
 struct SnippetScreen: View {
     var store: SnippetStore
 
@@ -67,12 +67,12 @@ struct PromptAddBar: View {
     }
 }
 
-/// Prompts search in the sub-nav: the shared search control, `N found`.
+/// Prompts and Links search in the sub-nav: the shared search control, `N found`.
 struct PromptNavTrailing: View {
     @Bindable var store: SnippetStore
 
     var body: some View {
-        SearchControl(open: store.searchOpen, query: $store.query, placeholder: "Search prompts", count: store.foundText,
+        SearchControl(open: store.searchOpen, query: $store.query, placeholder: "Search \(store.kind.noun)s", count: store.foundText,
                       onOpen: store.openSearch, onClose: store.closeSearch)
     }
 }
@@ -86,7 +86,7 @@ struct SnippetList: View {
             let item = items[i]
             SnippetRow(kind: store.kind, text: item.text, copied: store.copiedId == item.id, editing: store.editId == item.id,
                        editText: $store.editDraft,
-                       onCopy: { store.copy(item.id) }, onEdit: { store.startEdit(item.id) },
+                       onOpen: { store.open(item.id) }, onCopy: { store.copy(item.id) }, onEdit: { store.startEdit(item.id) },
                        onDelete: { store.delete(item.id) }, onSave: store.saveEdit, onCancel: store.cancelEdit)
         }
     }

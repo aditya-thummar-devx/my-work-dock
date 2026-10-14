@@ -144,8 +144,13 @@ final class NotesStoreTests: XCTestCase {
         model.openSearch() // …and opens the Prompts search there
         XCTAssertTrue(model.prompts.searchOpen)
         XCTAssertFalse(store.searchOpen)
+        model.setNotesTab(.links)
+        XCTAssertFalse(model.prompts.searchOpen)
+        model.openSearch() // Links has its own search
+        XCTAssertTrue(model.links.searchOpen)
         model.setNotesTab(.todo)
         XCTAssertFalse(model.prompts.searchOpen) // a sub-tab switch resets it
+        XCTAssertFalse(model.links.searchOpen)
     }
 
     func testCleanTagMatchesThePrototype() {

@@ -4,6 +4,8 @@ extension Geo {
     enum Search {
         static let height: CGFloat = 32
         static let width: CGFloat = 240
+        /// TODO shares its sub-nav row with the tag filter button: with four sub-tabs the full width would truncate their labels.
+        static let todoWidth: CGFloat = 190
         static let padLeading: CGFloat = 11
         static let padTrailing: CGFloat = 4
         static let gap: CGFloat = 7
@@ -30,13 +32,15 @@ extension Geo {
 }
 
 /// Sub-nav search: a 32 pt circle that opens into a 240 pt field with a result counter and a close button.
-/// Shared by Notes › TODO and Notes › Prompts. Esc closes it.
+/// Shared by Notes › TODO, Prompts and Links. Esc closes it.
 struct SearchControl: View {
     var open: Bool
     @Binding var query: String
     var placeholder: String
     /// `3 found`, or empty while nothing is typed.
     var count: String
+    /// Width of the open field.
+    var width = Geo.Search.width
     var onOpen: () -> Void = {}
     var onClose: () -> Void = {}
     @Environment(\.tokens) private var t
@@ -61,7 +65,7 @@ struct SearchControl: View {
             .foregroundStyle(t.text2)
             .padding(.leading, Geo.Search.padLeading)
             .padding(.trailing, Geo.Search.padTrailing)
-            .frame(width: Geo.Search.width, height: Geo.Search.height)
+            .frame(width: width, height: Geo.Search.height)
             .background(Capsule().fill(t.ctrl))
             .overlay(Capsule().strokeBorder(t.ink, lineWidth: Geo.Search.ring))
         } else {

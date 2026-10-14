@@ -75,6 +75,7 @@ final class NotchModel {
     let notes: NotesStore
     let commands: SnippetStore
     let prompts: SnippetStore
+    let links: SnippetStore
     let confirmer: Confirmer
     let emulator: EmulatorStore
     let claudex: ClaudexStore
@@ -122,6 +123,7 @@ final class NotchModel {
         notes = sample ? .sample() : NotesStore()
         commands = sample ? .sample(.commands) : .persistent(.commands)
         prompts = sample ? .sample(.prompts) : .persistent(.prompts)
+        links = sample ? .sample(.links) : .persistent(.links)
         let confirmer = Confirmer()
         self.confirmer = confirmer
         emulator = sample ? EmulatorStore(sample: false, confirmer: confirmer) : EmulatorStore(confirmer: confirmer)
@@ -211,13 +213,14 @@ final class NotchModel {
         changed()
     }
 
-    /// Store behind the visible Commands / Prompts sub-tab; nil on TODO and the other main tabs.
+    /// Store behind the visible Commands / Prompts / Links sub-tab; nil on TODO and the other main tabs.
     var activeSnippets: SnippetStore? {
         guard mainTab == .notes, isEnabled(.notes) else { return nil }
         switch notesTab {
         case .todo: return nil
         case .commands: return commands
         case .prompts: return prompts
+        case .links: return links
         }
     }
 
@@ -242,6 +245,7 @@ final class NotchModel {
         notes.cancelEdit()
         commands.cancelEdit()
         prompts.cancelEdit()
+        links.cancelEdit()
     }
 
     /// Tab key: next enabled main menu, wrapping. No-op with fewer than two.
@@ -276,16 +280,18 @@ final class NotchModel {
         notesTab = tab
         commands.reset()
         prompts.reset()
+        links.reset()
         notes.resetTransient()
     }
 
-    /// ⌘F while the panel is key: opens the search of the visible Clipboard or Notes tab (TODO or Prompts).
+    /// ⌘F while the panel is key: opens the search of the visible Clipboard or Notes tab (TODO, Prompts or Links).
     func openSearch() {
         if mainTab == .clipboard, isEnabled(.clipboard) { return clipboard.openSearch() }
         guard mainTab == .notes, isEnabled(.notes) else { return }
         switch notesTab {
         case .todo: notes.openSearch()
         case .prompts: prompts.openSearch()
+        case .links: links.openSearch()
         case .commands: break
         }
     }
@@ -324,7 +330,7 @@ final class NotchModel {
         open ? closePanel() : openPanel()
     }
 
-    /// ⌘⇧V / ⌘⇧P / ⌘⇧E / ⌘⇧X: opens the panel on `tab` (and Notes sub-tab `sub`). No-op if that menu is switched off.
+    /// ⌘⇧V / ⌘⇧P / ⌘⇧L / ⌘⇧E / ⌘⇧X: opens the panel on `tab` (and Notes sub-tab `sub`). No-op if that menu is switched off.
     func show(_ tab: MainTab, notes sub: NotesTab? = nil) {
         guard isEnabled(tab.feature) else { return }
         if mainTab != tab { setMainTab(tab) }
