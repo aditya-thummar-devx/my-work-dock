@@ -30,6 +30,7 @@ final class NotchWindowController {
             let host = FirstMouseHostingView(rootView: NotchRoot(model: model, screen: screen))
             host.sizingOptions = []
             panel.contentView = host
+            panel.onEscape = { [weak model] in model?.closePanel() }
         }
 
         /// `NSRect.contains` is half-open, and the pointer sits exactly on `maxY` at the top edge.
