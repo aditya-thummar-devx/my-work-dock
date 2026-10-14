@@ -36,6 +36,7 @@ struct OpenPanelView: View {
                     Color.clear.contentShape(Rectangle()).onTapGesture(perform: model.toggleSettings) // outside click closes, like the claudex sort menu
                     SettingsPopover(theme: model.theme, systemIsDark: model.appearance.isDark, tint: model.tint, disabled: model.disabled,
                                     allDisplays: model.showOnAllDisplays, clipboardLimit: model.clipboard.limit,
+                                    version: model.version, updatedAt: model.updatedAt, onCheckForUpdates: model.checkForUpdates,
                                     onTheme: model.setTheme, onTint: model.setTint,
                                     onFeature: model.setEnabled, onAllDisplays: model.setShowOnAllDisplays,
                                     onClipboardLimit: model.setClipboardLimit, onClose: model.toggleSettings)
