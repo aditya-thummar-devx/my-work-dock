@@ -23,7 +23,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         #if !DEBUG
         MainActor.assumeIsolated {
             let updater = Updater(isIdle: { [unowned model] in model.isIdle })
-            model.checkForUpdates = { updater.checkForUpdates() }
+            // Sparkle's window is a normal-level window and the open panel floats above it (and never closes on outside clicks), so close it first.
+            model.checkForUpdates = { [unowned model] in
+                model.closePanel()
+                updater.checkForUpdates()
+            }
         }
         #endif
         // No automatic login item: "Open at login" in the right-click menu is the only way to turn it on.
