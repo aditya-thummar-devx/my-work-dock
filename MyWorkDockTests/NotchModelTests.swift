@@ -46,6 +46,18 @@ final class NotchModelTests: XCTestCase {
         XCTAssertEqual(model.mode, .idle)
     }
 
+    func testIsIdleOnlyWhilePanelClosedAndNothingPending() {
+        XCTAssertTrue(model.isIdle)
+        model.pointer(inside: true)
+        XCTAssertFalse(model.isIdle)      // hovering
+        model.openPanel()
+        XCTAssertFalse(model.isIdle)      // open
+        model.closePanel()
+        XCTAssertTrue(model.isIdle)
+        model.confirmer.ask(ConfirmRequest(title: "t", command: "c", note: "n", confirmTitle: "ok") {})
+        XCTAssertFalse(model.isIdle)      // a confirm sheet is waiting
+    }
+
     func testShrinkFlagFollowsModeSize() {
         XCTAssertFalse(model.shrinking)
         model.pointer(inside: true)
