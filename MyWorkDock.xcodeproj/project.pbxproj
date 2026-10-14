@@ -14,10 +14,12 @@
 		1698EA708CFF7D85A7BD22E4 /* LocalIPTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A875885929943DC4CD4FC935 /* LocalIPTests.swift */; };
 		177216B8869191E0A0BD4CE6 /* NotesStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9B319D57B300A42B781108B /* NotesStoreTests.swift */; };
 		19986EB9684ACA99C191102D /* EmulatorStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7558FB443D24F18007D7B140 /* EmulatorStore.swift */; };
+		1E2D2E3E034B7001A0F52D8C /* ClaudeHookInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4DE8B451EFC92EADFB66310 /* ClaudeHookInstaller.swift */; };
 		25FE3084F24C9291C94FABBD /* SnippetStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60EB6DD46319FA4341BD8616 /* SnippetStoreTests.swift */; };
 		2AE26EA033B68ABCBEB56E4B /* AppearanceObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = D03E22ACFABA20FB0AE0F7DF /* AppearanceObserver.swift */; };
 		401CB23DE4041F67046AC052 /* EmulatorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 170EC65D981DACCAC7F50DCB /* EmulatorView.swift */; };
 		46EBDECA6BADA89FCA77879A /* ClaudexStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A9E9C219E5402A514BBCFDE /* ClaudexStore.swift */; };
+		4ABAEFA99EBD8FB0A43F4399 /* ClaudeHookInstallerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4561BFB6EFC70E739CACE958 /* ClaudeHookInstallerTests.swift */; };
 		4B585D12ECB5DD92986FD4A2 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB18B5C719D9F5F2EF2025E3 /* AppDelegate.swift */; };
 		4B84419E63B31784C856C610 /* Geometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = DD0F784451EA57D070293CEA /* Geometry.swift */; };
 		4D98404EBD21A52D12383BCB /* Gauges.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAB8DF0A32DD802CC8142544 /* Gauges.swift */; };
@@ -130,6 +132,7 @@
 		3989FF74C1B011A4AA8F1C29 /* ClaudeAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeAdapter.swift; sourceTree = "<group>"; };
 		3EBBF6E673A2BD551CD61669 /* ClaudexTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudexTests.swift; sourceTree = "<group>"; };
 		44D99B6DC498BF6E254ECA43 /* Compositions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Compositions.swift; sourceTree = "<group>"; };
+		4561BFB6EFC70E739CACE958 /* ClaudeHookInstallerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeHookInstallerTests.swift; sourceTree = "<group>"; };
 		47761937DF738E2DF72CAC78 /* SampleData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SampleData.swift; sourceTree = "<group>"; };
 		507B24A0C2AFEB72EF9DB202 /* HotKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotKey.swift; sourceTree = "<group>"; };
 		54F6CBC4F1DC8445B5FC8EEE /* Confirmer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Confirmer.swift; sourceTree = "<group>"; };
@@ -162,6 +165,7 @@
 		BAB8DF0A32DD802CC8142544 /* Gauges.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Gauges.swift; sourceTree = "<group>"; };
 		BB18B5C719D9F5F2EF2025E3 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		C1F876BC563567DB3D42208A /* AgentTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentTests.swift; sourceTree = "<group>"; };
+		C4DE8B451EFC92EADFB66310 /* ClaudeHookInstaller.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeHookInstaller.swift; sourceTree = "<group>"; };
 		C7DA5FE2F6D886BF709FA203 /* NotchPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchPanel.swift; sourceTree = "<group>"; };
 		C9B319D57B300A42B781108B /* NotesStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesStoreTests.swift; sourceTree = "<group>"; };
 		CC0AF6BE5F9A48C027D60391 /* Search.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Search.swift; sourceTree = "<group>"; };
@@ -352,6 +356,7 @@
 				88F4A0E7A30812ECD4EBD702 /* AgentModels.swift */,
 				7333F1201B6CD0D48157BB0B /* AgentServer.swift */,
 				3989FF74C1B011A4AA8F1C29 /* ClaudeAdapter.swift */,
+				C4DE8B451EFC92EADFB66310 /* ClaudeHookInstaller.swift */,
 				82314929C130304EC80B250F /* TerminalLookup.swift */,
 			);
 			path = Agents;
@@ -394,6 +399,7 @@
 			children = (
 				FE62518138E36EBA18F5142B /* AgentServerTests.swift */,
 				C1F876BC563567DB3D42208A /* AgentTests.swift */,
+				4561BFB6EFC70E739CACE958 /* ClaudeHookInstallerTests.swift */,
 				3EBBF6E673A2BD551CD61669 /* ClaudexTests.swift */,
 				7866DFEBEB0F586C0417F719 /* EmulatorTests.swift */,
 				A875885929943DC4CD4FC935 /* LocalIPTests.swift */,
@@ -549,6 +555,7 @@
 				C1D659123F163B71A8B285AF /* Cards.swift in Sources */,
 				E0BB9AAE2B904FB1BB47770E /* Chips.swift in Sources */,
 				B3F026A28AD5326A862E1859 /* ClaudeAdapter.swift in Sources */,
+				1E2D2E3E034B7001A0F52D8C /* ClaudeHookInstaller.swift in Sources */,
 				C16E0B8C235ADA65E368E9E4 /* ClaudexParsers.swift in Sources */,
 				46EBDECA6BADA89FCA77879A /* ClaudexStore.swift in Sources */,
 				E34C038A9B785645D13A1931 /* ClaudexView.swift in Sources */,
@@ -603,6 +610,7 @@
 			files = (
 				DF2339C9A06D85CEE2EE0DD2 /* AgentServerTests.swift in Sources */,
 				50EC0063A2A4E73E2AE28FFA /* AgentTests.swift in Sources */,
+				4ABAEFA99EBD8FB0A43F4399 /* ClaudeHookInstallerTests.swift in Sources */,
 				CACBF7000B88CCEEDB0AA106 /* ClaudexTests.swift in Sources */,
 				785209BE27C667A2B7C6670F /* EmulatorTests.swift in Sources */,
 				1698EA708CFF7D85A7BD22E4 /* LocalIPTests.swift in Sources */,
