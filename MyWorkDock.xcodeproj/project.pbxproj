@@ -43,6 +43,7 @@
 		7E4DD105BB20630472AC6A0A /* ProcessRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCE7B0C77CDE0153A5E9B3F8 /* ProcessRunner.swift */; };
 		7E72186AEAEBC6C52074E2C1 /* AgentCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2DAEEB0F70FC3DF502D62B82 /* AgentCore.swift */; };
 		819EDDC62DE2AA32A1B8BC80 /* AgentModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88F4A0E7A30812ECD4EBD702 /* AgentModels.swift */; };
+		83E664DD5E4E93119A045E1A /* AgentServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7333F1201B6CD0D48157BB0B /* AgentServer.swift */; };
 		8E0397F41B2792D54ADDCADE /* MyWorkDockApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C2C70119ECAE4541292A380 /* MyWorkDockApp.swift */; };
 		8E6F30254BAB9122F79D0BD5 /* TextArea.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB340316832145AEAB961B07 /* TextArea.swift */; };
 		904F65D61A82CECB75A40AB6 /* Fragments.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82755D82FE8EEBBFD0E04732 /* Fragments.swift */; };
@@ -67,6 +68,7 @@
 		D9CAB625BAD3FA98CB3E9A89 /* Buttons.swift in Sources */ = {isa = PBXBuildFile; fileRef = 027BF062CCD37353FACE585C /* Buttons.swift */; };
 		DCA4CA1F099434CB7AE546A0 /* Confirmer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54F6CBC4F1DC8445B5FC8EEE /* Confirmer.swift */; };
 		DD771BD93CA700637914D1B4 /* ConfirmSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDC383C1653B0736688A7AFC /* ConfirmSheet.swift */; };
+		DF2339C9A06D85CEE2EE0DD2 /* AgentServerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE62518138E36EBA18F5142B /* AgentServerTests.swift */; };
 		E0BB9AAE2B904FB1BB47770E /* Chips.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F9F0014FE9F0FCD94C0112B /* Chips.swift */; };
 		E1518274420FA4C15F8DF031 /* Icon.swift in Sources */ = {isa = PBXBuildFile; fileRef = A94EF0B3AF254352A2F800EC /* Icon.swift */; };
 		E34C038A9B785645D13A1931 /* ClaudexView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09F7C9EE63C67CD5FA7FDA90 /* ClaudexView.swift */; };
@@ -136,6 +138,7 @@
 		60EB6DD46319FA4341BD8616 /* SnippetStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnippetStoreTests.swift; sourceTree = "<group>"; };
 		667D4958D3D6A04687F27F7A /* MyWorkDockTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MyWorkDockTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		6F9F0014FE9F0FCD94C0112B /* Chips.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Chips.swift; sourceTree = "<group>"; };
+		7333F1201B6CD0D48157BB0B /* AgentServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentServer.swift; sourceTree = "<group>"; };
 		74EA9F0816C0D446937D2461 /* Geist[wght].ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Geist[wght].ttf"; sourceTree = "<group>"; };
 		7558FB443D24F18007D7B140 /* EmulatorStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmulatorStore.swift; sourceTree = "<group>"; };
 		764A39EA4A29DEA4E06B5FCF /* Persistence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence.swift; sourceTree = "<group>"; };
@@ -177,6 +180,7 @@
 		F9A1A5C8D892CF28014AF8C7 /* Gallery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Gallery.swift; sourceTree = "<group>"; };
 		FCE7B0C77CDE0153A5E9B3F8 /* ProcessRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessRunner.swift; sourceTree = "<group>"; };
 		FD2FE7AE1AEAA0FCF20CAC80 /* mwd-hook */ = {isa = PBXFileReference; includeInIndex = 0; path = "mwd-hook"; sourceTree = BUILT_PRODUCTS_DIR; };
+		FE62518138E36EBA18F5142B /* AgentServerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentServerTests.swift; sourceTree = "<group>"; };
 		FF75D679CBBD1CD31DA922BA /* SnippetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnippetView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -346,6 +350,7 @@
 			children = (
 				2DAEEB0F70FC3DF502D62B82 /* AgentCore.swift */,
 				88F4A0E7A30812ECD4EBD702 /* AgentModels.swift */,
+				7333F1201B6CD0D48157BB0B /* AgentServer.swift */,
 				3989FF74C1B011A4AA8F1C29 /* ClaudeAdapter.swift */,
 				82314929C130304EC80B250F /* TerminalLookup.swift */,
 			);
@@ -387,6 +392,7 @@
 		F104FCACBA1CF54972A62747 /* MyWorkDockTests */ = {
 			isa = PBXGroup;
 			children = (
+				FE62518138E36EBA18F5142B /* AgentServerTests.swift */,
 				C1F876BC563567DB3D42208A /* AgentTests.swift */,
 				3EBBF6E673A2BD551CD61669 /* ClaudexTests.swift */,
 				7866DFEBEB0F586C0417F719 /* EmulatorTests.swift */,
@@ -536,6 +542,7 @@
 			files = (
 				7E72186AEAEBC6C52074E2C1 /* AgentCore.swift in Sources */,
 				819EDDC62DE2AA32A1B8BC80 /* AgentModels.swift in Sources */,
+				83E664DD5E4E93119A045E1A /* AgentServer.swift in Sources */,
 				4B585D12ECB5DD92986FD4A2 /* AppDelegate.swift in Sources */,
 				2AE26EA033B68ABCBEB56E4B /* AppearanceObserver.swift in Sources */,
 				D9CAB625BAD3FA98CB3E9A89 /* Buttons.swift in Sources */,
@@ -594,6 +601,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				DF2339C9A06D85CEE2EE0DD2 /* AgentServerTests.swift in Sources */,
 				50EC0063A2A4E73E2AE28FFA /* AgentTests.swift in Sources */,
 				CACBF7000B88CCEEDB0AA106 /* ClaudexTests.swift in Sources */,
 				785209BE27C667A2B7C6670F /* EmulatorTests.swift in Sources */,
