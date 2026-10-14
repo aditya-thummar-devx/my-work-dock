@@ -161,6 +161,17 @@ final class NotchModelTests: XCTestCase {
         XCTAssertEqual(model.geometry(on: 1).width, Geo.open.width)
     }
 
+    func testLargePanelTakesThreeQuartersOfTheDisplayAndNeverShrinksBelowMedium() {
+        let screen = CGSize(width: 1600, height: 1000)
+        model.openPanel()
+        XCTAssertEqual(model.geometry(screen: screen).width, Geo.open.width) // medium is the default
+        model.setPanelSize(.large)
+        XCTAssertEqual(model.geometry(screen: screen).width, 1200)
+        XCTAssertEqual(model.geometry(screen: screen).height, 750)
+        XCTAssertEqual(model.geometry(screen: CGSize(width: 800, height: 600)).height, Geo.open.height)
+        XCTAssertEqual(model.geometry().width, Geo.open.width) // unknown display
+    }
+
     func testLiveActivityShowsOnEveryDisplayEvenWhileAnotherPeeks() {
         model.setActiveDisplay(1)
         model.bootingOverride = "iPhone 16 Plus"

@@ -15,6 +15,8 @@ extension EnvironmentValues {
 final class ShellScreen {
     var id: DisplayID?
     var notch: CGSize?
+    /// The display's size in points; nil in snapshots.
+    var size: CGSize?
 }
 
 /// Draws the shell for the current mode: silhouette + shadow, mode content clipped to the body.
@@ -31,7 +33,7 @@ struct NotchContainer: View {
 
     var body: some View {
         let mode = model.mode(on: screen.id)
-        let g = model.geometry(notch: screen.notch, on: screen.id)
+        let g = model.geometry(notch: screen.notch, on: screen.id, screen: screen.size)
         let t = model.tokens
         let shadowOpacity = mode == .idle ? 0 : (model.isLight ? Geo.shadow.lightOpenOpacity : Geo.shadow.opacity)
 
@@ -41,7 +43,7 @@ struct NotchContainer: View {
                 .shadow(color: .black.opacity(shadowOpacity), radius: Geo.shadow.blur / 2, x: 0, y: Geo.shadow.y)
                 .frame(width: g.width, height: g.height)
 
-            content(mode)
+            content(mode, g)
                 .animation(reduceMotion ? nil : .easeOut(duration: Geo.fadeOut), value: mode)
             .frame(width: g.width, height: g.height, alignment: .top)
             .clipShape(UnevenRoundedRectangle(bottomLeadingRadius: g.radius, bottomTrailingRadius: g.radius))
@@ -70,7 +72,7 @@ struct NotchContainer: View {
     /// Incoming content brings its own delayed fade (`Entrance`); outgoing content fades out while the shell moves.
     private static let contentSwap = AnyTransition.asymmetric(insertion: .identity, removal: .opacity)
 
-    @ViewBuilder private func content(_ mode: NotchMode) -> some View {
+    @ViewBuilder private func content(_ mode: NotchMode, _ g: ShellGeometry) -> some View {
         switch mode {
         case .idle:
             Color.clear
@@ -106,7 +108,7 @@ struct NotchContainer: View {
                 .modifier(Entrance(timing: Geo.fadePeekLive))
                 .transition(Self.contentSwap)
         case .open:
-            OpenPanelView(model: model)
+            OpenPanelView(model: model, size: CGSize(width: g.width, height: g.height))
                 .accessibilityElement(children: .contain)
                 .accessibilityLabel("MyWorkDock panel")
                 .modifier(Entrance(timing: Geo.fadeOpen))

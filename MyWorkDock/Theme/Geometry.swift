@@ -16,6 +16,21 @@ enum NotchMode: Equatable {
     }
 }
 
+/// Settings › Appearance › Panel size: how big the open panel is. The raw values are stored in UserDefaults.
+enum PanelSize: String, CaseIterable, Identifiable {
+    case medium, large
+
+    var id: String { rawValue }
+    var label: String { rawValue.capitalized }
+
+    /// Medium is the designed `Geo.open`; large is 75 % of the display (never smaller than medium, and medium when the display is unknown).
+    func size(on display: CGSize?) -> CGSize {
+        let medium = CGSize(width: Geo.open.width, height: Geo.open.height)
+        guard self == .large, let display else { return medium }
+        return CGSize(width: max(medium.width, (display.width * 0.75).rounded()), height: max(medium.height, (display.height * 0.75).rounded()))
+    }
+}
+
 enum Geo {
     // MARK: Shell silhouettes (width, height, bottom radius)
 
