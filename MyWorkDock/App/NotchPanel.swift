@@ -18,6 +18,16 @@ final class NotchPanel: NSPanel {
         animationBehavior = .none
     }
 
+    /// Called for an Esc nothing in the responder chain handled (inline edits, search and the confirm sheet take theirs first).
+    var onEscape: (() -> Void)?
+
+    override func keyDown(with event: NSEvent) {
+        if event.keyCode == 53 { onEscape?() } else { super.keyDown(with: event) }
+    }
+
+    /// Esc from a text view whose delegate declined it.
+    override func cancelOperation(_ sender: Any?) { onEscape?() }
+
     /// Text fields need a key window while open.
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
