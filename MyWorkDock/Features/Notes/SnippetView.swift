@@ -23,6 +23,12 @@ struct SnippetScreen: View {
                 SnippetList(store: store)
             }
         }
+        .overlay(alignment: .bottom) {
+            if store.hintShown {
+                HintToast("Double-click a \(store.kind.noun) to copy it").padding(.bottom, 12).transition(.opacity.combined(with: .offset(y: 6)))
+            }
+        }
+        .animation(.easeOut(duration: 0.15), value: store.hintShown)
     }
 }
 
@@ -86,7 +92,7 @@ struct SnippetList: View {
             let item = items[i]
             SnippetRow(kind: store.kind, text: item.text, copied: store.copiedId == item.id, editing: store.editId == item.id,
                        editText: $store.editDraft,
-                       onOpen: { store.open(item.id) }, onCopy: { store.copy(item.id) }, onEdit: { store.startEdit(item.id) },
+                       onTap: { store.tap(item.id) }, onOpen: { store.open(item.id) }, onCopy: { store.copy(item.id) }, onEdit: { store.startEdit(item.id) },
                        onDelete: { store.delete(item.id) }, onSave: store.saveEdit, onCancel: store.cancelEdit)
         }
     }

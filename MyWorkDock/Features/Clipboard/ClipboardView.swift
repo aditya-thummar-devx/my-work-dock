@@ -33,7 +33,7 @@ struct ClipboardScreen: View {
         }
         .overlay(alignment: .topTrailing) { tagMenu }
         .overlay(alignment: .bottom) {
-            if store.hintShown { HintToast().padding(.bottom, 12).transition(.opacity.combined(with: .offset(y: 6))) }
+            if store.hintShown { HintToast("Double-click a clip to copy it").padding(.bottom, 12).transition(.opacity.combined(with: .offset(y: 6))) }
         }
         .animation(.easeOut(duration: 0.15), value: store.hintShown)
         .animation(.easeOut(duration: Geo.popoverFade), value: store.tagMenuOpen)
@@ -152,24 +152,6 @@ private struct TopRow<Search: View>: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Manage tags")
-    }
-}
-
-/// Inverted pill so it reads on both themes.
-private struct HintToast: View {
-    @Environment(\.tokens) private var t
-
-    var body: some View {
-        HStack(spacing: 7) {
-            Icon(.copy, size: 12)
-            Text("Double-click a clip to copy it").font(Typo.ui(12.5, .semibold))
-        }
-        .foregroundStyle(t.panel)
-        .padding(.horizontal, 14)
-        .frame(height: 34)
-        .background(Capsule().fill(t.text))
-        .accessibilityElement(children: .combine)
-        .allowsHitTesting(false)
     }
 }
 

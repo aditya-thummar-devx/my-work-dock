@@ -746,3 +746,24 @@ struct TagFormPopover: View {
         .buttonStyle(.plain)
     }
 }
+
+/// Inverted pill so it reads on both themes.
+struct HintToast: View {
+    var text: String
+    @Environment(\.tokens) private var t
+
+    init(_ text: String) { self.text = text }
+
+    var body: some View {
+        HStack(spacing: 7) {
+            Icon(.copy, size: 12)
+            Text(text).font(Typo.ui(12.5, .semibold))
+        }
+        .foregroundStyle(t.panel)
+        .padding(.horizontal, 14)
+        .frame(height: 34)
+        .background(Capsule().fill(t.text))
+        .accessibilityElement(children: .combine)
+        .allowsHitTesting(false)
+    }
+}
