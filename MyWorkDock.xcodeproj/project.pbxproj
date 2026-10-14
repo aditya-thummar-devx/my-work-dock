@@ -13,6 +13,7 @@
 		14179C4F698D7389F175EE44 /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FA09B7A2C87B7CC4C986E77 /* main.swift */; };
 		1698EA708CFF7D85A7BD22E4 /* LocalIPTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A875885929943DC4CD4FC935 /* LocalIPTests.swift */; };
 		177216B8869191E0A0BD4CE6 /* NotesStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9B319D57B300A42B781108B /* NotesStoreTests.swift */; };
+		1837202DB8C8C7B10DD0D64C /* AgentStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F57E915DF4E1EB7044E207AD /* AgentStore.swift */; };
 		19986EB9684ACA99C191102D /* EmulatorStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7558FB443D24F18007D7B140 /* EmulatorStore.swift */; };
 		1E2D2E3E034B7001A0F52D8C /* ClaudeHookInstaller.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4DE8B451EFC92EADFB66310 /* ClaudeHookInstaller.swift */; };
 		25FE3084F24C9291C94FABBD /* SnippetStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60EB6DD46319FA4341BD8616 /* SnippetStoreTests.swift */; };
@@ -51,6 +52,7 @@
 		904F65D61A82CECB75A40AB6 /* Fragments.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82755D82FE8EEBBFD0E04732 /* Fragments.swift */; };
 		9810CC69ECE764ECEB142B4C /* SnapshotRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = A693D8C92368EF5E14F71820 /* SnapshotRunner.swift */; };
 		9D997138A8C2D18B39013B50 /* Gallery.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9A1A5C8D892CF28014AF8C7 /* Gallery.swift */; };
+		9F48C34A576AFE28564F6F7C /* AgentsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2466DD771AABF9148E474A2 /* AgentsView.swift */; };
 		9F5CCC48C3E75386D0CD3FE4 /* NotchWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E992BC6DD5542E4FAA27F278 /* NotchWindowController.swift */; };
 		A7AF5E6B9E8D9BD2543E34E1 /* NotchModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B97E1C4288EDC22AE19BF414 /* NotchModelTests.swift */; };
 		A7C3904A67D0563366F8F675 /* PeekView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D27D6105A84C4F2EBD04890F /* PeekView.swift */; };
@@ -157,6 +159,7 @@
 		9560B277AF811CBA16AF9406 /* NotchContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchContainer.swift; sourceTree = "<group>"; };
 		9973D49E4E706206141196C5 /* Tokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tokens.swift; sourceTree = "<group>"; };
 		9FA09B7A2C87B7CC4C986E77 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		A2466DD771AABF9148E474A2 /* AgentsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentsView.swift; sourceTree = "<group>"; };
 		A2811D63DAF1BDB46FBF9172 /* MyWorkDock.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MyWorkDock.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A693D8C92368EF5E14F71820 /* SnapshotRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotRunner.swift; sourceTree = "<group>"; };
 		A875885929943DC4CD4FC935 /* LocalIPTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalIPTests.swift; sourceTree = "<group>"; };
@@ -181,6 +184,7 @@
 		EB340316832145AEAB961B07 /* TextArea.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextArea.swift; sourceTree = "<group>"; };
 		F4F6C9CAA8A02E561CD28AA3 /* EmulatorParsers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmulatorParsers.swift; sourceTree = "<group>"; };
 		F516D6B0A88B0BB3921F66F7 /* Tabs.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tabs.swift; sourceTree = "<group>"; };
+		F57E915DF4E1EB7044E207AD /* AgentStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentStore.swift; sourceTree = "<group>"; };
 		F9A1A5C8D892CF28014AF8C7 /* Gallery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Gallery.swift; sourceTree = "<group>"; };
 		FCE7B0C77CDE0153A5E9B3F8 /* ProcessRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessRunner.swift; sourceTree = "<group>"; };
 		FD2FE7AE1AEAA0FCF20CAC80 /* mwd-hook */ = {isa = PBXFileReference; includeInIndex = 0; path = "mwd-hook"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -355,6 +359,8 @@
 				2DAEEB0F70FC3DF502D62B82 /* AgentCore.swift */,
 				88F4A0E7A30812ECD4EBD702 /* AgentModels.swift */,
 				7333F1201B6CD0D48157BB0B /* AgentServer.swift */,
+				F57E915DF4E1EB7044E207AD /* AgentStore.swift */,
+				A2466DD771AABF9148E474A2 /* AgentsView.swift */,
 				3989FF74C1B011A4AA8F1C29 /* ClaudeAdapter.swift */,
 				C4DE8B451EFC92EADFB66310 /* ClaudeHookInstaller.swift */,
 				82314929C130304EC80B250F /* TerminalLookup.swift */,
@@ -549,6 +555,8 @@
 				7E72186AEAEBC6C52074E2C1 /* AgentCore.swift in Sources */,
 				819EDDC62DE2AA32A1B8BC80 /* AgentModels.swift in Sources */,
 				83E664DD5E4E93119A045E1A /* AgentServer.swift in Sources */,
+				1837202DB8C8C7B10DD0D64C /* AgentStore.swift in Sources */,
+				9F48C34A576AFE28564F6F7C /* AgentsView.swift in Sources */,
 				4B585D12ECB5DD92986FD4A2 /* AppDelegate.swift in Sources */,
 				2AE26EA033B68ABCBEB56E4B /* AppearanceObserver.swift in Sources */,
 				D9CAB625BAD3FA98CB3E9A89 /* Buttons.swift in Sources */,

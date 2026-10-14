@@ -15,6 +15,7 @@ struct OpenPanelView: View {
                     MenusOffGuide(onOpenSettings: model.settings ? {} : model.toggleSettings).transition(.opacity)
                 } else {
                     switch model.mainTab {
+                    case .agents: AgentsScreen(store: model.agents).transition(.opacity)
                     case .notes: NotesScreen(model: model).transition(.opacity)
                     case .emulator: EmulatorScreen(model: model).transition(.opacity)
                     case .claudex: ClaudexScreen(model: model).transition(.opacity)
@@ -89,6 +90,7 @@ private struct Footer: View {
         if model.enabledTabs.isEmpty { return StatusMessage(text: "All menus are off") }
         func failed(_ why: String?) -> StatusMessage? { why.map { StatusMessage(text: "Could not save: \($0)", isError: true) } }
         switch model.mainTab {
+        case .agents: return StatusMessage(text: model.agents.footer)
         case .notes:
             if let snippets = model.activeSnippets { return failed(snippets.saveError) ?? StatusMessage(text: snippets.footer) }
             return failed(model.notes.saveError) ?? StatusMessage(text: model.notes.footer)

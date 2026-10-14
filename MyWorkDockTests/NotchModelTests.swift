@@ -181,10 +181,17 @@ final class NotchModelTests: XCTestCase {
 
     func testFeatureRawValuesAreStable() {
         // Stored in UserDefaults as "disabledFeatures".
-        XCTAssertEqual(Feature.allCases.map(\.rawValue), ["notes", "claudex", "emulator", "localIP"])
+        XCTAssertEqual(Feature.allCases.map(\.rawValue), ["notes", "claudex", "emulator", "localIP", "agents"])
+    }
+
+    func testAgentsIsTheLastMenuAndCanBeSwitchedOff() {
+        XCTAssertEqual(model.enabledTabs.last, .agents)
+        model.setEnabled(.agents, false)
+        XCTAssertEqual(model.enabledTabs, [.notes, .claudex, .emulator])
     }
 
     func testDisablingTheCurrentMenuMovesToTheNextEnabledOne() {
+        model.setEnabled(.agents, false) // the original three menus
         model.setMainTab(.notes)
         model.setEnabled(.notes, false)
         XCTAssertEqual(model.enabledTabs, [.claudex, .emulator])
@@ -199,6 +206,7 @@ final class NotchModelTests: XCTestCase {
     }
 
     func testCycleMainTabWrapsAndSkipsDisabledMenus() {
+        model.setEnabled(.agents, false) // the original three menus
         model.setMainTab(.notes)
         model.cycleMainTab()
         XCTAssertEqual(model.mainTab, .claudex)
@@ -270,6 +278,7 @@ final class NotchModelTests: XCTestCase {
     func testDisabledNotesIgnoresSearchAndUndoEvenWhileItIsTheLastTab() {
         model.setNotesTab(.commands)
         XCTAssertNotNil(model.activeSnippets)
+        model.setEnabled(.agents, false)
         model.setEnabled(.claudex, false)
         model.setEnabled(.emulator, false)
         model.setEnabled(.notes, false) // mainTab stays .notes: nothing else to move to

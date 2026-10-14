@@ -4,12 +4,13 @@ import Observation
 typealias DisplayID = CGDirectDisplayID
 
 enum MainTab: String, CaseIterable, Identifiable {
-    case notes, claudex, emulator
+    case notes, claudex, emulator, agents
 
     var id: String { rawValue }
     var label: String { self == .claudex ? "claudex" : rawValue.capitalized }
     var glyph: Glyph {
         switch self {
+        case .agents: .chat
         case .notes: .notes
         case .claudex: .gauge
         case .emulator: .phone
@@ -17,6 +18,7 @@ enum MainTab: String, CaseIterable, Identifiable {
     }
     var feature: Feature {
         switch self {
+        case .agents: .agents
         case .notes: .notes
         case .claudex: .claudex
         case .emulator: .emulator
@@ -26,11 +28,12 @@ enum MainTab: String, CaseIterable, Identifiable {
 
 /// What Settings › Menus can switch off. The raw values are stored in UserDefaults.
 enum Feature: String, CaseIterable, Identifiable {
-    case notes, claudex, emulator, localIP
+    case notes, claudex, emulator, localIP, agents
 
     var id: String { rawValue }
     var label: String {
         switch self {
+        case .agents: "Agents"
         case .notes: "Notes"
         case .claudex: "claudex"
         case .emulator: "Emulator"
@@ -39,6 +42,7 @@ enum Feature: String, CaseIterable, Identifiable {
     }
     var glyph: Glyph {
         switch self {
+        case .agents: .chat
         case .notes: .notes
         case .claudex: .gauge
         case .emulator: .phone
@@ -74,6 +78,7 @@ final class NotchModel {
     let emulator: EmulatorStore
     let claudex: ClaudexStore
     let localIP: LocalIPStore
+    let agents: AgentStore
     /// The user's choice; `resolvedTheme` is what is drawn.
     private(set) var theme: ThemeMode = .dark
     let appearance: AppearanceObserver
@@ -121,6 +126,7 @@ final class NotchModel {
         emulator = sample ? EmulatorStore(sample: false, confirmer: confirmer) : EmulatorStore(confirmer: confirmer)
         claudex = sample ? ClaudexStore(sample: true, confirmer: confirmer) : ClaudexStore(confirmer: confirmer)
         localIP = sample ? .sample() : .live()
+        agents = sample ? .sample() : .live()
         if !sample { peek = claudex.peekData } // snapshots keep the prototype's POOL sample
         peekExtents = PeekMetrics.measure(peek)
         claudex.onData = { [weak self] in self?.refreshPeek() }
@@ -251,6 +257,7 @@ final class NotchModel {
             return all[((all.firstIndex(of: v) ?? 0) + 1) % all.count]
         }
         switch mainTab {
+        case .agents: break
         case .notes: setNotesTab(next(notesTab))
         case .claudex: claudex.select(next(claudex.tab))
         case .emulator: setEmulatorTab(next(emulatorTab))
@@ -350,6 +357,9 @@ final class NotchModel {
             if isEnabled(.localIP) { localIP.startMonitoring() } else { localIP.stopMonitoring() }
         }
         if apply(.claudex), isEnabled(.claudex) { Task { await claudex.refresh() } }
+        if apply(.agents) {
+            if isEnabled(.agents) { agents.start() } else { agents.stop() }
+        }
     }
 
     func toggleSettings() {

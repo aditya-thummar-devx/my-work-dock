@@ -5,7 +5,7 @@ import SwiftUI
 /// each glyph carries the most common one as its default.
 enum Glyph {
     case notes, terminal, gauge, phone, tablet, pin, sliders, search, plus, refresh, close, check, copy, pencil, trash
-    case wifi, arrows, chevronDown, play, stop, power, warning, monitor, arrowLeft, moon, sun, triangle, funnel, tag, globe
+    case wifi, arrows, chevronDown, play, stop, power, warning, monitor, arrowLeft, moon, sun, triangle, funnel, tag, globe, chat
 
     fileprivate enum Part {
         case path(String)
@@ -45,6 +45,7 @@ enum Glyph {
         case .funnel: [.path("M4 5h16l-6 7.5V19l-4 1.5v-8z")]
         case .tag: [.path("M3 12V4h8l10 10-8 8z"), .circle(cx: 7.5, cy: 7.5, r: 1.4)]
         case .globe: [.circle(cx: 12, cy: 12, r: 9), .path("M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18")]
+        case .chat: [.path("M4 5h16v11H9l-5 4z"), .path("M8 10h8M8 13h5")]
         }
     }
 
