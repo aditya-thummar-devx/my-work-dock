@@ -55,23 +55,28 @@ struct SettingsPopover: View {
     var systemIsDark = true
     var tint: Tint
     var disabled: Set<Feature> = []
+    var allDisplays = false
     var onTheme: (ThemeMode) -> Void = { _ in }
     var onTint: (Tint) -> Void = { _ in }
     var onFeature: (Feature, Bool) -> Void = { _, _ in }
+    var onAllDisplays: (Bool) -> Void = { _ in }
     var onClose: () -> Void = {}
     @State private var page: Page
     @Environment(\.tokens) private var t
 
-    init(theme: ThemeMode, systemIsDark: Bool = true, tint: Tint, disabled: Set<Feature> = [], page: Page = .appearance,
+    init(theme: ThemeMode, systemIsDark: Bool = true, tint: Tint, disabled: Set<Feature> = [], allDisplays: Bool = false, page: Page = .appearance,
          onTheme: @escaping (ThemeMode) -> Void = { _ in }, onTint: @escaping (Tint) -> Void = { _ in },
-         onFeature: @escaping (Feature, Bool) -> Void = { _, _ in }, onClose: @escaping () -> Void = {}) {
+         onFeature: @escaping (Feature, Bool) -> Void = { _, _ in }, onAllDisplays: @escaping (Bool) -> Void = { _ in },
+         onClose: @escaping () -> Void = {}) {
         self.theme = theme
         self.systemIsDark = systemIsDark
         self.tint = tint
         self.disabled = disabled
+        self.allDisplays = allDisplays
         self.onTheme = onTheme
         self.onTint = onTint
         self.onFeature = onFeature
+        self.onAllDisplays = onAllDisplays
         self.onClose = onClose
         _page = State(initialValue: page)
     }
@@ -89,7 +94,7 @@ struct SettingsPopover: View {
             case .appearance:
                 AppearanceSection(theme: theme, systemIsDark: systemIsDark, tint: tint, onTheme: onTheme, onTint: onTint)
             case .menus:
-                MenusSection(disabled: disabled, onFeature: onFeature)
+                MenusSection(disabled: disabled, allDisplays: allDisplays, onFeature: onFeature, onAllDisplays: onAllDisplays)
             }
         }
         .padding(Geo.Chrome.popoverPadding + 1)
@@ -106,7 +111,9 @@ struct SettingsPopover: View {
 /// Settings › Menus: one switch per feature. Off hides it and stops its background work.
 private struct MenusSection: View {
     var disabled: Set<Feature>
+    var allDisplays: Bool
     var onFeature: (Feature, Bool) -> Void
+    var onAllDisplays: (Bool) -> Void
     @Environment(\.tokens) private var t
 
     var body: some View {
@@ -121,15 +128,26 @@ private struct MenusSection: View {
                 .foregroundStyle(t.faint)
                 .lineSpacing(Typo.lineSpacing(size: Geo.Appearance.noteFont, lineHeight: 1.4))
                 .fixedSize(horizontal: false, vertical: true)
+            Text("Displays").font(Typo.ui(Geo.Appearance.sectionFont, .semibold)).foregroundStyle(t.faint)
+            row("Show on all displays", .monitor, on: allDisplays) { onAllDisplays(!allDisplays) }
+                .padding(.top, Geo.Appearance.pullUp)
+            Text("Also draws the notch on every other display. Hover or click one to use it there.")
+                .font(Typo.ui(Geo.Appearance.noteFont))
+                .foregroundStyle(t.faint)
+                .lineSpacing(Typo.lineSpacing(size: Geo.Appearance.noteFont, lineHeight: 1.4))
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
     private func row(_ feature: Feature) -> some View {
-        let on = !disabled.contains(feature)
-        return Button { onFeature(feature, !on) } label: {
+        row(feature.label, feature.glyph, on: !disabled.contains(feature)) { onFeature(feature, disabled.contains(feature)) }
+    }
+
+    private func row(_ label: String, _ glyph: Glyph, on: Bool, toggle: @escaping () -> Void) -> some View {
+        Button(action: toggle) {
             HStack(spacing: Geo.Menu.rowGap) {
-                Icon(feature.glyph, size: Geo.Appearance.themeIcon).foregroundStyle(on ? t.text : t.muted)
-                Text(feature.label).font(Typo.ui(Geo.Menu.font, .medium)).foregroundStyle(on ? t.text : t.text2)
+                Icon(glyph, size: Geo.Appearance.themeIcon).foregroundStyle(on ? t.text : t.muted)
+                Text(label).font(Typo.ui(Geo.Menu.font, .medium)).foregroundStyle(on ? t.text : t.text2)
                 Spacer(minLength: 0)
                 SwitchPill(on: on)
             }
@@ -138,7 +156,7 @@ private struct MenusSection: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(feature.label)
+        .accessibilityLabel(label)
         .accessibilityValue(on ? "On" : "Off")
     }
 }

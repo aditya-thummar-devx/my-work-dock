@@ -34,7 +34,8 @@ struct OpenPanelView: View {
                 ZStack(alignment: .topTrailing) {
                     Color.clear.contentShape(Rectangle()).onTapGesture(perform: model.toggleSettings) // outside click closes, like the claudex sort menu
                     SettingsPopover(theme: model.theme, systemIsDark: model.appearance.isDark, tint: model.tint, disabled: model.disabled,
-                                    onTheme: model.setTheme, onTint: model.setTint, onFeature: model.setEnabled, onClose: model.toggleSettings)
+                                    allDisplays: model.showOnAllDisplays, onTheme: model.setTheme, onTint: model.setTint,
+                                    onFeature: model.setEnabled, onAllDisplays: model.setShowOnAllDisplays, onClose: model.toggleSettings)
                         .padding(.top, Geo.Chrome.popoverTop).padding(.trailing, Geo.Chrome.popoverRight)
                 }
                 .transition(.opacity)

@@ -128,18 +128,49 @@ final class NotchModelTests: XCTestCase {
     }
 
     func testIdleIsTheHardwareNotchWhenOneExists() {
-        XCTAssertEqual(model.geometry.width, Geo.idle.width)
-        model.setNotch(CGSize(width: 156, height: 28))
-        let g = model.geometry
+        XCTAssertEqual(model.geometry().width, Geo.idle.width)
+        let g = model.geometry(notch: CGSize(width: 156, height: 28))
         XCTAssertEqual([g.width, g.height, g.radius, g.shoulder],
                        [156, 28, Geo.hardwareNotch.radius, Geo.hardwareNotch.shoulder])
-        model.setNotch(nil)
-        XCTAssertEqual(model.geometry.width, Geo.idle.width)
+        XCTAssertEqual(model.geometry(notch: nil).width, Geo.idle.width)
+    }
+
+    // MARK: Settings › Displays
+
+    func testPeekAndOpenBelongToTheActiveDisplayOnly() {
+        model.setActiveDisplay(1)
+        model.pointer(inside: true)
+        XCTAssertEqual(model.mode(on: 1), .peek)
+        XCTAssertEqual(model.mode(on: 2), .idle)
+        model.openPanel()
+        XCTAssertEqual(model.mode(on: 1), .open)
+        XCTAssertEqual(model.mode(on: 2), .idle)
+        XCTAssertEqual(model.geometry(on: 2).width, Geo.idle.width)
+        XCTAssertEqual(model.geometry(on: 1).width, Geo.open.width)
+    }
+
+    func testLiveActivityShowsOnEveryDisplayEvenWhileAnotherPeeks() {
+        model.setActiveDisplay(1)
+        model.bootingOverride = "iPhone 16 Plus"
+        XCTAssertEqual([model.mode(on: 1), model.mode(on: 2)], [.live, .live])
+        model.pointer(inside: true)
+        XCTAssertEqual([model.mode(on: 1), model.mode(on: 2)], [.peek, .live])
+    }
+
+    func testWithoutAnActiveDisplayEveryShellFollowsTheMode() {
+        model.pointer(inside: true)
+        XCTAssertEqual([model.mode(on: nil), model.mode(on: 7)], [.peek, .peek])
+    }
+
+    func testShowOnAllDisplaysDefaultsOffAndToggles() {
+        XCTAssertFalse(model.showOnAllDisplays)
+        model.setShowOnAllDisplays(true)
+        XCTAssertTrue(model.showOnAllDisplays)
     }
 
     func testPeekHugsItsEarsAroundTheCentredKeepOut() {
         model.pointer(inside: true)
-        let g = model.geometry, e = model.peekExtents
+        let g = model.geometry(), e = model.peekExtents
         XCTAssertEqual(g.width, Geo.keepOutWidth + e.left + e.right)
         XCTAssertEqual(g.centerOffset, (e.right - e.left) / 2)
         // The shell's left edge sits `left + 100` pt from the hardware-notch centre.
@@ -268,8 +299,8 @@ final class NotchModelTests: XCTestCase {
         let hint = PeekMetrics.hintExtents
         XCTAssertGreaterThan(hint.right, 0)
         XCTAssertEqual(hint.left, 0)
-        XCTAssertEqual(model.geometry.width, Geo.keepOutWidth + hint.right)
-        XCTAssertEqual(model.geometry.centerOffset, hint.right / 2)
+        XCTAssertEqual(model.geometry().width, Geo.keepOutWidth + hint.right)
+        XCTAssertEqual(model.geometry().centerOffset, hint.right / 2)
     }
 
     func testTurningAMenuBackOnRestoresItsPeekAndTab() {
