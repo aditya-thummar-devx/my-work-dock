@@ -64,11 +64,14 @@ final class ClaudexStore {
     private(set) var me: (account: String, pool: String?)?
     private(set) var fetchedAt: Date?
     private(set) var loading = false
+    /// The pool member a confirmed write is running for (until the refresh after it lands).
+    private(set) var busyMember: String?
 
     // Member details sheet
     private(set) var detailName: String?
     private(set) var detail = Capture<MemberDetail>.empty
     private(set) var detailAge = 0
+    private(set) var detailLoading = false
 
     let confirmer: Confirmer
     @ObservationIgnored let live: Bool
@@ -133,7 +136,7 @@ final class ClaudexStore {
         return sort.apply(rows) { key(name: $0.name, session: $0.session, week: $0.week) }.map { m in
             MemberSample(id: m.name, plan: m.plan, net: m.netM ?? 0, session: reading(m.session), week: reading(m.week),
                          using: usingName == m.name, denied: access.data?.first { $0.name == m.name }?.allowed == false,
-                         mine: me?.pool == m.name)
+                         mine: me?.pool == m.name, busy: busyMember == m.name)
         }
     }
 
@@ -274,6 +277,7 @@ final class ClaudexStore {
         tab = t
         sortOpen = false
         detailName = nil
+        detailLoading = false
     }
 
     func toggleExpanded(_ id: String) {
@@ -301,15 +305,18 @@ final class ClaudexStore {
 
     func closeDetail() {
         detailName = nil
+        detailLoading = false
         rawOn = false
     }
 
     private func loadDetail(fresh: Bool) async {
         guard let name = detailName else { return }
+        detailLoading = true
         let c = await capture(["pool", "member", name], fresh: fresh)
         guard detailName == name else { return }
         detail = Capture(data: ClaudexParsers.memberDetail(c.raw), raw: c.raw, error: c.error)
         detailAge = c.age
+        detailLoading = false
     }
 
     var detailFresh: String { detailAge == 0 ? "refreshed just now" : "cached · \(detailAge)s" }
@@ -318,10 +325,13 @@ final class ClaudexStore {
 
     private func display(_ args: [String]) -> String { (["claudex"] + args).joined(separator: " ") }
 
-    private func ask(_ title: String, _ args: [String], note: String, ok: String, danger: Bool = false) {
+    /// `member` names the pool member whose card shows a spinner until the write and the refresh after it finish.
+    private func ask(_ title: String, _ args: [String], note: String, ok: String, danger: Bool = false, member: String? = nil) {
         let command = display(args)
         confirmer.ask(ConfirmRequest(title: title, command: command, note: note, confirmTitle: ok, danger: danger) { [weak self] in
             guard let self else { return }
+            busyMember = member
+            defer { busyMember = nil }
             let r = await claudex(args, timeout: Self.writeTimeout)
             cache.removeAll() // everything cached describes the pre-change world
             out += [PlayLine(text: "$ \(command)", kind: .cmd)]
@@ -350,9 +360,9 @@ final class ClaudexStore {
     func useMember(_ name: String) {
         guard members.data?.contains(where: { $0.name == name }) == true else { return }
         if name == me?.pool {
-            ask("Switch back to your own account?", ["pool", "use", name], note: "Usage counts against your own limit again.", ok: "Switch")
+            ask("Switch back to your own account?", ["pool", "use", name], note: "Usage counts against your own limit again.", ok: "Switch", member: name)
         } else {
-            ask("Use \(name)’s account?", ["pool", "use", name], note: "Your usage counts against their limit.", ok: "Switch")
+            ask("Use \(name)’s account?", ["pool", "use", name], note: "Your usage counts against their limit.", ok: "Switch", member: name)
         }
     }
 
@@ -371,9 +381,9 @@ final class ClaudexStore {
             return
         }
         if person.allowed {
-            ask("Deny \(name)?", ["access", "deny", name], note: "If they are using your token right now, this cuts them off immediately.", ok: "Deny", danger: true)
+            ask("Deny \(name)?", ["access", "deny", name], note: "If they are using your token right now, this cuts them off immediately.", ok: "Deny", danger: true, member: name)
         } else {
-            ask("Allow \(name)?", ["access", "allow", name], note: "They can borrow your account through the pool again.", ok: "Allow")
+            ask("Allow \(name)?", ["access", "allow", name], note: "They can borrow your account through the pool again.", ok: "Allow", member: name)
         }
     }
 

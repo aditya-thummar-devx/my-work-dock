@@ -203,7 +203,27 @@ enum ButtonTone {
     }
 }
 
+/// Turning refresh glyph for work in flight; the colour comes from `foregroundStyle`. Holds still in snapshots.
+struct Spinner: View {
+    var size: CGFloat = 13
+    var stroke: CGFloat? = 2.4
+    @Environment(\.staticRender) private var staticRender
+    @State private var spinning = false
+
+    var body: some View {
+        Icon(.refresh, size: size, stroke: stroke)
+            .rotationEffect(.degrees(spinning ? 360 : 0))
+            .onAppear {
+                guard !staticRender else { return }
+                withAnimation(.linear(duration: Geo.IPChip.spin).repeatForever(autoreverses: false)) { spinning = true }
+            }
+            .onDisappear { spinning = false }
+            .accessibilityLabel("Loading")
+    }
+}
+
 /// The shared action button: tint / secondary / outlined / destructive, with an optional leading icon.
+/// `busy` swaps the icon for a spinner and disables the button.
 struct DockButton: View {
     var title: String
     var glyph: Glyph?
@@ -213,6 +233,7 @@ struct DockButton: View {
     var tone: ButtonTone
     var weight: Font.Weight = .semibold
     var enabled = true
+    var busy = false
     var action: () -> Void = {}
     @Environment(\.tokens) private var t
 
@@ -220,7 +241,7 @@ struct DockButton: View {
         let c = tone.colors(t)
         Button(action: action) {
             HStack(spacing: metrics.gap) {
-                if let glyph { Icon(glyph, size: iconSize, stroke: iconStroke) }
+                if busy { Spinner(size: iconSize, stroke: iconStroke) } else if let glyph { Icon(glyph, size: iconSize, stroke: iconStroke) }
                 Text(title)
             }
             .font(Typo.ui(metrics.font, weight))
@@ -238,6 +259,6 @@ struct DockButton: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .disabled(!enabled)
+        .disabled(!enabled || busy)
     }
 }
