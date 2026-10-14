@@ -2,14 +2,15 @@
 # Cut an OTA release: build the DMG, sign the Sparkle appcast, publish both on a GitHub release.
 # Installed copies find it on their next hourly check and relaunch into it once idle.
 #
-#   scripts/release.sh 0.1.1
+#   scripts/release.sh 0.1.1          # asks before publishing (needs a real terminal)
+#   scripts/release.sh 0.1.1 --yes    # no prompt, e.g. from Claude Code's `!`
 #
 # Needs: clean tree, HEAD pushed, `gh` logged in, and the Sparkle private key in this Mac's login Keychain
 # (restore it from the backup with `generate_keys -f <file>` on a new Mac).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-VER=${1:?usage: scripts/release.sh <version, e.g. 0.1.1>}
+VER=${1:?usage: scripts/release.sh <version, e.g. 0.1.1> [--yes]}
 TAG=v$VER
 REPO=aditya-thummar-devx/my-work-dock
 
@@ -35,7 +36,10 @@ build/SourcePackages/artifacts/sparkle/Sparkle/bin/generate_appcast \
   --download-url-prefix "https://github.com/$REPO/releases/download/$TAG/" --embed-release-notes "$UPDATES"
 
 echo; cat "$NOTES"; echo
-read -r -p "Publish $TAG (build $BUILD) now? Every installed copy updates itself. [y/N] " ok
-[ "$ok" = y ] || { echo "Not published. Built files are in $UPDATES."; exit 1; }
+if [ "${2:-}" != --yes ]; then
+  # Without a terminal `read` fails at EOF; under `set -e` that used to exit silently.
+  read -r -p "Publish $TAG (build $BUILD) now? Every installed copy updates itself. [y/N] " ok || ok=n
+  [ "$ok" = y ] || { echo "Not published: no confirmation (re-run with --yes to skip the prompt). Built files are in $UPDATES." >&2; exit 1; }
+fi
 gh release create "$TAG" -R "$REPO" --target "$SHA" --title "MyWorkDock $VER" --notes-file "$NOTES" "$DMG" "$UPDATES/appcast.xml"
 echo "Published $TAG"
