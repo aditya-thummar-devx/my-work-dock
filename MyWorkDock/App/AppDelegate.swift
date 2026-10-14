@@ -38,6 +38,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let keys: [HotKey?] = [
             HotKey(keyCode: kVK_Space, modifiers: optionKey) { [weak controller] in controller?.model.togglePanel() },
             HotKey(keyCode: kVK_ANSI_V, modifiers: cmdShift) { [weak controller] in controller?.model.show(.clipboard) },
+            HotKey(keyCode: kVK_ANSI_T, modifiers: cmdShift) { [weak controller] in controller?.model.show(.notes, notes: .todo) },
             HotKey(keyCode: kVK_ANSI_P, modifiers: cmdShift) { [weak controller] in controller?.model.show(.notes, notes: .prompts) },
             HotKey(keyCode: kVK_ANSI_L, modifiers: cmdShift) { [weak controller] in controller?.model.show(.notes, notes: .links) },
             HotKey(keyCode: kVK_ANSI_E, modifiers: cmdShift) { [weak controller] in controller?.model.show(.emulator) },
