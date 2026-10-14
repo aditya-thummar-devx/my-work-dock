@@ -4,13 +4,14 @@ import Observation
 typealias DisplayID = CGDirectDisplayID
 
 enum MainTab: String, CaseIterable, Identifiable {
-    case notes, claudex, emulator, agents
+    case notes, claudex, emulator, agents, sessions
 
     var id: String { rawValue }
     var label: String { self == .claudex ? "claudex" : rawValue.capitalized }
     var glyph: Glyph {
         switch self {
         case .agents: .chat
+        case .sessions: .terminal
         case .notes: .notes
         case .claudex: .gauge
         case .emulator: .phone
@@ -19,6 +20,7 @@ enum MainTab: String, CaseIterable, Identifiable {
     var feature: Feature {
         switch self {
         case .agents: .agents
+        case .sessions: .sessions
         case .notes: .notes
         case .claudex: .claudex
         case .emulator: .emulator
@@ -28,12 +30,13 @@ enum MainTab: String, CaseIterable, Identifiable {
 
 /// What Settings › Menus can switch off. The raw values are stored in UserDefaults.
 enum Feature: String, CaseIterable, Identifiable {
-    case notes, claudex, emulator, localIP, agents
+    case notes, claudex, emulator, localIP, agents, sessions
 
     var id: String { rawValue }
     var label: String {
         switch self {
         case .agents: "Agents"
+        case .sessions: "Sessions"
         case .notes: "Notes"
         case .claudex: "claudex"
         case .emulator: "Emulator"
@@ -43,6 +46,7 @@ enum Feature: String, CaseIterable, Identifiable {
     var glyph: Glyph {
         switch self {
         case .agents: .chat
+        case .sessions: .terminal
         case .notes: .notes
         case .claudex: .gauge
         case .emulator: .phone
@@ -79,6 +83,7 @@ final class NotchModel {
     let claudex: ClaudexStore
     let localIP: LocalIPStore
     let agents: AgentStore
+    let sessions: SessionsStore
     /// The user's choice; `resolvedTheme` is what is drawn.
     private(set) var theme: ThemeMode = .dark
     let appearance: AppearanceObserver
@@ -127,9 +132,14 @@ final class NotchModel {
         claudex = sample ? ClaudexStore(sample: true, confirmer: confirmer) : ClaudexStore(confirmer: confirmer)
         localIP = sample ? .sample() : .live()
         agents = sample ? .sample() : .live()
+        sessions = sample ? .sample() : .live()
         if !sample { peek = claudex.peekData } // snapshots keep the prototype's POOL sample
         peekExtents = PeekMetrics.measure(peek)
         claudex.onData = { [weak self] in self?.refreshPeek() }
+        agents.onData = { [weak self] in
+            guard let self else { return }
+            self.sessions.ensureTitles(self.agents.sessions.map(\.transcriptID))
+        }
         if let first = enabledTabs.first, !enabledTabs.contains(mainTab) { mainTab = first }
     }
 
@@ -257,11 +267,17 @@ final class NotchModel {
             return all[((all.firstIndex(of: v) ?? 0) + 1) % all.count]
         }
         switch mainTab {
-        case .agents: break
+        case .agents, .sessions: break
         case .notes: setNotesTab(next(notesTab))
         case .claudex: claudex.select(next(claudex.tab))
         case .emulator: setEmulatorTab(next(emulatorTab))
         }
+    }
+
+    /// Agents › Show on board.
+    func showOnBoard(_ transcriptID: String) {
+        setMainTab(.sessions)
+        sessions.focus(transcriptID)
     }
 
     func setEmulatorTab(_ tab: EmulatorTab) {

@@ -2,10 +2,11 @@ import SwiftUI
 
 /// Agents: requests waiting for you on the left, live sessions (with a message box) on the right.
 struct AgentsScreen: View {
-    var store: AgentStore
+    var model: NotchModel
     @Environment(\.tokens) private var t
 
     var body: some View {
+        let store = model.agents
         VStack(alignment: .leading, spacing: 12) {
             SetupBanner(store: store).padding(.top, Geo.Chrome.subNavTop)
             HStack(alignment: .top, spacing: 14) {
@@ -36,7 +37,10 @@ struct AgentsScreen: View {
                     } else {
                         DockScroll {
                             VStack(spacing: 8) {
-                                ForEach(store.sessions) { s in SessionRowView(store: store, session: s) }
+                                ForEach(store.sessions) { s in
+                                    SessionRowView(store: store, session: s, title: model.sessions.title(for: s.transcriptID),
+                                                   onShowOnBoard: { model.showOnBoard(s.transcriptID) })
+                                }
                             }
                         }
                     }
@@ -191,6 +195,8 @@ struct QuestionCardView: View {
 struct SessionRowView: View {
     var store: AgentStore
     var session: AgentSession
+    var title: String?
+    var onShowOnBoard: () -> Void = {}
     @State private var text = ""
     @Environment(\.tokens) private var t
 
@@ -200,13 +206,19 @@ struct SessionRowView: View {
         Card(radius: 14, padding: EdgeInsets(top: 10, leading: 12, bottom: 10, trailing: 10)) {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 8) {
-                    Text(s.project).font(Typo.ui(13, .semibold)).lineLimit(1)
+                    Text(title ?? s.project).font(Typo.ui(13, .semibold)).lineLimit(1)
                     StateChip(state: s.state)
                     if s.queued > 0 { Text("\(s.queued) queued").font(Typo.ui(11)).foregroundStyle(t.muted) }
                     Spacer(minLength: 0)
                     if let term = s.terminal { TagChip(tag: term) }
                 }
-                if let a = s.lastAction { Text(a).font(Typo.ui(11.5)).foregroundStyle(t.muted).lineLimit(1) }
+                HStack(spacing: 8) {
+                    if title != nil { Text(s.project).font(Typo.ui(11.5)).foregroundStyle(t.muted) }
+                    if let a = s.lastAction { Text(a).font(Typo.ui(11.5)).foregroundStyle(t.muted).lineLimit(1) }
+                    Spacer(minLength: 0)
+                    Button("Show on board", action: onShowOnBoard).buttonStyle(.plain)
+                        .font(Typo.ui(11.5, .semibold)).foregroundStyle(t.accent)
+                }
                 HStack(spacing: 6) {
                     DockTextField(text: $text,
                                   placeholder: idleUnreachable ? "Send one prompt in \(s.terminal ?? "its terminal") first" :

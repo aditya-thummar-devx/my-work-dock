@@ -181,17 +181,25 @@ final class NotchModelTests: XCTestCase {
 
     func testFeatureRawValuesAreStable() {
         // Stored in UserDefaults as "disabledFeatures".
-        XCTAssertEqual(Feature.allCases.map(\.rawValue), ["notes", "claudex", "emulator", "localIP", "agents"])
+        XCTAssertEqual(Feature.allCases.map(\.rawValue), ["notes", "claudex", "emulator", "localIP", "agents", "sessions"])
     }
 
-    func testAgentsIsTheLastMenuAndCanBeSwitchedOff() {
-        XCTAssertEqual(model.enabledTabs.last, .agents)
+    func testAgentsAndSessionsComeLastAndCanBeSwitchedOff() {
+        XCTAssertEqual(Array(model.enabledTabs.suffix(2)), [.agents, .sessions])
         model.setEnabled(.agents, false)
+        model.setEnabled(.sessions, false)
         XCTAssertEqual(model.enabledTabs, [.notes, .claudex, .emulator])
+    }
+
+    func testShowOnBoardOpensSessionsFocusedOnTheSession() {
+        model.showOnBoard("abc")
+        XCTAssertEqual(model.mainTab, .sessions)
+        XCTAssertEqual(model.sessions.focusID, "abc")
     }
 
     func testDisablingTheCurrentMenuMovesToTheNextEnabledOne() {
         model.setEnabled(.agents, false) // the original three menus
+        model.setEnabled(.sessions, false)
         model.setMainTab(.notes)
         model.setEnabled(.notes, false)
         XCTAssertEqual(model.enabledTabs, [.claudex, .emulator])
@@ -207,6 +215,7 @@ final class NotchModelTests: XCTestCase {
 
     func testCycleMainTabWrapsAndSkipsDisabledMenus() {
         model.setEnabled(.agents, false) // the original three menus
+        model.setEnabled(.sessions, false)
         model.setMainTab(.notes)
         model.cycleMainTab()
         XCTAssertEqual(model.mainTab, .claudex)
@@ -279,6 +288,7 @@ final class NotchModelTests: XCTestCase {
         model.setNotesTab(.commands)
         XCTAssertNotNil(model.activeSnippets)
         model.setEnabled(.agents, false)
+        model.setEnabled(.sessions, false)
         model.setEnabled(.claudex, false)
         model.setEnabled(.emulator, false)
         model.setEnabled(.notes, false) // mainTab stays .notes: nothing else to move to

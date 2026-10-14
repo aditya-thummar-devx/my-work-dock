@@ -82,6 +82,8 @@ struct AgentSession: Identifiable, Equatable {
     var queued = 0
 
     var canTypeInto: Bool { terminal == nil || terminal == "Terminal" || terminal == "iTerm2" }
+    /// Claude's own session id (the transcript file name).
+    var transcriptID: String { id.hasPrefix("claude:") ? String(id.dropFirst(7)) : id }
 }
 
 enum PendingKind: Equatable {
