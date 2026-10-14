@@ -147,14 +147,27 @@ struct DockTextField: View {
                 .lineLimit(1)
                 .frame(maxWidth: .infinity, alignment: alignment)
         } else {
-            TextField("", text: $text, prompt: Text(placeholder).foregroundColor(Fixed.placeholder))
-                .textFieldStyle(.plain)
-                .font(font)
-                .tracking(tracking)
-                .foregroundStyle(t.text)
-                .multilineTextAlignment(alignment == .center ? .center : .leading)
-                .focused($focused)
-                .task { if autofocus { focused = true } }
+            // The field's own prompt ignores its colour on macOS and follows the system appearance, so it goes
+            // unreadable on the dark theme under a light system. Draw the placeholder ourselves, like DockTextArea.
+            ZStack(alignment: alignment) {
+                TextField("", text: $text)
+                    .textFieldStyle(.plain)
+                    .font(font)
+                    .tracking(tracking)
+                    .foregroundStyle(t.text)
+                    .multilineTextAlignment(alignment == .center ? .center : .leading)
+                    .focused($focused)
+                    .task { if autofocus { focused = true } }
+                if text.isEmpty {
+                    Text(placeholder)
+                        .font(font)
+                        .tracking(tracking)
+                        .foregroundStyle(Fixed.placeholder)
+                        .lineLimit(1)
+                        .allowsHitTesting(false)
+                        .frame(maxWidth: .infinity, alignment: alignment)
+                }
+            }
         }
     }
 }
