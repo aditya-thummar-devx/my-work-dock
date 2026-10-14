@@ -28,6 +28,8 @@ struct MemberSample: Identifiable {
     var using = false
     var denied = false
     var mine = false
+    /// A claudex write on this member is running: the card shows a spinner and its buttons are disabled.
+    var busy = false
     var name: String { id }
 
     var netText: String { Self.netText(net) }
@@ -178,14 +180,16 @@ struct MemberCard: View {
                 HStack(spacing: 6) {
                     if !member.mine {
                         DockButton(title: member.denied ? "Allow" : "Deny", glyph: nil, metrics: .card,
-                                   tone: .outline(member.denied ? t.green : nil), action: onDeny)
+                                   tone: .outline(member.denied ? t.green : nil), enabled: !member.busy, action: onDeny)
                     }
                     Spacer(minLength: 0)
-                    if !member.using && !member.denied {
-                        DockButton(title: "Switch", glyph: nil, metrics: .card, tone: .tint, weight: .bold, action: onSwitch)
+                    if member.busy { Spinner(size: 13).foregroundStyle(t.muted) }
+                    if !member.using {
+                        DockButton(title: "Switch", glyph: nil, metrics: .card, tone: .tint, weight: .bold, enabled: !member.busy, action: onSwitch)
                     }
-                    DockButton(title: "View details", glyph: nil, metrics: .card, tone: .secondary, action: onDetails)
+                    DockButton(title: "View details", glyph: nil, metrics: .card, tone: .secondary, enabled: !member.busy, action: onDetails)
                 }
+                .opacity(member.busy ? 0.6 : 1)
             }
             .frame(maxHeight: .infinity)
         }

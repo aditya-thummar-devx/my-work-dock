@@ -241,6 +241,52 @@ final class ClaudexStoreTests: XCTestCase {
         XCTAssertEqual(s.confirmer.pending?.command, "claudex autoswitch on") // sample has it disabled
     }
 
+    /// Polls the main actor until `done` holds (the writes run in a Task the test cannot await directly).
+    private func wait(_ done: () -> Bool) async {
+        for _ in 0..<100 where !done() { try? await Task.sleep(nanoseconds: 20_000_000) }
+    }
+
+    func testMemberCardIsBusyWhileItsWriteRuns() async {
+        let s = store()
+        s.findTool = { _ in "/bin/claudex" }
+        s.runner = { _, _, _ in
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            return ProcessResult(status: 0, out: "ok", err: "")
+        }
+        s.toggleAccess("ira.shah")
+        XCTAssertNil(s.busyMember) // not until the sheet is confirmed
+        s.confirmer.confirm()
+        await wait { s.busyMember != nil }
+        XCTAssertEqual(s.busyMember, "ira.shah")
+        XCTAssertEqual(s.memberCards.filter(\.busy).map(\.id), ["ira.shah"])
+        await wait { s.busyMember == nil }
+        XCTAssertTrue(s.memberCards.allSatisfy { !$0.busy })
+    }
+
+    func testDetailLoadingSpansTheFetchAndClearsOnClose() async {
+        let s = ClaudexStore()
+        s.findTool = { _ in "/bin/claudex" }
+        s.identityURL = URL(fileURLWithPath: "/nonexistent")
+        s.runner = { _, args, _ in
+            if args.first == "pool", args.dropFirst().first == "members" {
+                return ProcessResult(status: 0, out: "  ▶ ● cy.dee  · Team · ● on\n        session █░░░░░░░   5%  2:00pm\n", err: "")
+            }
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            return ProcessResult(status: 0, out: "no box", err: "")
+        }
+        await s.refresh(fresh: true)
+        s.openDetail("cy.dee")
+        await wait { s.detailLoading }
+        XCTAssertTrue(s.detailLoading)
+        await wait { !s.detailLoading }
+        XCTAssertEqual(s.detail.raw, "no box")
+        s.refreshDetail()
+        await wait { s.detailLoading }
+        XCTAssertTrue(s.detailLoading)
+        s.closeDetail()
+        XCTAssertFalse(s.detailLoading)
+    }
+
     /// A store whose claudex prints canned text, so the peek can be checked against pool on / off.
     private func liveStore(poolOn: Bool) async -> ClaudexStore {
         let s = ClaudexStore()

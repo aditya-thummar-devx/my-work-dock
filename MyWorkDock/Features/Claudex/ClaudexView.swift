@@ -391,7 +391,7 @@ struct DetailOverlay: View {
             HStack(spacing: 8) {
                 DockButton(title: "Refresh", glyph: .refresh, iconSize: 13,
                            metrics: ButtonMetrics(height: 30, radius: 10, padLeading: 10, padTrailing: 12, font: 12.5),
-                           tone: .outline(nil), action: store.refreshDetail)
+                           tone: .outline(nil), busy: store.detailLoading, action: store.refreshDetail)
                 Button { store.rawOn.toggle() } label: {
                     Text(store.rawOn ? "hide raw" : "show raw").font(Typo.ui(12.5, .semibold))
                         .foregroundStyle(store.rawOn ? t.pop : t.text)
@@ -416,11 +416,23 @@ struct DetailOverlay: View {
         .accessibilityLabel("Member details")
     }
 
+    @ViewBuilder private var loadingHint: some View {
+        if store.detailLoading {
+            HStack(spacing: 8) {
+                Spinner(size: 14).foregroundStyle(t.muted)
+                Text("Loading…").font(Typo.ui(12.5)).foregroundStyle(t.faint)
+            }
+            .frame(maxWidth: .infinity, minHeight: 120)
+        } else {
+            EmptyHint(text: "Loading…")
+        }
+    }
+
     @ViewBuilder private func body(_ capture: Capture<MemberDetail>) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             if store.rawOn || !capture.recognised {
                 if capture.raw.isEmpty && capture.error == nil {
-                    EmptyHint(text: "Loading…")
+                    loadingHint
                 } else {
                     if !capture.recognised {
                         HStack(spacing: 6) {
