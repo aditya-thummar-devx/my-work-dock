@@ -4,6 +4,8 @@ import SwiftUI
 /// Notes is real (M3); the other tabs are empty until their milestones.
 struct OpenPanelView: View {
     var model: NotchModel
+    /// The shell's open size on this display (`Geo.open` unless Settings › Panel size says large).
+    var size = CGSize(width: Geo.open.width, height: Geo.open.height)
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -29,15 +31,15 @@ struct OpenPanelView: View {
         }
         .padding(.horizontal, Geo.Chrome.insetX)
         .padding(.bottom, Geo.Chrome.insetBottom)
-        .frame(width: Geo.open.width, height: Geo.open.height, alignment: .top)
+        .frame(width: size.width, height: size.height, alignment: .top)
         .overlay {
             if model.settings {
                 ZStack(alignment: .topTrailing) {
                     Color.clear.contentShape(Rectangle()).onTapGesture(perform: model.toggleSettings) // outside click closes, like the claudex sort menu
-                    SettingsPopover(theme: model.theme, systemIsDark: model.appearance.isDark, tint: model.tint, disabled: model.disabled,
+                    SettingsPopover(theme: model.theme, systemIsDark: model.appearance.isDark, tint: model.tint, panelSize: model.panelSize, disabled: model.disabled,
                                     allDisplays: model.showOnAllDisplays, clipboardLimit: model.clipboard.limit,
                                     version: model.version, updatedAt: model.updatedAt, onCheckForUpdates: model.checkForUpdates,
-                                    onTheme: model.setTheme, onTint: model.setTint,
+                                    onTheme: model.setTheme, onTint: model.setTint, onPanelSize: model.setPanelSize,
                                     onFeature: model.setEnabled, onAllDisplays: model.setShowOnAllDisplays,
                                     onClipboardLimit: model.setClipboardLimit, onClose: model.toggleSettings)
                         .padding(.top, Geo.Chrome.popoverTop).padding(.trailing, Geo.Chrome.popoverRight)
