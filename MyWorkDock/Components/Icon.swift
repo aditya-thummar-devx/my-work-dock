@@ -4,7 +4,7 @@ import SwiftUI
 /// Stroke width is part of the call site in the designs (2 – 3.6), so `Icon` takes it as a parameter and
 /// each glyph carries the most common one as its default.
 enum Glyph {
-    case notes, terminal, gauge, phone, tablet, pin, sliders, search, plus, refresh, close, check, copy, pencil, trash
+    case clipboard, notes, terminal, gauge, phone, tablet, pin, sliders, search, plus, refresh, close, check, copy, pencil, trash
     case wifi, arrows, chevronDown, play, stop, power, warning, monitor, arrowLeft, moon, sun, triangle, funnel, tag, globe
 
     fileprivate enum Part {
@@ -15,6 +15,7 @@ enum Glyph {
 
     fileprivate var parts: [Part] {
         switch self {
+        case .clipboard: [.rect(x: 5, y: 4, w: 14, h: 17, rx: 2.5), .path("M9 4V2.5h6V4"), .path("M9 11h6M9 15h4")]
         case .notes: [.path("M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"), .path("M14 3v5h5M9 13h6M9 17h4")]
         case .terminal: [.path("M4 17l6-5-6-5"), .path("M12 19h8")]
         case .gauge: [.path("M4 16a8 8 0 1 1 16 0"), .path("M12 16l4-5")]

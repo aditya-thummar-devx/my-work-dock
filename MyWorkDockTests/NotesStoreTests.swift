@@ -119,6 +119,7 @@ final class NotesStoreTests: XCTestCase {
 
     func testMenusAreExclusiveAndSubTabSwitchResetsSearchAndMenus() {
         let model = NotchModel(sample: true)
+        model.setMainTab(.notes)
         let store = model.notes
         store.toggleTagMenu()
         store.toggleFilterMenu()
@@ -567,6 +568,7 @@ final class NotesStoreTests: XCTestCase {
 
     func testNotchModelPendingUndoFollowsTheVisibleTab() {
         let model = NotchModel(sample: true)
+        model.setMainTab(.notes)
         XCTAssertNil(model.pendingUndo)
         model.notes.delete(1)
         XCTAssertNotNil(model.pendingUndo)

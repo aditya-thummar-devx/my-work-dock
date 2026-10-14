@@ -113,6 +113,11 @@ enum SnapshotRunner {
     /// Names match the reference PNGs in `screenshots/artboards` and `screenshots/prototype`.
     /// States whose content isn't built yet are not listed; `compare-all.sh` reports them as missing.
     static let states: [State] = screenStates + Fragments.all + [
+        State("settings-clipboard", .panel, content: .fragment(rect: CGRect(x: 404, y: 46, width: 336, height: 480),
+                                                               view: { AnyView(SettingsPopover(theme: .dark, tint: .lime, page: .clipboard, clipboardLimit: 500)) })) { $0.openPanel() },
+        // Settings › Menus: the popover keeps its natural height, so this shows whether every row still fits the panel.
+        State("settings-menus", .panel, content: .fragment(rect: CGRect(x: 404, y: 46, width: 336, height: 480),
+                                                           view: { AnyView(SettingsPopover(theme: .dark, tint: .lime, page: .menus)) })) { $0.openPanel() },
         State("gallery-dark", .gallery, content: .gallery) { $0.setTheme(.dark) },
         State("gallery-light", .gallery, content: .gallery) { $0.setTheme(.light) },
     ]
@@ -128,6 +133,42 @@ enum SnapshotRunner {
         // The reference was captured part-way through the fake boot fill.
         State("30-live-activity", .notch, liveProgress: 0.326) { $0.bootingOverride = SampleData.bootingSim },
         State("03-notes-todo", .panel) { $0.openPanel() },
+        State("clipboard", .panel) {
+            $0.mainTab = .clipboard
+            $0.openPanel()
+        },
+        State("clipboard-tag-menu", .panel) {
+            $0.mainTab = .clipboard
+            $0.clipboard.openTagPicker(2)
+            $0.openPanel()
+        },
+        State("clipboard-tag-manage", .panel) {
+            $0.mainTab = .clipboard
+            $0.clipboard.openTagManage()
+            $0.openPanel()
+        },
+        State("clipboard-tag-form", .panel) {
+            $0.mainTab = .clipboard
+            $0.clipboard.openTagManage()
+            $0.clipboard.openTagForm(editing: "dev")
+            $0.openPanel()
+        },
+        State("clipboard-tag-filter", .panel) {
+            $0.mainTab = .clipboard
+            $0.clipboard.pickFilter("dev")
+            $0.openPanel()
+        },
+        State("clipboard-hint", .panel) {
+            $0.mainTab = .clipboard
+            $0.clipboard.showHint()
+            $0.openPanel()
+        },
+        State("clipboard-search", .panel) {
+            $0.mainTab = .clipboard
+            $0.clipboard.openSearch()
+            $0.clipboard.query = "a"
+            $0.openPanel()
+        },
         State("34-header-ip-refreshing", .chip) {
             $0.openPanel()
             $0.localIP.show(.busy, ip: "192.168.1.24")
@@ -444,6 +485,7 @@ enum SnapshotRunner {
         let args = CommandLine.arguments
         guard let i = args.firstIndex(of: "--start"), i + 1 < args.count,
               let state = states.first(where: { $0.name == args[i + 1] }) else { return }
+        model.mainTab = .notes // the reference states were captured before the Clipboard menu became the first tab
         state.configure(model)
     }
 
@@ -471,6 +513,7 @@ enum SnapshotRunner {
         Typo.uiFamily = value(of: "--font") == "system" ? nil : "Geist"
 
         let model = NotchModel(sample: true)
+        model.mainTab = .notes // see applyStartState
         state.configure(model)
         let url = URL(fileURLWithPath: out)
         try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)

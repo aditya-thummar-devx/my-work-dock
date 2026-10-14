@@ -25,7 +25,8 @@ extension Geo {
         static let swatchCheck: CGFloat = 12
         static let ringWidth: CGFloat = 2
         static let noteFont: CGFloat = 11.5
-        static let menuRowHeight: CGFloat = 36
+        /// Five features + Show on all displays: at 36 the popover ran past the 480 pt panel.
+        static let menuRowHeight: CGFloat = 32
         static let switchSize = (width: CGFloat(34), height: CGFloat(20))
         static let switchKnob: CGFloat = 14
     }
@@ -46,9 +47,9 @@ extension Geo {
     }
 }
 
-/// Settings: Appearance (theme, tint) and Menus (which features are on). Applies everywhere.
+/// Settings: Appearance (theme, tint), Menus (which features are on) and Clipboard (history size). Applies everywhere.
 struct SettingsPopover: View {
-    enum Page: String { case appearance, menus }
+    enum Page: String { case appearance, menus, clipboard }
 
     var theme: ThemeMode
     /// What macOS is in right now; only shown while `theme == .system`.
@@ -56,23 +57,28 @@ struct SettingsPopover: View {
     var tint: Tint
     var disabled: Set<Feature> = []
     var allDisplays = false
+    var clipboardLimit = ClipboardStore.defaultLimit
     var onTheme: (ThemeMode) -> Void = { _ in }
     var onTint: (Tint) -> Void = { _ in }
     var onFeature: (Feature, Bool) -> Void = { _, _ in }
     var onAllDisplays: (Bool) -> Void = { _ in }
+    var onClipboardLimit: (Int) -> Void = { _ in }
     var onClose: () -> Void = {}
     @State private var page: Page
     @Environment(\.tokens) private var t
 
     init(theme: ThemeMode, systemIsDark: Bool = true, tint: Tint, disabled: Set<Feature> = [], allDisplays: Bool = false, page: Page = .appearance,
+         clipboardLimit: Int = ClipboardStore.defaultLimit,
          onTheme: @escaping (ThemeMode) -> Void = { _ in }, onTint: @escaping (Tint) -> Void = { _ in },
          onFeature: @escaping (Feature, Bool) -> Void = { _, _ in }, onAllDisplays: @escaping (Bool) -> Void = { _ in },
-         onClose: @escaping () -> Void = {}) {
+         onClipboardLimit: @escaping (Int) -> Void = { _ in }, onClose: @escaping () -> Void = {}) {
         self.theme = theme
         self.systemIsDark = systemIsDark
         self.tint = tint
         self.disabled = disabled
         self.allDisplays = allDisplays
+        self.clipboardLimit = clipboardLimit
+        self.onClipboardLimit = onClipboardLimit
         self.onTheme = onTheme
         self.onTint = onTint
         self.onFeature = onFeature
@@ -84,7 +90,8 @@ struct SettingsPopover: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Geo.Chrome.popoverGap) {
             HStack {
-                SubTabs(items: [SubTabItem(Page.appearance.rawValue, "Appearance"), SubTabItem(Page.menus.rawValue, "Menus")],
+                SubTabs(items: [SubTabItem(Page.appearance.rawValue, "Appearance"), SubTabItem(Page.menus.rawValue, "Menus"),
+                                SubTabItem(Page.clipboard.rawValue, "Clipboard")],
                         selection: page.rawValue, activeFill: t.ctrl) { page = Page(rawValue: $0) ?? .appearance }
                 Spacer()
                 IconButton(glyph: .close, label: "Close settings", size: Geo.Appearance.closeSize,
@@ -95,6 +102,8 @@ struct SettingsPopover: View {
                 AppearanceSection(theme: theme, systemIsDark: systemIsDark, tint: tint, onTheme: onTheme, onTint: onTint)
             case .menus:
                 MenusSection(disabled: disabled, allDisplays: allDisplays, onFeature: onFeature, onAllDisplays: onAllDisplays)
+            case .clipboard:
+                ClipboardSection(limit: clipboardLimit, onLimit: onClipboardLimit)
             }
         }
         .padding(Geo.Chrome.popoverPadding + 1)
@@ -105,6 +114,57 @@ struct SettingsPopover: View {
                 .shadow(color: t.popShadow, radius: Geo.Chrome.popoverShadow.blur / 2, y: Geo.Chrome.popoverShadow.y)
         }
         .overlay(RoundedRectangle(cornerRadius: Geo.Chrome.popoverRadius).strokeBorder(t.border, lineWidth: 1))
+    }
+}
+
+/// Settings › Clipboard: how many untagged clips the history keeps. Applied with Enter or Apply, never per keystroke:
+/// typing "500" must not pass through "5" and delete clips on the way.
+private struct ClipboardSection: View {
+    var limit: Int
+    var onLimit: (Int) -> Void
+    @State private var draft: String
+    @Environment(\.tokens) private var t
+
+    init(limit: Int, onLimit: @escaping (Int) -> Void) {
+        self.limit = limit
+        self.onLimit = onLimit
+        _draft = State(initialValue: String(limit))
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Geo.Chrome.popoverGap) {
+            Text("History").font(Typo.ui(Geo.Appearance.sectionFont, .semibold)).foregroundStyle(t.faint)
+            HStack(spacing: Geo.NewTag.gap) {
+                Text("Keep the last").font(Typo.ui(Geo.Menu.font, .medium)).foregroundStyle(t.text)
+                HStack {
+                    DockTextField(text: $draft, placeholder: "\(ClipboardStore.defaultLimit)", font: Typo.mono(Geo.NewTag.font))
+                        .frame(height: Geo.NewTag.inputHeight)
+                        .onSubmit(apply)
+                }
+                .padding(.horizontal, Geo.NewTag.fieldPad.leading)
+                .frame(width: 64, height: Geo.NewTag.fieldHeight)
+                .background(RoundedRectangle(cornerRadius: Geo.NewTag.fieldRadius).fill(t.inset))
+                .overlay(RoundedRectangle(cornerRadius: Geo.NewTag.fieldRadius).strokeBorder(t.border, lineWidth: 1))
+                Text("clips").font(Typo.ui(Geo.Menu.font, .medium)).foregroundStyle(t.text)
+                Spacer(minLength: 0)
+                DockButton(title: "Apply", glyph: nil, metrics: .save, tone: .tint, weight: .bold, action: apply)
+            }
+            .padding(.top, Geo.Appearance.pullUp)
+            Text("From 1 to \(ClipboardStore.maxLimit). The limit counts only clips with no tag; tagged and pinned clips are never removed, however many there are.")
+                .font(Typo.ui(Geo.Appearance.noteFont))
+                .foregroundStyle(t.faint)
+                .lineSpacing(Typo.lineSpacing(size: Geo.Appearance.noteFont, lineHeight: 1.4))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .onChange(of: draft) { draft = String(draft.filter(\.isNumber).prefix(4)) }
+        .onChange(of: limit) { draft = String(limit) }
+    }
+
+    /// Blank or non-numeric input goes back to the current limit.
+    private func apply() {
+        let n = ClipboardStore.clamp(Int(draft) ?? limit)
+        draft = String(n)
+        onLimit(n)
     }
 }
 
