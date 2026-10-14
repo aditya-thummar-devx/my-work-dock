@@ -44,12 +44,14 @@ struct TagChip: View {
 
     var body: some View {
         let c = TagPalette.chip(tag, custom: custom, in: t)
-        Text("#\(tag)")
-            .font(Typo.ui(Geo.Chip.tagFont, .semibold))
-            .foregroundStyle(c.fg)
-            .padding(.horizontal, Geo.Chip.tagPadX)
-            .padding(.vertical, Geo.Chip.tagPadY)
-            .background(Capsule().fill(c.bg))
+        if !tag.isEmpty {
+            Text("#\(tag)")
+                .font(Typo.ui(Geo.Chip.tagFont, .semibold))
+                .foregroundStyle(c.fg)
+                .padding(.horizontal, Geo.Chip.tagPadX)
+                .padding(.vertical, Geo.Chip.tagPadY)
+                .background(Capsule().fill(c.bg))
+        }
     }
 }
 

@@ -380,7 +380,7 @@ struct DetailOverlay: View {
                 Text(name).font(Typo.ui(16, .bold))
                 Text(store.detailMeta).font(Typo.ui(12)).foregroundStyle(t.faint)
                 Spacer(minLength: 0)
-                IconButton(glyph: .close, label: "Close details", size: 30, iconSize: 11, stroke: 2.8, action: store.closeDetail)
+                IconButton(glyph: .close, label: "Close details", size: 30, iconSize: 11, stroke: 2.8, fill: t.border, fg: t.text, action: store.closeDetail)
             }
             .padding(.leading, 16).padding(.trailing, 10)
             .frame(height: 48)

@@ -187,6 +187,7 @@ final class NotchModel {
         if !pinned {
             open = false
             settings = false
+            claudex.closeDetail()
         }
         changed()
     }
@@ -217,6 +218,7 @@ final class NotchModel {
     /// Prototype `mainTabs.pick`: leaving a tab drops any open inline edit.
     func setMainTab(_ tab: MainTab) {
         mainTab = tab
+        claudex.closeDetail()
         notes.cancelEdit()
         commands.cancelEdit()
         prompts.cancelEdit()
@@ -227,6 +229,25 @@ final class NotchModel {
         let tabs = enabledTabs
         guard tabs.count > 1, let i = tabs.firstIndex(of: mainTab) else { return }
         setMainTab(tabs[(i + 1) % tabs.count])
+    }
+
+    /// Shift+Tab: next sub-tab of the visible main menu, wrapping.
+    func cycleInnerTab() {
+        guard isEnabled(mainTab.feature) else { return }
+        func next<T: CaseIterable & Equatable>(_ v: T) -> T {
+            let all = Array(T.allCases)
+            return all[((all.firstIndex(of: v) ?? 0) + 1) % all.count]
+        }
+        switch mainTab {
+        case .notes: setNotesTab(next(notesTab))
+        case .claudex: claudex.select(next(claudex.tab))
+        case .emulator: setEmulatorTab(next(emulatorTab))
+        }
+    }
+
+    func setEmulatorTab(_ tab: EmulatorTab) {
+        emulatorTab = tab
+        emulator.targetMenuOpen = false
     }
 
     /// Prototype `sub.pick`: a sub-tab switch resets edits, drafts, undo, "Copied", the search and open menus.
@@ -260,12 +281,21 @@ final class NotchModel {
         pinned = false
         hover = false
         settings = false
+        claudex.closeDetail()
         changed()
     }
 
     /// ⌥Space.
     func togglePanel() {
         open ? closePanel() : openPanel()
+    }
+
+    /// ⌘⇧V / ⌘⇧E / ⌘⇧X: opens the panel on `tab` (and Notes sub-tab `sub`). No-op if that menu is switched off.
+    func show(_ tab: MainTab, notes sub: NotesTab? = nil) {
+        guard isEnabled(tab.feature) else { return }
+        if mainTab != tab { setMainTab(tab) }
+        if let sub, notesTab != sub { setNotesTab(sub) } // guarded: setNotesTab drops drafts and search
+        if open { changed() } else { openPanel() }
     }
 
     func togglePin() {

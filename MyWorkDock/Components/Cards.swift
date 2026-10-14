@@ -80,7 +80,7 @@ extension Geo {
 // MARK: - claudex
 
 /// Usage card: same layout as `MemberCard` (dot, name, plan, thick gauge rows or "no reading"), with Remove / Switch.
-/// The active account is green-tinted with no buttons.
+/// The active account looks the same with a green border and no (hidden) buttons.
 struct AccountCard: View {
     var account: AccountSample
     var onRemove: () -> Void = {}
@@ -89,9 +89,7 @@ struct AccountCard: View {
 
     var body: some View {
         Card(radius: 16,
-             fill: account.active ? t.gaugeGreen.opacity(0.12) : nil,
              border: account.active ? t.gaugeGreen : nil,
-             borderWidth: account.active ? Geo.CardMetrics.activeBorder : 1,
              padding: EdgeInsets(top: 11, leading: 14, bottom: 11, trailing: 12)) {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 7) {
@@ -109,14 +107,15 @@ struct AccountCard: View {
                 } else {
                     NoReadingRows()
                 }
-                if !account.active {
+                Spacer(minLength: 0)
+                HStack {
+                    DockButton(title: "Remove", glyph: nil, metrics: .card, tone: .outline(t.red), action: onRemove)
                     Spacer(minLength: 0)
-                    HStack {
-                        DockButton(title: "Remove", glyph: nil, metrics: .card, tone: .outline(t.red), action: onRemove)
-                        Spacer(minLength: 0)
-                        DockButton(title: "Switch", glyph: nil, metrics: .card, tone: .tint, weight: .bold, action: onSwitch)
-                    }
+                    DockButton(title: "Switch", glyph: nil, metrics: .card, tone: .tint, weight: .bold, action: onSwitch)
                 }
+                .opacity(account.active ? 0 : 1) // hidden, not removed: the gauges keep the other cards' positions
+                .allowsHitTesting(!account.active)
+                .accessibilityHidden(account.active)
             }
             .frame(maxHeight: .infinity)
         }
@@ -260,6 +259,10 @@ struct TodoRow: View {
     var editing = false
     /// Edit-field text; nil draws the title statically (snapshots).
     var editText: Binding<String>?
+    /// Tag picked while editing ("" = none), its colour, and the button that opens the tag menu.
+    var editTag = ""
+    var editTagColor: Color?
+    var onEditTag: () -> Void = {}
     var onToggle: () -> Void = {}
     var onEdit: () -> Void = {}
     var onDelete: () -> Void = {}
@@ -278,6 +281,8 @@ struct TodoRow: View {
 
     @ViewBuilder private var editor: some View {
         InlineEditField(text: editText ?? .constant(todo.title), font: Typo.ui(13.5, .medium), onSave: onSave, onCancel: onCancel)
+        TagPickerButton(tag: editTag.isEmpty ? nil : editTag, custom: editTagColor, noun: "todo", action: onEditTag)
+            .background(GeometryReader { Color.clear.preference(key: EditTagButtonFrameKey.self, value: $0.frame(in: .named(NotesScreen.space))) })
         DockButton(title: "Save", glyph: nil, metrics: .save, tone: .tint, weight: .bold, action: onSave)
         RowIconButton(glyph: .close, label: "Cancel edit", fg: t.text2, fill: t.btn2, iconSize: 11, stroke: 2.8, action: onCancel)
     }
@@ -294,6 +299,15 @@ struct TodoRow: View {
             RowIconButton(glyph: .pencil, label: "Edit todo", fg: t.muted, action: onEdit)
             RowIconButton(glyph: .trash, label: "Delete todo", fg: t.red, action: onDelete)
         }
+    }
+}
+
+/// Where the edited todo's tag button sits in the Notes area, so its menu can open right under it.
+struct EditTagButtonFrameKey: PreferenceKey {
+    static let defaultValue = CGRect.zero
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
+        let next = nextValue()
+        if next != .zero { value = next }
     }
 }
 

@@ -4,7 +4,7 @@ import XCTest
 @MainActor
 final class NotesStoreTests: XCTestCase {
     func testAddTodoTakesFirstTagStripsAllTagsAndPrepends() {
-        let store = NotesStore(url: nil)
+        let store = NotesStore.sample()
         store.draft = "Fix login #Bug crash #urgent"
         store.addTodo()
         let first = store.todos[0]
@@ -15,14 +15,14 @@ final class NotesStoreTests: XCTestCase {
         XCTAssertEqual(store.todos.count, SampleData.todos.count + 1)
     }
 
-    func testAddTodoDefaultsToMiscIgnoresBlankAndKeepsTagOnlyDraftAsTitle() {
-        let store = NotesStore(url: nil)
+    func testAddTodoDefaultsToNoTagIgnoresBlankAndKeepsTagOnlyDraftAsTitle() {
+        let store = NotesStore.sample()
         store.draft = "   "
         store.addTodo()
         XCTAssertEqual(store.todos.count, SampleData.todos.count)
         store.draft = "Write docs"
         store.addTodo()
-        XCTAssertEqual(store.todos[0].tag, "misc")
+        XCTAssertEqual(store.todos[0].tag, "")
         store.draft = "#idea"
         store.addTodo()
         XCTAssertEqual(store.todos[0].title, "#idea")
@@ -30,7 +30,7 @@ final class NotesStoreTests: XCTestCase {
     }
 
     func testToggleAndCounts() {
-        let store = NotesStore(url: nil)
+        let store = NotesStore.sample()
         XCTAssertEqual(store.leftCount, 3)
         XCTAssertEqual(store.doneCount, 2)
         store.toggle(1)
@@ -40,7 +40,7 @@ final class NotesStoreTests: XCTestCase {
     }
 
     func testFooter() {
-        XCTAssertEqual(NotesStore(url: nil).footer, "3 left · 2 done")
+        XCTAssertEqual(NotesStore.sample().footer, "3 left · 2 done")
     }
 
     func testChangesSurviveARelaunch() throws {
@@ -69,8 +69,8 @@ final class NotesStoreTests: XCTestCase {
         XCTAssertFalse(try String(contentsOf: url, encoding: .utf8).contains("\"notes\""))
     }
 
-    func testTagResolutionTextThenPickedThenMisc() {
-        let store = NotesStore(url: nil)
+    func testTagResolutionTextThenPickedThenNone() {
+        let store = NotesStore.sample()
         store.pickTodoTag("idea")
         store.draft = "Fix crash #bug"
         store.addTodo()
@@ -81,12 +81,12 @@ final class NotesStoreTests: XCTestCase {
         store.pickTodoTag(nil)
         store.draft = "No tag"
         store.addTodo()
-        XCTAssertEqual(store.todos[0].tag, "misc")
-        XCTAssertEqual(store.tagOrder, ["release", "bug", "deps", "docs", "misc", "idea"])
+        XCTAssertEqual(store.todos[0].tag, "")
+        XCTAssertEqual(store.tagOrder, ["idea", "bug", "release", "deps", "docs"]) // untagged todos add no tag
     }
 
     func testSearchMatchesTitleOrTagAndFilterNarrows() {
-        let store = NotesStore(url: nil)
+        let store = NotesStore.sample()
         store.query = " POD "
         XCTAssertEqual(store.visibleTodos.map(\.id), [3])
         XCTAssertEqual(store.foundText, "1 found")
@@ -102,7 +102,7 @@ final class NotesStoreTests: XCTestCase {
     }
 
     func testEmptyStateAndClear() {
-        let store = NotesStore(url: nil)
+        let store = NotesStore.sample()
         XCTAssertEqual(store.emptyWhat, "this view")
         store.openSearch()
         store.query = "zzz"
@@ -156,7 +156,7 @@ final class NotesStoreTests: XCTestCase {
     }
 
     func testNewTagCreatesPicksClosesAndRoundRobinsColours() {
-        let store = NotesStore(url: nil)
+        let store = NotesStore.sample()
         store.toggleTagMenu()
         store.openTagForm()
         XCTAssertTrue(store.tagFormOpen)
@@ -174,7 +174,7 @@ final class NotesStoreTests: XCTestCase {
         XCTAssertEqual(store.newTag, "")
         XCTAssertFalse(store.tagMenuOpen)
         XCTAssertFalse(store.tagFormOpen)
-        XCTAssertEqual(store.tagOrder, ["release", "bug", "deps", "docs", "design"])
+        XCTAssertEqual(store.tagOrder, ["design", "release", "bug", "deps", "docs"])
         for name in ["a", "b", "c", "d", "e", "f"] {
             store.openTagForm()
             store.newTag = name
@@ -184,7 +184,7 @@ final class NotesStoreTests: XCTestCase {
     }
 
     func testPickedSwatchIsTheNewTagsColour() {
-        let store = NotesStore(url: nil)
+        let store = NotesStore.sample()
         store.openTagForm()
         XCTAssertEqual(store.tagHex, NotesStore.tagPalette[0]) // starts on the next colour in turn
         store.newTag = "design"
@@ -196,7 +196,7 @@ final class NotesStoreTests: XCTestCase {
     }
 
     func testExistingTagIsPickedNotDuplicated() {
-        let store = NotesStore(url: nil)
+        let store = NotesStore.sample()
         func add(_ name: String) {
             store.toggleTagMenu()
             store.openTagForm()
@@ -212,7 +212,7 @@ final class NotesStoreTests: XCTestCase {
     }
 
     func testFilterMenuNewTagKeepsMenuOpenAndDoesNotPickForTheTodo() {
-        let store = NotesStore(url: nil)
+        let store = NotesStore.sample()
         store.toggleFilterMenu()
         store.openTagForm()
         store.newTag = "Design"
@@ -225,7 +225,7 @@ final class NotesStoreTests: XCTestCase {
     }
 
     func testOutsideClickClosesBothMenusAndTheForm() {
-        let store = NotesStore(url: nil)
+        let store = NotesStore.sample()
         store.toggleFilterMenu()
         store.openTagForm()
         store.newTag = "x"
@@ -239,20 +239,52 @@ final class NotesStoreTests: XCTestCase {
         XCTAssertTrue(store.customTags.isEmpty)
     }
 
-    func testBaseAndMiscTagsCannotBeEditedOrDeleted() {
-        let store = NotesStore(url: nil)
-        XCTAssertFalse(store.canEditTag("bug"))
-        XCTAssertFalse(store.canEditTag("misc"))
-        XCTAssertTrue(store.canEditTag("design"))
+    func testEveryTagCanBeEditedAndDeleted() {
+        let store = NotesStore.sample()
         store.openTagForm(editing: "bug")
-        XCTAssertFalse(store.tagFormOpen)
-        XCTAssertNil(store.editingTag)
+        XCTAssertTrue(store.tagFormOpen)
+        XCTAssertEqual(store.editingTag, "bug")
+        store.cancelTagForm()
         store.deleteTag("bug")
-        XCTAssertEqual(store.todos.filter { $0.tag == "bug" }.count, 1)
+        XCTAssertEqual(store.count(of: "bug"), 0)
+        XCTAssertEqual(store.todos.first { $0.id == 2 }?.tag, "")
+        XCTAssertFalse(store.tagOrder.contains("bug"))
+    }
+
+    func testNewStoreStartsEmptyAndSampleKeepsTheDesignsContent() {
+        let fresh = NotesStore(url: nil)
+        XCTAssertTrue(fresh.todos.isEmpty)
+        XCTAssertTrue(fresh.tagOrder.isEmpty)
+        XCTAssertEqual(NotesStore.sample().todos.count, SampleData.todos.count)
+    }
+
+    func testManageListStaysOpenAcrossTheFormAndClosesWithTheMenus() {
+        let store = NotesStore.sample()
+        store.toggleTagMenu()
+        store.openTagManage()
+        store.openTagForm(editing: "docs")
+        XCTAssertTrue(store.tagFormOpen)
+        store.newTag = "notes"
+        store.saveTagForm()
+        XCTAssertTrue(store.tagManageOpen) // back to the manage list, not the picker
+        XCTAssertNil(store.todoTag)
+        store.openTagForm()
+        store.newTag = "design"
+        store.saveTagForm()
+        XCTAssertTrue(store.tagManageOpen)
+        XCTAssertNil(store.todoTag) // adding from the manage list does not pick the tag
+        store.closeTagManage()
+        XCTAssertFalse(store.tagManageOpen)
+        store.openTagManage()
+        store.closeMenus()
+        XCTAssertFalse(store.tagManageOpen)
+        store.openTagManage()
+        store.toggleFilterMenu()
+        XCTAssertFalse(store.tagManageOpen)
     }
 
     func testEditTagRenamesRecoloursAndMovesTodosAndSelections() {
-        let store = NotesStore(url: nil)
+        let store = NotesStore.sample()
         store.openTagForm()
         store.newTag = "design"
         store.saveTagForm()
@@ -272,11 +304,11 @@ final class NotesStoreTests: XCTestCase {
         XCTAssertEqual(store.todos[0].tag, "look-feel")
         XCTAssertEqual(store.filterTag, "look-feel")
         XCTAssertEqual(store.todoTag, "look-feel")
-        XCTAssertEqual(store.tagOrder.last, "look-feel")
+        XCTAssertEqual(store.tagOrder.first, "look-feel")
     }
 
     func testEditingAColourOnlyKeepsTheNameAndATodoOnlyTagGainsAColour() {
-        let store = NotesStore(url: nil)
+        let store = NotesStore.sample()
         store.draft = "Polish #design" // `design` lives on the todo only, no CustomTag yet
         store.addTodo()
         XCTAssertNil(store.customColor("design"))
@@ -292,7 +324,7 @@ final class NotesStoreTests: XCTestCase {
     }
 
     func testRenameOntoExistingTagMergesAndBlankCancels() {
-        let store = NotesStore(url: nil)
+        let store = NotesStore.sample()
         store.openTagForm()
         store.newTag = "design"
         store.saveTagForm()
@@ -311,8 +343,8 @@ final class NotesStoreTests: XCTestCase {
         XCTAssertEqual(store.count(of: "bug"), 2)
     }
 
-    func testDeleteTagFallsTodosBackToMiscAndResetsSelections() {
-        let store = NotesStore(url: nil)
+    func testDeleteTagLeavesTodosUntaggedAndResetsSelections() {
+        let store = NotesStore.sample()
         store.openTagForm()
         store.newTag = "design"
         store.saveTagForm()
@@ -322,14 +354,14 @@ final class NotesStoreTests: XCTestCase {
         store.pickTodoTag("design")
         store.deleteTag("design")
         XCTAssertTrue(store.customTags.isEmpty)
-        XCTAssertEqual(store.todos[0].tag, "misc")
+        XCTAssertEqual(store.todos[0].tag, "")
         XCTAssertEqual(store.filterTag, "all")
         XCTAssertNil(store.todoTag)
-        XCTAssertEqual(store.tagOrder, ["release", "bug", "deps", "docs", "misc"])
+        XCTAssertEqual(store.tagOrder, ["release", "bug", "deps", "docs"])
     }
 
     func testCancelTagFormClearsFieldAndGoesBackToTheMenu() {
-        let store = NotesStore(url: nil)
+        let store = NotesStore.sample()
         store.toggleTagMenu()
         store.openTagForm()
         store.newTag = "abc"
@@ -370,7 +402,7 @@ final class NotesStoreTests: XCTestCase {
     }
 
     func testAddTodoStampsCreatedAt() {
-        let store = NotesStore(url: nil)
+        let store = NotesStore.sample()
         let stamp = Date(timeIntervalSince1970: 1_800_000_000)
         store.now = { stamp }
         store.draft = "New"
@@ -396,13 +428,13 @@ final class NotesStoreTests: XCTestCase {
     }
 
     func testSeedTodosAllLandUnderEarlier() {
-        let sections = NotesStore(url: nil).sections
+        let sections = NotesStore.sample().sections
         XCTAssertEqual(sections.map(\.title), ["Earlier"])
         XCTAssertEqual(sections[0].todos.count, SampleData.todos.count)
     }
 
     func testDeleteThenUndoRestoresPositionAndAddClearsUndo() {
-        let store = NotesStore(url: nil)
+        let store = NotesStore.sample()
         store.delete(3)
         XCTAssertEqual(store.todos.map(\.id), [1, 2, 4, 5])
         XCTAssertEqual(store.footer, "Todo deleted")
@@ -417,8 +449,77 @@ final class NotesStoreTests: XCTestCase {
         XCTAssertEqual(store.todos.filter { $0.id == 5 }.count, 1)
     }
 
+    func testEditCanChangeAndClearTheTag() {
+        let store = NotesStore.sample()
+        store.startEdit(1)
+        XCTAssertEqual(store.editTag, "release") // starts on the todo's own tag
+        store.toggleEditTagMenu()
+        XCTAssertTrue(store.editTagMenuOpen)
+        store.pickEditTag("bug")
+        XCTAssertFalse(store.editTagMenuOpen)
+        XCTAssertEqual(store.todos[0].tag, "release") // nothing changes until Save
+        store.saveEdit()
+        XCTAssertEqual(store.todos[0].tag, "bug")
+        XCTAssertEqual(store.todos[0].title, "Ship TestFlight build 2.4.0")
+        store.startEdit(1)
+        store.pickEditTag(nil)
+        store.saveEdit()
+        XCTAssertEqual(store.todos[0].tag, "")
+    }
+
+    func testCancelOrBlankTitleKeepsTheTagAndClosesItsMenu() {
+        let store = NotesStore.sample()
+        store.startEdit(1)
+        store.toggleEditTagMenu()
+        store.pickEditTag("docs")
+        store.toggleEditTagMenu()
+        store.cancelEdit()
+        XCTAssertFalse(store.editTagMenuOpen)
+        XCTAssertEqual(store.todos[0].tag, "release")
+        store.startEdit(1)
+        store.pickEditTag("docs")
+        store.editDraft = "  "
+        store.saveEdit()
+        XCTAssertEqual(store.todos[0].tag, "release")
+        store.startEdit(2)
+        XCTAssertEqual(store.editTag, store.todos[1].tag) // not the previous draft
+    }
+
+    func testEditTagMenuExcludesTheOtherMenusAndAnOutsideClickClosesIt() {
+        let store = NotesStore.sample()
+        store.startEdit(1)
+        store.toggleTagMenu()
+        store.toggleEditTagMenu()
+        XCTAssertTrue(store.editTagMenuOpen)
+        XCTAssertFalse(store.tagMenuOpen)
+        store.toggleFilterMenu()
+        XCTAssertFalse(store.editTagMenuOpen)
+        store.toggleEditTagMenu()
+        store.closeMenus()
+        XCTAssertFalse(store.editTagMenuOpen)
+        XCTAssertEqual(store.editId, 1) // still editing
+    }
+
+    func testNewTagFromTheEditMenuIsPickedAndRenameOrDeleteFollowsIt() {
+        let store = NotesStore.sample()
+        store.startEdit(1)
+        store.toggleEditTagMenu()
+        store.openTagForm()
+        store.newTag = "Fresh"
+        store.saveTagForm()
+        XCTAssertEqual(store.editTag, "fresh")
+        XCTAssertFalse(store.editTagMenuOpen)
+        XCTAssertEqual(store.todos[0].tag, "release") // picked, not yet saved
+        store.openTagForm(editing: "fresh")
+        store.newTag = "newer"
+        store.saveTagForm()
+        XCTAssertEqual(store.editTag, "newer")
+        store.deleteTag("newer")
+        XCTAssertEqual(store.editTag, "")
+    }
+
     func testEditChangesOnlyTheTitleAndBlankOrCancelKeepsIt() {
-        let store = NotesStore(url: nil)
+        let store = NotesStore.sample()
         store.startEdit(1)
         XCTAssertEqual(store.editId, 1)
         XCTAssertEqual(store.editDraft, "Ship TestFlight build 2.4.0")
@@ -439,7 +540,7 @@ final class NotesStoreTests: XCTestCase {
     }
 
     func testResetTransientDropsEditAndUndo() {
-        let store = NotesStore(url: nil)
+        let store = NotesStore.sample()
         store.delete(1)
         store.startEdit(2)
         store.resetTransient()

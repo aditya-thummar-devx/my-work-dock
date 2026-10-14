@@ -183,6 +183,59 @@ final class NotchModelTests: XCTestCase {
         XCTAssertEqual(model.mainTab, .notes) // one menu left: nothing to cycle to
     }
 
+    func testShowOpensPanelOnRequestedMenuAndSkipsDisabledOnes() {
+        model.setMainTab(.claudex)
+        model.show(.notes, notes: .prompts)
+        XCTAssertTrue(model.open)
+        XCTAssertEqual(model.mainTab, .notes)
+        XCTAssertEqual(model.notesTab, .prompts)
+        model.show(.emulator)
+        XCTAssertEqual(model.mainTab, .emulator)
+        model.setEnabled(.claudex, false)
+        model.show(.claudex)
+        XCTAssertEqual(model.mainTab, .emulator) // switched-off menu: nothing happens
+    }
+
+    func testCycleInnerTabWrapsWithinTheVisibleMainMenu() {
+        model.setMainTab(.notes)
+        model.cycleInnerTab()
+        XCTAssertEqual(model.notesTab, .commands)
+        model.cycleInnerTab()
+        model.cycleInnerTab()
+        XCTAssertEqual(model.notesTab, .todo)
+        model.setMainTab(.claudex)
+        for tab in [ClaudexTab.pool, .play, .health, .usage] {
+            model.cycleInnerTab()
+            XCTAssertEqual(model.claudex.tab, tab)
+        }
+        model.setMainTab(.emulator)
+        model.emulator.targetMenuOpen = true
+        model.cycleInnerTab()
+        XCTAssertEqual(model.emulatorTab, .wireless)
+        XCTAssertFalse(model.emulator.targetMenuOpen)
+        model.cycleInnerTab()
+        model.cycleInnerTab()
+        XCTAssertEqual(model.emulatorTab, .devices)
+        XCTAssertEqual(model.mainTab, .emulator) // inner cycling never leaves the main menu
+    }
+
+    func testCollapsingClosesTheDetailsSheet() throws {
+        let name = try XCTUnwrap(model.claudex.members.data?.first?.name)
+        model.pointer(inside: true)
+        model.openPanel()
+        model.claudex.openDetail(name)
+        XCTAssertEqual(model.claudex.detailName, name)
+        model.pointer(inside: false)
+        clock.advance(0.36)
+        XCTAssertNil(model.claudex.detailName)
+        model.claudex.openDetail(name)
+        model.closePanel()
+        XCTAssertNil(model.claudex.detailName)
+        model.claudex.openDetail(name)
+        model.setMainTab(.notes)
+        XCTAssertNil(model.claudex.detailName)
+    }
+
     func testDisabledNotesIgnoresSearchAndUndoEvenWhileItIsTheLastTab() {
         model.setNotesTab(.commands)
         XCTAssertNotNil(model.activeSnippets)

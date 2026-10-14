@@ -25,7 +25,7 @@ final class NotesStore {
     private(set) var saveError: String?
 
     // UI state, never saved. Prototype `todoTag`, `filterTag`, `query`, `searchOpen`, `tagMenuOpen`, `filterMenuOpen`.
-    /// Tag picked in the quick-add row; nil = none (the todo falls back to `misc`).
+    /// Tag picked in the quick-add row; nil = none (the todo has no tag).
     private(set) var todoTag: String?
     private(set) var filterTag = "all"
     var query = ""
@@ -37,17 +37,20 @@ final class NotesStore {
     /// The name + colour popup over a tag menu: `newTag` is its name field, `tagHex` the picked swatch, `editingTag`
     /// the tag being edited (nil = adding). Never saved.
     private(set) var tagFormOpen = false
+    /// The `Manage tags` list (every tag with edit / delete) in place of the picker list; never saved.
+    private(set) var tagManageOpen = false
     private(set) var editingTag: String?
     var newTag = ""
     var tagHex = NotesStore.tagPalette[0]
     /// Todo being edited inline, and its title field; never saved.
     private(set) var editId: Int?
     var editDraft = ""
+    /// Tag picked for the todo being edited ("" = none), and its tag menu; never saved.
+    private(set) var editTag = ""
+    private(set) var editTagMenuOpen = false
     /// Last deleted todo and where it was, for Undo. Cleared by the next add or undo.
     private(set) var deleted: (todo: TodoSample, index: Int)?
 
-    /// Tags every menu lists first; tags that only live on todos are appended (Prototype `tagOrder`).
-    static let baseTags = ["release", "bug", "deps", "docs"]
     /// New tags take these colours in turn (Prototype `palette`).
     static let tagPalette: [UInt32] = [0xFFD86B, 0x7CE38B, 0xFFB38A, 0x8AB4FF, 0xFF8AD8, 0xB4F0FF]
 
@@ -63,8 +66,8 @@ final class NotesStore {
         var customTags: [CustomTag]?
     }
 
-    /// Reads `url` if it exists, otherwise starts from `seed` (the designs' sample content).
-    init(url: URL? = NotesStore.defaultURL, seed: [TodoSample] = SampleData.todos) {
+    /// Reads `url` if it exists, otherwise starts from `seed` (empty unless a snapshot or test passes one).
+    init(url: URL? = NotesStore.defaultURL, seed: [TodoSample] = []) {
         self.url = url
         let saved = JSONFile.load(Snapshot.self, from: url)
         todos = saved?.todos ?? seed
@@ -72,7 +75,7 @@ final class NotesStore {
     }
 
     /// Fixed sample content, nothing read or written: what the snapshots draw.
-    static func sample() -> NotesStore { NotesStore(url: nil) }
+    static func sample() -> NotesStore { NotesStore(url: nil, seed: SampleData.todos) }
 
     // MARK: Derived
 
@@ -113,10 +116,10 @@ final class NotesStore {
         return out
     }
 
-    /// Base tags, then the user's, then any other tag a todo carries (Prototype `tagOrder`).
+    /// The user's tags, then any other tag a todo carries (Prototype `tagOrder`).
     var tagOrder: [String] {
-        var order = Self.baseTags
-        for tag in customTags.map(\.id) + todos.map(\.tag) where !order.contains(tag) { order.append(tag) }
+        var order: [String] = []
+        for tag in customTags.map(\.id) + todos.map(\.tag) where !tag.isEmpty && !order.contains(tag) { order.append(tag) }
         return order
     }
 
@@ -154,12 +157,12 @@ final class NotesStore {
 
     // MARK: Actions
 
-    /// Quick-add (Prototype `addTodo`): the first `#tag` in the text wins, else the picked tag, else `misc`; every `#tag` is dropped from the title.
+    /// Quick-add (Prototype `addTodo`): the first `#tag` in the text wins, else the picked tag, else none; every `#tag` is dropped from the title.
     func addTodo() {
         let raw = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !raw.isEmpty else { return }
         let tagged = /#([A-Za-z0-9_-]+)/
-        let tag = raw.firstMatch(of: tagged)?.1.lowercased() ?? todoTag ?? "misc"
+        let tag = raw.firstMatch(of: tagged)?.1.lowercased() ?? todoTag ?? ""
         let stripped = raw.replacing(tagged, with: "").trimmingCharacters(in: .whitespacesAndNewlines)
         let id = (todos.map(\.id).max() ?? 0) + 1
         todos.insert(TodoSample(id: id, title: stripped.isEmpty ? raw : stripped, tag: tag, due: "Today", createdAt: now()), at: 0)
@@ -172,21 +175,40 @@ final class NotesStore {
     func toggleTagMenu() {
         tagMenuOpen.toggle()
         filterMenuOpen = false
+        editTagMenuOpen = false
+        tagManageOpen = false
         dropTagForm()
     }
 
     func toggleFilterMenu() {
         filterMenuOpen.toggle()
         tagMenuOpen = false
+        editTagMenuOpen = false
+        tagManageOpen = false
         dropTagForm()
     }
 
-    /// Outside click: both tag menus and the name + colour popup.
+    /// Tag button of the todo being edited.
+    func toggleEditTagMenu() {
+        editTagMenuOpen.toggle()
+        tagMenuOpen = false
+        filterMenuOpen = false
+        tagManageOpen = false
+        dropTagForm()
+    }
+
+    /// Outside click: the tag menus, the manage list and the name + colour popup.
     func closeMenus() {
         tagMenuOpen = false
         filterMenuOpen = false
+        editTagMenuOpen = false
+        tagManageOpen = false
         dropTagForm()
     }
+
+    /// `Manage tags` row of either menu / the manage list's `Done`.
+    func openTagManage() { tagManageOpen = true }
+    func closeTagManage() { tagManageOpen = false }
 
     private func dropTagForm() {
         tagFormOpen = false
@@ -194,12 +216,8 @@ final class NotesStore {
         newTag = ""
     }
 
-    /// Tags the menus let the user edit or delete: everything except the four base tags and the `misc` fallback.
-    func canEditTag(_ tag: String) -> Bool { !Self.baseTags.contains(tag) && tag != "misc" }
-
     /// `New tag` button (`editing == nil`) or a row's pencil: opens the name + colour popup, pre-filled when editing.
     func openTagForm(editing tag: String? = nil) {
-        if let tag, !canEditTag(tag) { return }
         editingTag = tag
         newTag = tag ?? ""
         tagHex = tag.flatMap { t in customTags.first { $0.id == t }?.hex } ?? Self.tagPalette[customTags.count % Self.tagPalette.count]
@@ -221,6 +239,7 @@ final class NotesStore {
                 for i in todos.indices where todos[i].tag == old { todos[i].tag = id }
                 if filterTag == old { filterTag = id }
                 if todoTag == old { todoTag = id }
+                if editTag == old { editTag = id }
             }
             if let i = customTags.firstIndex(where: { $0.id == old }) {
                 if merges { customTags.remove(at: i) } else { customTags[i] = CustomTag(id: id, hex: tagHex) }
@@ -233,23 +252,29 @@ final class NotesStore {
                 customTags.append(CustomTag(id: id, hex: tagHex))
                 save()
             }
-            if tagMenuOpen { pickTodoTag(id) }
+            if tagMenuOpen, !tagManageOpen { pickTodoTag(id) }
+            if editTagMenuOpen, !tagManageOpen { pickEditTag(id) }
         }
     }
 
-    /// Removes the tag; its todos fall back to `misc`.
+    /// Removes the tag; its todos keep no tag.
     func deleteTag(_ tag: String) {
-        guard canEditTag(tag) else { return }
-        for i in todos.indices where todos[i].tag == tag { todos[i].tag = "misc" }
+        for i in todos.indices where todos[i].tag == tag { todos[i].tag = "" }
         customTags.removeAll { $0.id == tag }
         if filterTag == tag { filterTag = "all" }
         if todoTag == tag { todoTag = nil }
+        if editTag == tag { editTag = "" }
         save()
     }
 
     func pickTodoTag(_ tag: String?) {
         todoTag = tag
         tagMenuOpen = false
+    }
+
+    func pickEditTag(_ tag: String?) {
+        editTag = tag ?? ""
+        editTagMenuOpen = false
     }
 
     func pickFilter(_ tag: String) {
@@ -272,7 +297,7 @@ final class NotesStore {
 
     /// Sub-tab switch: drops the query, the search field and any open menu (the picked tag and filter stay).
     func resetTransient() {
-        editId = nil
+        endEdit()
         deleted = nil
         closeSearch()
         closeMenus()
@@ -288,24 +313,32 @@ final class NotesStore {
         guard let todo = todos.first(where: { $0.id == id }) else { return }
         editId = id
         editDraft = todo.title
+        editTag = todo.tag
+        editTagMenuOpen = false
     }
 
-    /// Empty text cancels, like Commands and Prompts. Only the title changes.
+    /// Empty text cancels, like Commands and Prompts. Changes the title and the tag.
     func saveEdit() {
         let title = editDraft.trimmingCharacters(in: .whitespacesAndNewlines)
         if !title.isEmpty, let i = todos.firstIndex(where: { $0.id == editId }) {
             todos[i].title = title
+            todos[i].tag = editTag
             save()
         }
-        editId = nil
+        endEdit()
     }
 
-    func cancelEdit() { editId = nil }
+    func cancelEdit() { endEdit() }
+
+    private func endEdit() {
+        editId = nil
+        editTagMenuOpen = false
+    }
 
     func delete(_ id: Int) {
         guard let i = todos.firstIndex(where: { $0.id == id }) else { return }
         deleted = (todos.remove(at: i), i)
-        editId = nil
+        endEdit()
         save()
     }
 

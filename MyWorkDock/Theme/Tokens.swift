@@ -197,12 +197,12 @@ enum TagPalette {
         }
     }
 
-    /// Neutral chip for tags without a colour (incl. the default `misc`).
+    /// Neutral chip for tags without a colour.
     static let neutral = Color(hex: 0xE5E5EA)
 
     /// Colour of a tag's dot and of the tag / filter buttons (Prototype `tcol`).
     static func dot(_ tag: String, custom: Color? = nil, in t: Tokens) -> Color {
-        color(tag) ?? custom ?? (t.isDark ? neutral : Color(hex: 0xC2C2C8))
+        custom ?? color(tag) ?? (t.isDark ? neutral : Color(hex: 0xC2C2C8))
     }
 
     /// Fill and text of a tag / filter button: dark = colour at 16 % with coloured text, light = solid colour with dark text.
@@ -224,11 +224,11 @@ enum TagPalette {
     }
 
     /// Todo-row chip. Dark: coloured text on a tinted fill. Light: black text on the solid tag colour.
-    /// Unknown tags without a custom colour (incl. the default `misc`) use the neutral fallback.
+    /// Unknown tags without a custom colour use the neutral fallback. A colour the user picked wins over the name's.
     static func chip(_ tag: String, custom: Color? = nil, in t: Tokens) -> (fg: Color, bg: Color) {
         if t.isDark {
-            return (color(tag) ?? custom ?? neutral, tint(tag) ?? custom?.opacity(0.16) ?? Color(hex: 0xFFFFFF, opacity: 0.1))
+            return (custom ?? color(tag) ?? neutral, custom?.opacity(0.16) ?? tint(tag) ?? Color(hex: 0xFFFFFF, opacity: 0.1))
         }
-        return (Color(hex: 0x111114), color(tag) ?? custom ?? Color(hex: 0xE4E4EA))
+        return (Color(hex: 0x111114), custom ?? color(tag) ?? Color(hex: 0xE4E4EA))
     }
 }
