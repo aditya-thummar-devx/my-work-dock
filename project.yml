@@ -19,6 +19,14 @@ targets:
     platform: macOS
     sources:
       - path: MyWorkDock
+      - path: Shared
+    dependencies:
+      # The agent hook ships inside the app (Contents/MacOS/mwd-hook); see Features/Agents.
+      - target: mwd-hook
+        embed: true
+        codeSign: false
+        copy:
+          destination: executables
     settings:
       base:
         PRODUCT_NAME: MyWorkDock
@@ -34,6 +42,19 @@ targets:
         # Ad-hoc signing for local dev.
         CODE_SIGN_IDENTITY: "-"
         CODE_SIGN_STYLE: Manual
+
+  mwd-hook:
+    type: tool
+    platform: macOS
+    sources:
+      - path: MWDHook
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_NAME: mwd-hook
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGN_STYLE: Manual
+        ENABLE_HARDENED_RUNTIME: YES
 
   MyWorkDockTests:
     type: bundle.unit-test
