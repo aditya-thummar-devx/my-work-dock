@@ -1,6 +1,8 @@
 import SwiftUI
 import Observation
 
+typealias DisplayID = CGDirectDisplayID
+
 enum MainTab: String, CaseIterable, Identifiable {
     case notes, claudex, emulator
 
@@ -83,8 +85,10 @@ final class NotchModel {
     var bootingOverride: String?
     private(set) var peek = SampleData.peekPool
     private(set) var peekExtents = PeekExtents(left: 0, right: 0)
-    /// Hardware notch size in points; nil on a screen without one. Idle is drawn at exactly this size.
-    private(set) var notch: CGSize?
+    /// Settings › Menus: also draw the shell on every other display. Off = one shell on the notch (or pointer) display.
+    private(set) var showOnAllDisplays = false
+    /// Display whose shell peeks / opens; the others stay idle. nil (snapshots) = every shell follows `mode`.
+    private(set) var activeDisplay: DisplayID?
 
     /// Called after every state change so the window layer can update hit-testing and key status.
     @ObservationIgnored var onChange: (() -> Void)?
@@ -107,6 +111,7 @@ final class NotchModel {
             theme = defaults.string(forKey: "theme").flatMap(ThemeMode.init(rawValue:)) ?? .system
             tint = defaults.string(forKey: "tint").flatMap(Tint.init(rawValue:)) ?? .lime
             disabled = Set((defaults.stringArray(forKey: "disabledFeatures") ?? []).compactMap(Feature.init(rawValue:)))
+            showOnAllDisplays = defaults.bool(forKey: "showOnAllDisplays")
         }
         notes = sample ? .sample() : NotesStore()
         commands = sample ? .sample(.commands) : .persistent(.commands)
@@ -144,8 +149,15 @@ final class NotchModel {
     var isLight: Bool { resolvedTheme == .light }
     var tokens: Tokens { Tokens(mode: resolvedTheme, tint: tint) }
 
-    var geometry: ShellGeometry {
-        switch mode {
+    /// Peek and open belong to the active display; the others stay idle (live mirrors everywhere).
+    func mode(on display: DisplayID?) -> NotchMode {
+        guard let display, let active = activeDisplay, display != active, mode == .peek || mode == .open else { return mode }
+        return bootingName != nil ? .live : .idle
+    }
+
+    /// Shell size on `display`. `notch` is that display's hardware notch size in points (nil: none); idle is drawn at exactly it.
+    func geometry(notch: CGSize? = nil, on display: DisplayID? = nil) -> ShellGeometry {
+        switch mode(on: display) {
         case .idle:
             if let notch {
                 ShellGeometry(width: notch.width, height: notch.height,
@@ -345,10 +357,18 @@ final class NotchModel {
         changed()
     }
 
-    func setNotch(_ size: CGSize?) {
-        guard size != notch else { return }
-        notch = size
+    /// Settings › Menus: shows or hides the shell on the other displays.
+    func setShowOnAllDisplays(_ on: Bool) {
+        guard on != showOnAllDisplays else { return }
+        showOnAllDisplays = on
+        defaults?.set(on, forKey: "showOnAllDisplays")
         changed()
+    }
+
+    /// No `changed()`: the window layer calls this from its own sync, and Observation redraws the shells.
+    func setActiveDisplay(_ id: DisplayID?) {
+        guard id != activeDisplay else { return }
+        activeDisplay = id
     }
 
     func setPeek(_ data: PeekData) {

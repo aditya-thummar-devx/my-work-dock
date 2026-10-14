@@ -1,8 +1,9 @@
 import AppKit
 import SwiftUI
 
-/// Owns the panel: positions it on the notch screen, feeds pointer position to the model, and keeps
-/// `ignoresMouseEvents` so clicks outside the drawn shape fall through to apps underneath.
+/// Owns the panels: one per display with the shell (one on the notch display, or one per display when
+/// `showOnAllDisplays`), feeds pointer position to the model, and keeps `ignoresMouseEvents` so clicks
+/// outside the drawn shape fall through to apps underneath.
 @MainActor
 final class NotchWindowController {
     /// Big enough for the open shell (760 + shoulders) and its `0 24 70` shadow.
@@ -10,21 +11,41 @@ final class NotchWindowController {
     /// The cursor can sit exactly on the screen's top edge; extend hit rects upward so it still counts.
     private static let topSlop: CGFloat = 2
 
+    /// One display's panel and where its shell sits in global screen coordinates.
+    @MainActor
+    private final class Shell {
+        let id: DisplayID
+        let panel: NotchPanel
+        let screen: ShellScreen
+        var centerX: CGFloat = 0
+        var topY: CGFloat = 0
+        var frame: CGRect = .zero
+
+        init(id: DisplayID, model: NotchModel) {
+            self.id = id
+            let screen = ShellScreen()
+            screen.id = id
+            self.screen = screen
+            panel = NotchPanel(contentRect: NSRect(origin: .zero, size: NotchWindowController.panelSize))
+            let host = FirstMouseHostingView(rootView: NotchRoot(model: model, screen: screen))
+            host.sizingOptions = []
+            panel.contentView = host
+        }
+
+        /// `NSRect.contains` is half-open, and the pointer sits exactly on `maxY` at the top edge.
+        func owns(_ p: NSPoint) -> Bool { p.x >= frame.minX && p.x < frame.maxX && p.y >= frame.minY && p.y <= frame.maxY }
+    }
+
     let model: NotchModel
-    private let panel: NotchPanel
+    private var shells: [DisplayID: Shell] = [:]
+    /// `model.showOnAllDisplays` as of the last `syncShells`.
+    private var allShown = false
     private var monitors: [Any] = []
-    private var centerX: CGFloat = 0
-    private var topY: CGFloat = 0
 
     init(model: NotchModel) {
         self.model = model
-        panel = NotchPanel(contentRect: NSRect(origin: .zero, size: Self.panelSize))
-        let host = FirstMouseHostingView(rootView: NotchRoot(model: model))
-        host.sizingOptions = []
-        panel.contentView = host
 
-        reposition()
-        panel.orderFrontRegardless()
+        syncShells()
         modelChanged()
 
         model.onChange = { [weak self] in self?.modelChanged() }
@@ -40,9 +61,9 @@ final class NotchWindowController {
         // The panel has no menu bar to carry either shortcut.
         if let m = NSEvent.addLocalMonitorForEvents(matching: .keyDown, handler: { [weak self] event in
             MainActor.assumeIsolated {
-                guard let self, self.panel.isKeyWindow, self.model.mode == .open else { return event }
+                guard let self, let panel = self.activeShell?.panel, panel.isKeyWindow, self.model.mode == .open else { return event }
                 let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-                if event.keyCode == 48, flags.isEmpty || flags == .shift, !(self.panel.firstResponder is NSText) {
+                if event.keyCode == 48, flags.isEmpty || flags == .shift, !(panel.firstResponder is NSText) {
                     if flags.isEmpty { self.model.cycleMainTab() } else { self.model.cycleInnerTab() }
                     return nil
                 }
@@ -53,7 +74,7 @@ final class NotchWindowController {
         }) { monitors.append(m) }
         NotificationCenter.default.addObserver(forName: NSApplication.didChangeScreenParametersNotification,
                                                object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.reposition() }
+            MainActor.assumeIsolated { self?.syncShells() }
         }
     }
 
@@ -66,61 +87,117 @@ final class NotchWindowController {
             ?? NSScreen.main
     }
 
-    /// Frame of the screen the panel currently sits on.
-    private var placedOn: CGRect?
+    private var activeShell: Shell? { model.activeDisplay.flatMap { shells[$0] } }
 
-    private func reposition() {
-        guard let screen = targetScreen else { return }
+    /// Makes `shells` match the displays that should carry one, and places each.
+    private func syncShells() {
+        let follow = model.mode == .idle || model.mode == .live
+        let screens: [NSScreen]
+        if model.showOnAllDisplays {
+            screens = NSScreen.screens
+        } else if !follow, let id = shells.keys.first, let current = NSScreen.screens.first(where: { $0.displayID == id }) {
+            screens = [current] // never move a panel that is open or hovered
+        } else {
+            screens = targetScreen.map { [$0] } ?? []
+        }
+        var keep: Set<DisplayID> = []
+        for screen in screens {
+            guard let id = screen.displayID else { continue }
+            keep.insert(id)
+            let isNew = shells[id] == nil
+            let shell = shells[id] ?? addShell(id)
+            place(shell, on: screen)
+            if isNew { shell.panel.orderFrontRegardless() }
+        }
+        for id in shells.keys where !keep.contains(id) {
+            shells.removeValue(forKey: id)?.panel.orderOut(nil)
+        }
+        allShown = model.showOnAllDisplays
+        if !(model.activeDisplay.map(keep.contains) ?? false) {
+            model.setActiveDisplay((shells.values.first { $0.screen.notch != nil } ?? shells.values.first)?.id)
+        }
+        updateMouse()
+    }
+
+    private func addShell(_ id: DisplayID) -> Shell {
+        let shell = Shell(id: id, model: model)
+        shells[id] = shell
+        return shell
+    }
+
+    private func place(_ shell: Shell, on screen: NSScreen) {
         var cx = screen.frame.midX
+        var notch: CGSize?
         if let l = screen.auxiliaryTopLeftArea, let r = screen.auxiliaryTopRightArea {
             cx = (l.maxX + r.minX) / 2
-            NSLog("MyWorkDock: hardware notch %.0f pt wide, %.0f pt tall, centre x %.1f",
-                  r.minX - l.maxX, screen.safeAreaInsets.top, cx)
-            model.setNotch(CGSize(width: r.minX - l.maxX, height: screen.safeAreaInsets.top))
-        } else {
-            model.setNotch(nil)
-            NSLog("MyWorkDock: no hardware notch on this screen; drawing a %.0f x %.0f pill", Geo.idle.width, Geo.idle.height)
+            notch = CGSize(width: r.minX - l.maxX, height: screen.safeAreaInsets.top)
         }
-        centerX = cx
-        topY = screen.frame.maxY
-        placedOn = screen.frame
+        if notch != shell.screen.notch {
+            shell.screen.notch = notch
+            if let notch {
+                NSLog("MyWorkDock: hardware notch %.0f pt wide, %.0f pt tall, centre x %.1f", notch.width, notch.height, cx)
+            } else {
+                NSLog("MyWorkDock: no hardware notch on this screen; drawing a %.0f x %.0f pill", Geo.idle.width, Geo.idle.height)
+            }
+        }
+        shell.centerX = cx
+        shell.topY = screen.frame.maxY
+        shell.frame = screen.frame
         let size = Self.panelSize
-        panel.setFrame(NSRect(x: cx - size.width / 2, y: topY - size.height, width: size.width, height: size.height),
-                       display: true)
+        let frame = NSRect(x: cx - size.width / 2, y: shell.topY - size.height, width: size.width, height: size.height)
+        if shell.panel.frame != frame { shell.panel.setFrame(frame, display: true) }
     }
 
     // MARK: Pointer and key status
 
-    /// Screen-space rect of the shell for `g`.
-    private func rect(_ g: ShellGeometry) -> NSRect {
-        NSRect(x: centerX + g.centerOffset - g.width / 2, y: topY - g.height,
+    /// Screen-space rect of the shell on `shell` for `g`.
+    private func rect(_ g: ShellGeometry, _ shell: Shell) -> NSRect {
+        NSRect(x: shell.centerX + g.centerOffset - g.width / 2, y: shell.topY - g.height,
                width: g.width, height: g.height + Self.topSlop)
+    }
+
+    private func geometry(_ shell: Shell) -> ShellGeometry { model.geometry(notch: shell.screen.notch, on: shell.id) }
+
+    /// Each panel takes clicks only over its own drawn shape.
+    private func updateMouse() {
+        let p = NSEvent.mouseLocation
+        for s in shells.values { s.panel.ignoresMouseEvents = !rect(geometry(s), s).contains(p) }
     }
 
     private func pointerMoved() {
         let p = NSEvent.mouseLocation
-        var g = model.geometry
-        let stay = rect(g)
+        // Until the pointer has entered a shell, the display it is on decides which one peeks and opens.
+        if !model.hover, model.mode != .open, let s = shells.values.first(where: { $0.owns(p) }) { model.setActiveDisplay(s.id) }
+        guard let s = activeShell else { return updateMouse() }
+        var g = geometry(s)
+        let stay = rect(g, s)
         // While only the live activity is showing, entering is limited to peek height, otherwise the
         // 48 → 70 pt height change makes the shell flicker between peek and live under a resting pointer.
         // ponytail: width is not clamped; a peek narrower than the 520 pt live bar can still flicker at its edges.
         if model.mode == .live { g.height = Geo.peek.height }
-        model.pointer(inside: (model.hover ? stay : rect(g)).contains(p))
-        panel.ignoresMouseEvents = !stay.contains(p)
+        model.pointer(inside: (model.hover ? stay : rect(g, s)).contains(p))
+        updateMouse()
+        s.panel.ignoresMouseEvents = !stay.contains(p)
     }
 
     private func modelChanged() {
         // No notch anywhere: follow the pointer to another display, but never move a panel that is open or hovered.
-        if model.mode == .idle || model.mode == .live, let screen = targetScreen, screen.frame != placedOn { reposition() }
-        panel.ignoresMouseEvents = !rect(model.geometry).contains(NSEvent.mouseLocation)
-        if model.mode == .open {
-            if !panel.isKeyWindow { panel.makeKey() }
-        } else if panel.isKeyWindow {
-            // No public "resign key": cycling the window hands key status back to the previous app.
-            panel.orderOut(nil)
-            panel.orderFrontRegardless()
+        if model.mode == .idle || model.mode == .live || model.showOnAllDisplays != allShown { syncShells() }
+        updateMouse()
+        for s in shells.values {
+            if model.mode == .open, s.id == model.activeDisplay {
+                if !s.panel.isKeyWindow { s.panel.makeKey() }
+            } else if s.panel.isKeyWindow {
+                // No public "resign key": cycling the window hands key status back to the previous app.
+                s.panel.orderOut(nil)
+                s.panel.orderFrontRegardless()
+            }
         }
     }
+}
+
+private extension NSScreen {
+    var displayID: DisplayID? { deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? DisplayID }
 }
 
 /// A click on the non-key panel must reach SwiftUI instead of only making the panel key.
@@ -131,9 +208,10 @@ private final class FirstMouseHostingView<Content: View>: NSHostingView<Content>
 /// Fixed-size canvas the panel hosts; the shell is drawn inside it.
 struct NotchRoot: View {
     var model: NotchModel
+    var screen: ShellScreen
 
     var body: some View {
-        NotchContainer(model: model)
+        NotchContainer(model: model, screen: screen)
             .frame(width: NotchWindowController.panelSize.width,
                    height: NotchWindowController.panelSize.height, alignment: .top)
     }

@@ -10,10 +10,18 @@ extension EnvironmentValues {
     @Entry var liveProgress: Double?
 }
 
+/// One display's shell: which display it sits on and that display's hardware notch (nil: none).
+@MainActor @Observable
+final class ShellScreen {
+    var id: DisplayID?
+    var notch: CGSize?
+}
+
 /// Draws the shell for the current mode: silhouette + shadow, mode content clipped to the body.
 /// Fills its parent and pins the shell to the top centre, so it works in the real panel and in snapshots.
 struct NotchContainer: View {
     var model: NotchModel
+    var screen = ShellScreen()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private static let shellCurve = Animation.timingCurve(
@@ -22,9 +30,10 @@ struct NotchContainer: View {
         Geo.shellCloseCurve.x1, Geo.shellCloseCurve.y1, Geo.shellCloseCurve.x2, Geo.shellCloseCurve.y2, duration: Geo.shellCloseDuration)
 
     var body: some View {
-        let g = model.geometry
+        let mode = model.mode(on: screen.id)
+        let g = model.geometry(notch: screen.notch, on: screen.id)
         let t = model.tokens
-        let shadowOpacity = model.mode == .idle ? 0 : (model.isLight ? Geo.shadow.lightOpenOpacity : Geo.shadow.opacity)
+        let shadowOpacity = mode == .idle ? 0 : (model.isLight ? Geo.shadow.lightOpenOpacity : Geo.shadow.opacity)
 
         ZStack(alignment: .top) {
             NotchShape(bottomRadius: g.radius, shoulder: g.shoulder)
@@ -32,8 +41,8 @@ struct NotchContainer: View {
                 .shadow(color: .black.opacity(shadowOpacity), radius: Geo.shadow.blur / 2, x: 0, y: Geo.shadow.y)
                 .frame(width: g.width, height: g.height)
 
-            content
-                .animation(reduceMotion ? nil : .easeOut(duration: Geo.fadeOut), value: model.mode)
+            content(mode)
+                .animation(reduceMotion ? nil : .easeOut(duration: Geo.fadeOut), value: mode)
             .frame(width: g.width, height: g.height, alignment: .top)
             .clipShape(UnevenRoundedRectangle(bottomLeadingRadius: g.radius, bottomTrailingRadius: g.radius))
         }
@@ -60,8 +69,8 @@ struct NotchContainer: View {
     /// Incoming content brings its own delayed fade (`Entrance`); outgoing content fades out while the shell moves.
     private static let contentSwap = AnyTransition.asymmetric(insertion: .identity, removal: .opacity)
 
-    @ViewBuilder private var content: some View {
-        switch model.mode {
+    @ViewBuilder private func content(_ mode: NotchMode) -> some View {
+        switch mode {
         case .idle:
             Color.clear
                 .contentShape(Rectangle())

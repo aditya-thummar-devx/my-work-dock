@@ -269,10 +269,10 @@ enum SnapshotRunner {
             $0.localIP.show(.idle, ip: "192.168.1.31")
         },
         // No reference design: Settings › Menus and what the panel / peek show when menus are off.
-        State.fragment("47-settings-menus-dark", rect: CGRect(x: 440, y: 46, width: 300, height: 330)) {
+        State.fragment("47-settings-menus-dark", rect: CGRect(x: 440, y: 46, width: 300, height: 420)) {
             SettingsPopover(theme: .dark, tint: .lime, disabled: [.emulator], page: .menus)
         },
-        State.fragment("48-settings-menus-light", theme: .light, rect: CGRect(x: 440, y: 46, width: 300, height: 330)) {
+        State.fragment("48-settings-menus-light", theme: .light, rect: CGRect(x: 440, y: 46, width: 300, height: 420)) {
             SettingsPopover(theme: .light, tint: .lime, disabled: [.claudex, .localIP], page: .menus)
         },
         State("49-menus-all-off", .panel) { model in
