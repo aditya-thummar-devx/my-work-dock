@@ -15,6 +15,9 @@ extension EnvironmentValues {
 final class ShellScreen {
     var id: DisplayID?
     var notch: CGSize?
+    /// Another display's notch size, drawn at idle on a display with none so every display's idle shell looks alike.
+    var borrowedNotch: CGSize?
+    var idleNotch: CGSize? { notch ?? borrowedNotch }
     /// The display's size in points; nil in snapshots.
     var size: CGSize?
 }
@@ -33,7 +36,7 @@ struct NotchContainer: View {
 
     var body: some View {
         let mode = model.mode(on: screen.id)
-        let g = model.geometry(notch: screen.notch, on: screen.id, screen: screen.size)
+        let g = model.geometry(notch: screen.idleNotch, on: screen.id, screen: screen.size)
         let t = model.tokens
         let shadowOpacity = mode == .idle ? 0 : (model.isLight ? Geo.shadow.lightOpenOpacity : Geo.shadow.opacity)
 
