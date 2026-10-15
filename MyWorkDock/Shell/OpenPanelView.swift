@@ -38,7 +38,7 @@ struct OpenPanelView: View {
                     Color.clear.contentShape(Rectangle()).onTapGesture(perform: model.toggleSettings) // outside click closes, like the claudex sort menu
                     SettingsPopover(theme: model.theme, systemIsDark: model.appearance.isDark, tint: model.tint, panelSize: model.panelSize, disabled: model.disabled, peekOn: model.peekOn,
                                     allDisplays: model.showOnAllDisplays, clipboardLimit: model.clipboard.limit,
-                                    version: model.version, updatedAt: model.updatedAt, onCheckForUpdates: model.checkForUpdates, onHelp: model.openUsageGuide,
+                                    version: model.version, updatedAt: model.updatedAt, onCheckForUpdates: model.checkForUpdates,
                                     onTheme: model.setTheme, onTint: model.setTint, onPanelSize: model.setPanelSize,
                                     onFeature: model.setEnabled, onPeek: model.setPeekEnabled, onAllDisplays: model.setShowOnAllDisplays,
                                     onClipboardLimit: model.setClipboardLimit, onClose: model.toggleSettings)
@@ -104,6 +104,19 @@ private struct Footer: View {
         }
     }
 
+    private func footerButton(_ title: String, _ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(Typo.ui(12, .semibold))
+                .foregroundStyle(t.text2)
+                .padding(.horizontal, Geo.Chrome.footerButtonPaddingX)
+                .frame(height: Geo.Chrome.footerButtonHeight)
+                .background(RoundedRectangle(cornerRadius: Geo.Chrome.footerButtonRadius).fill(t.ctrl))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
     var body: some View {
         HStack {
             Text(footerText.text).foregroundStyle(footerText.isError ? t.orange : t.faint)
@@ -117,16 +130,8 @@ private struct Footer: View {
                     Text("⌥Space").font(Typo.mono(12)).foregroundStyle(t.text2)
                     Text(" toggle")
                 }
-                Button(action: model.closePanel) {
-                    Text("Collapse")
-                        .font(Typo.ui(12, .semibold))
-                        .foregroundStyle(t.text2)
-                        .padding(.horizontal, Geo.Chrome.footerButtonPaddingX)
-                        .frame(height: Geo.Chrome.footerButtonHeight)
-                        .background(RoundedRectangle(cornerRadius: Geo.Chrome.footerButtonRadius).fill(t.ctrl))
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
+                footerButton("Help", model.openUsageGuide)
+                footerButton("Collapse", model.closePanel)
             }
         }
         .font(Typo.ui(12))
