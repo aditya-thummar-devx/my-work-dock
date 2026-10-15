@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Help · MyWorkDock</title>
+<meta name="description" content="Fixes for common MyWorkDock problems, where your data is stored, and how to uninstall.">
+<link rel="icon" href="assets/icon.png">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="site-header"><div class="wrap">
+  <a class="brand" href="index.html"><img src="assets/icon.png" alt="">MyWorkDock</a>
+  <nav>
+    <a href="install.html">Install</a>
+    <a href="privacy-blocker.html">Privacy blocker</a>
+    <a href="usage.html">Usage</a>
+    <a href="features.html">Features</a>
+    <a href="updates.html">Updates</a>
+    <a href="troubleshooting.html" aria-current="page">Help</a>
+  </nav>
+</div></header>
+
+<main><div class="wrap">
+  <h1>Help and FAQ</h1>
+  <p class="lead">Find your problem below. If it is not here, <a href="https://github.com/aditya-thummar-devx/my-work-dock/issues">open an issue</a>.</p>
+
+  <h2>Opening the app</h2>
+  <details>
+    <summary>macOS says the app can’t be opened or can’t be verified</summary>
+    <p>Expected on first launch. Follow <a href="privacy-blocker.html">Get past the privacy blocker</a>.</p>
+  </details>
+  <details>
+    <summary>There is no “Open Anyway” button in Privacy &amp; Security</summary>
+    <p>It only shows for a while after a blocked launch. Double-click the app again, cancel the warning, and go straight back to System Settings › Privacy &amp; Security. Or use the one-line Terminal fix on the <a href="privacy-blocker.html">privacy blocker page</a>.</p>
+  </details>
+  <details>
+    <summary>I opened it but I do not see anything</summary>
+    <p>There is no Dock icon. Look at the top of the screen for the dark bar around the notch and at the menu-bar icon. If you chose <strong>Hide MyWorkDock</strong> from the menu-bar icon, choose <strong>Show</strong>. You can also press <kbd>⌥</kbd> <kbd>Space</kbd>.</p>
+  </details>
+  <details>
+    <summary>It will not run on my Mac</summary>
+    <p>MyWorkDock needs macOS 14 or later and an Apple Silicon Mac. Intel Macs are not supported.</p>
+  </details>
+
+  <h2>Shortcuts and display</h2>
+  <details>
+    <summary>A hotkey does nothing</summary>
+    <ul>
+      <li>Another app may already use that key combination. MyWorkDock skips the combination it cannot claim; the others still work. Change the other app’s shortcut or use the notch instead.</li>
+      <li>The hotkey’s menu may be switched off in Settings › Menus.</li>
+      <li>Confirm the app is running (menu-bar icon visible).</li>
+    </ul>
+  </details>
+  <details>
+    <summary>The bar does not show on my external display</summary>
+    <p>Turn on Settings › Menus › <strong>Show on all displays</strong>. Then hover or click the bar on the display you want to use.</p>
+  </details>
+  <details>
+    <summary>Tab or Shift+Tab does not switch tabs</summary>
+    <p>They are ignored while the cursor is in a text field. Press <kbd>Esc</kbd> to leave the field first.</p>
+  </details>
+
+  <h2>Clipboard</h2>
+  <details>
+    <summary>Clipboard history stays empty</summary>
+    <ul>
+      <li>If macOS asked about <strong>Paste from Other Apps</strong> and you chose Don’t Allow, allow it in System Settings › Privacy &amp; Security › Paste from Other Apps. The Clipboard footer also tells you when this is the cause.</li>
+      <li>Text copied while a password manager is the front app is never recorded, by design.</li>
+      <li>Only text is stored. Images and files are not.</li>
+      <li>Check that Clipboard is switched on in Settings › Menus.</li>
+    </ul>
+  </details>
+  <details>
+    <summary>An old clip disappeared</summary>
+    <p>Only the last 200 untagged, unpinned clips are kept by default. Tag or pin a clip to keep it forever, or raise the limit in Settings › Clipboard.</p>
+  </details>
+
+  <h2>claudex and Emulator</h2>
+  <details>
+    <summary>The claudex tab is empty or shows a ⚠</summary>
+    <p>The tab drives the <code>claudex</code> command-line tool, so it must be installed and on your PATH. A ⚠ with raw text means claudex printed something this version does not recognise; update claudex or MyWorkDock.</p>
+  </details>
+  <details>
+    <summary>No iOS simulators, or no Android emulators, are listed</summary>
+    <p>iOS needs Xcode so that <code>xcrun simctl</code> works. Android needs the Android SDK with <code>adb</code> and <code>emulator</code>, usually at <code>~/Library/Android/sdk</code>. Press the refresh button after installing.</p>
+  </details>
+  <details>
+    <summary>Wireless pairing says “No route to host”</summary>
+    <p>MyWorkDock needs the <strong>Local Network</strong> permission to reach your phone. Grant it in System Settings › Privacy &amp; Security › Local Network, then press <strong>Restart adb server</strong> in Emulator › Wireless and try again.</p>
+  </details>
+
+  <h2 id="data">Where your data lives</h2>
+  <p>Everything is stored on your Mac and nowhere else:</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>File (in <code>~/Library/Application Support/MyWorkDock/</code>)</th><th>Holds</th></tr></thead>
+    <tbody>
+      <tr><td><code>clipboard.json</code></td><td>Clipboard history. <strong>Plain text</strong>, so treat it like any file on your disk.</td></tr>
+      <tr><td><code>notes.json</code></td><td>TODOs and tag colours</td></tr>
+      <tr><td><code>commands.json</code>, <code>prompts.json</code>, <code>links.json</code></td><td>Your saved snippets</td></tr>
+      <tr><td><code>wireless-android.json</code></td><td>Known wireless Android devices</td></tr>
+    </tbody>
+  </table></div>
+  <p>Settings (theme, tint, panel size, switched-off menus) are in the app’s macOS preferences, <code>com.adityabuilds.myworkdock</code>. To back up your notes, copy the folder above.</p>
+
+  <h2>Uninstall</h2>
+  <ol>
+    <li>Quit MyWorkDock from the menu-bar icon.</li>
+    <li>If you turned on Open at login, turn it off first (right-click the notch bar › Open at login) or remove it in System Settings › General › Login Items.</li>
+    <li>Delete <strong>MyWorkDock</strong> from Applications.</li>
+    <li>Optional, to remove your data too: delete <code>~/Library/Application Support/MyWorkDock</code>, and run <code>defaults delete com.adityabuilds.myworkdock</code> to clear settings.</li>
+  </ol>
+</div></main>
+
+<footer class="site-footer"><div class="wrap">
+  <a href="https://github.com/aditya-thummar-devx/my-work-dock">GitHub</a> ·
+  <a href="https://github.com/aditya-thummar-devx/my-work-dock/releases">Releases</a> ·
+  <a href="troubleshooting.html">Help</a>
+</div></footer>
+</body>
+</html>

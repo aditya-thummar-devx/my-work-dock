@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Install · MyWorkDock</title>
+<meta name="description" content="Download and install MyWorkDock on your Mac.">
+<link rel="icon" href="assets/icon.png">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="site-header"><div class="wrap">
+  <a class="brand" href="index.html"><img src="assets/icon.png" alt="">MyWorkDock</a>
+  <nav>
+    <a href="install.html" aria-current="page">Install</a>
+    <a href="privacy-blocker.html">Privacy blocker</a>
+    <a href="usage.html">Usage</a>
+    <a href="features.html">Features</a>
+    <a href="updates.html">Updates</a>
+    <a href="troubleshooting.html">Help</a>
+  </nav>
+</div></header>
+
+<main><div class="wrap">
+  <h1>Install</h1>
+  <p class="lead">Download, drag, open. The only fiddly part is the one-time macOS warning, covered on the next page.</p>
+
+  <h2>Requirements</h2>
+  <ul>
+    <li><strong>macOS 14 Sonoma or later.</strong></li>
+    <li><strong>Apple Silicon</strong> (M1, M2, M3, M4 and newer). Intel Macs are not supported.</li>
+    <li>Optional, only for the tabs that use them: Xcode (iOS simulators), the Android SDK (<code>adb</code> and <code>emulator</code>), and the <code>claudex</code> CLI. Everything else works without them.</li>
+  </ul>
+
+  <h2>Steps</h2>
+  <ol class="steps">
+    <li>Open the <a href="https://github.com/aditya-thummar-devx/my-work-dock/releases/latest">latest release</a> and download the file ending in <code>.dmg</code> (under <strong>Assets</strong>).</li>
+    <li>Open the DMG and drag <strong>MyWorkDock</strong> onto the <strong>Applications</strong> shortcut in the same window.</li>
+    <li>Eject the DMG, then open <strong>MyWorkDock</strong> from Applications.</li>
+    <li>macOS will refuse to open it. That is expected. Follow <a href="privacy-blocker.html">Get past the privacy blocker</a>, then open the app again.</li>
+    <li>There is no Dock icon. Look for the small icon in the menu bar and the dark bar at the top of your screen. Hover it to see the peek, click it to open the panel.</li>
+  </ol>
+
+  <div class="callout">
+    <strong>Keep it in Applications.</strong>
+    <p>Run it from <code>/Applications</code>, not from the DMG or Downloads. Automatic updates replace the app in place and need a normal install location.</p>
+  </div>
+
+  <h2>Start at login (optional)</h2>
+  <p>MyWorkDock does not start at login by default. To turn it on, right-click the notch bar and choose <strong>Open at login</strong>. A tick shows when it is on. You can also manage it in System Settings › General › Login Items.</p>
+
+  <h2>Build from source</h2>
+  <p>If you would rather build it yourself you need Xcode and <a href="https://github.com/yonaskolb/XcodeGen">XcodeGen</a>:</p>
+<pre><code>git clone https://github.com/aditya-thummar-devx/my-work-dock.git
+cd my-work-dock
+xcodegen generate
+open MyWorkDock.xcodeproj</code></pre>
+  <p>A build you make yourself is signed on your own Mac and does not hit the Gatekeeper warning. It also does not receive automatic updates in debug configuration.</p>
+
+  <h2>Next</h2>
+  <p><a class="btn" href="privacy-blocker.html">Get past the privacy blocker →</a></p>
+</div></main>
+
+<footer class="site-footer"><div class="wrap">
+  <a href="https://github.com/aditya-thummar-devx/my-work-dock">GitHub</a> ·
+  <a href="https://github.com/aditya-thummar-devx/my-work-dock/releases">Releases</a> ·
+  <a href="troubleshooting.html">Help</a>
+</div></footer>
+</body>
+</html>
