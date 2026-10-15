@@ -371,4 +371,39 @@ final class ClaudexStoreTests: XCTestCase {
         XCTAssertEqual(s.usage.raw, "Usage\n")
         XCTAssertEqual(s.unrecognisedTabs, [.usage, .pool, .health])
     }
+
+    func testMissingClaudexMakesTheMenuUnavailableUntilARetryFindsIt() async {
+        let s = ClaudexStore()
+        var path: String?
+        var calls = 0
+        s.findTool = { _ in path }
+        s.runner = { _, _, _ in calls += 1; return ProcessResult(status: 0, out: "Usage\n", err: "") }
+        await s.refresh()
+        XCTAssertEqual(s.unavailable, "claudex not found. Install it or add it to PATH.")
+        XCTAssertEqual(calls, 0)
+
+        await s.refresh() // background callers (hover, panel open) stay quiet while it is missing
+        XCTAssertEqual(calls, 0)
+
+        path = "/bin/claudex" // installed since; Retry is a fresh refresh
+        await s.refresh(fresh: true)
+        XCTAssertNil(s.unavailable)
+        XCTAssertEqual(calls, 7)
+    }
+
+    func testOutputWeDoNotRecogniseIsNotUnavailable() async {
+        let s = ClaudexStore()
+        s.findTool = { _ in "/bin/claudex" }
+        s.runner = { _, _, _ in ProcessResult(status: 0, out: "Usage\n", err: "") }
+        await s.refresh(fresh: true)
+        XCTAssertNil(s.unavailable) // per-tab ⚠ handles this
+    }
+
+    func testClaudexThatCannotRunIsUnavailableWithTheReason() async {
+        let s = ClaudexStore()
+        s.findTool = { _ in "/bin/claudex" }
+        s.runner = { _, _, _ in .failed("/bin/claudex: Permission denied") }
+        await s.refresh(fresh: true)
+        XCTAssertEqual(s.unavailable, "/bin/claudex: Permission denied")
+    }
 }
