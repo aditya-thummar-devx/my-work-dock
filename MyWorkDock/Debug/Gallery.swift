@@ -160,6 +160,10 @@ struct Gallery: View {
             DeviceCard(device: SampleData.iosDevices[2])
             DeviceCard(device: SampleData.iosDevicesBooting[1])
         }
+        section("WirelessCard") {
+            WirelessCard(device: SampleData.wirelessIOS[0])
+            WirelessCard(device: SampleData.wirelessIOS[3])
+        }
         section("GroupedList · rows") {
             GroupedList(count: 3, rowHeight: Geo.Row.todoHeight) { TodoRow(todo: SampleData.todos[[0, 3, 4][$0]]) }
             GroupedList(count: 3, rowHeight: Geo.Row.snippetHeight) { i in
@@ -168,7 +172,6 @@ struct Gallery: View {
             GroupedList(count: 2, rowHeight: Geo.Row.snippetHeight) { i in
                 SnippetRow(kind: .prompts, text: SampleData.prompts[i + 2], copied: i == 1, editing: false)
             }
-            GroupedList(count: 2, rowHeight: Geo.Row.wirelessHeight) { WirelessRow(device: SampleData.wirelessIOS[[0, 3][$0]]) }
         }
         section("ConfirmSheet") {
             ConfirmSheet(title: "Switch this Mac to studio?", command: "claudex switch studio --force",
