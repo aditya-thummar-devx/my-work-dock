@@ -85,14 +85,19 @@ struct NotchContainer: View {
                 .transition(.identity)
         case .peek:
             Group {
-                if model.peekHint {
-                    PeekHintView()
-                        .accessibilityElement()
-                        .accessibilityLabel("Tap to see magic")
-                } else {
+                switch model.peekContent {
+                case .claudex:
                     PeekView(data: model.peek, extents: model.peekExtents)
                         .accessibilityElement()
                         .accessibilityLabel("\(model.peek.name), \(model.peek.isPool ? "pool" : "single sign-on"). " + model.peek.bars.map { "\($0.label) \($0.percent.map { "\($0) percent" } ?? "no reading")" }.joined(separator: ", "))
+                case .info(let info):
+                    PeekInfoView(info: info)
+                        .accessibilityElement()
+                        .accessibilityLabel(info.spoken)
+                case .hint:
+                    PeekHintView()
+                        .accessibilityElement()
+                        .accessibilityLabel("Tap to see magic")
                 }
             }
             .onTapGesture { model.openPanel() }

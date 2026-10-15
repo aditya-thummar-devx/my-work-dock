@@ -171,21 +171,27 @@ final class ClaudexStore {
     var footer: String { message ?? Self.defaultFooter }
 
     /// Peek ears: pool on -> the pool member claudex has selected (▶, POOL); pool off -> the active account of the SSO
-    /// list (SSO). No reading shows "—" and "no reading".
-    var peekData: PeekData {
-        func bars(_ session: Gauge, _ week: Gauge) -> [PeekBar] {
-            // The week's reset shows as a date ("Oct 19"), the session's as claudex printed it.
-            let day = week.at.map { $0.split(separator: " ").prefix(2).joined(separator: " ") }
-            return [PeekBar(label: "5H", percent: session.pct, reset: session.at), PeekBar(label: "WEEK", percent: week.pct, reset: day)]
-        }
+    /// list (SSO). No reading shows "—" and "no reading". nil when claudex gave no account at all (missing, logged out, unreadable).
+    private var livePeek: PeekData? {
         if consuming == true, let m = members.data?.first(where: \.marked) {
-            return PeekData(name: m.name, isPool: true, bars: bars(m.session, m.week))
+            return PeekData(name: m.name, isPool: true, bars: Self.peekBars(m.session, m.week))
         }
         if let row = usage.data?.first(where: \.active) {
-            return PeekData(name: row.account, isPool: false, bars: bars(row.session, row.week))
+            return PeekData(name: row.account, isPool: false, bars: Self.peekBars(row.session, row.week))
         }
-        return PeekData(name: current.data?.account ?? "claudex", isPool: false, bars: bars(.none, .none))
+        return current.data.map { PeekData(name: $0.account, isPool: false, bars: Self.peekBars(.none, .none)) }
     }
+
+    var peekData: PeekData { livePeek ?? PeekData(name: "claudex", isPool: false, bars: Self.peekBars(.none, .none)) }
+
+    private static func peekBars(_ session: Gauge, _ week: Gauge) -> [PeekBar] {
+        // The week's reset shows as a date ("Oct 19"), the session's as claudex printed it.
+        let day = week.at.map { $0.split(separator: " ").prefix(2).joined(separator: " ") }
+        return [PeekBar(label: "5H", percent: session.pct, reset: session.at), PeekBar(label: "WEEK", percent: week.pct, reset: day)]
+    }
+
+    /// Hover has an account to show; false while claudex is missing or has not answered yet.
+    var hasPeek: Bool { livePeek != nil }
 
     var freshLabel: String {
         guard let fetchedAt else { return "not loaded" }

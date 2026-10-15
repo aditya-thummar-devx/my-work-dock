@@ -271,4 +271,9 @@ final class ClipboardStoreTests: XCTestCase {
         let (again, _) = make(url: url)
         XCTAssertEqual(again.items.map(\.text), ["a"])
     }
+
+    func testPeekClipsCountsTheHistoryAndItsPinnedClipsAndIsNilWhenEmpty() {
+        XCTAssertEqual(ClipboardStore.sample().peekClips, PeekClips(total: 4, pinned: 1))
+        XCTAssertNil(ClipboardStore(url: nil, seed: []).peekClips)
+    }
 }

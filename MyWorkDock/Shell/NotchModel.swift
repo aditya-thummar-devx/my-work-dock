@@ -88,6 +88,8 @@ final class NotchModel {
     private(set) var panelSize: PanelSize = .medium
     /// Settings › Menus: a disabled feature is hidden and runs nothing in the background.
     private(set) var disabled: Set<Feature> = []
+    /// Settings › Peek: the sources hover shows. `[.claudex]` alone, or any of the others (claudex takes the whole hover).
+    private(set) var peekOn: Set<PeekSource> = PeekSource.defaultOn
     var emulatorTab: EmulatorTab = .devices
     /// Forces the live-activity state (debug menu, snapshots); otherwise it follows the emulator store.
     var bootingOverride: String?
@@ -125,6 +127,10 @@ final class NotchModel {
             tint = defaults.string(forKey: "tint").flatMap(Tint.init(rawValue:)) ?? .lime
             panelSize = defaults.string(forKey: "panelSize").flatMap(PanelSize.init(rawValue:)) ?? .medium
             disabled = Set((defaults.stringArray(forKey: "disabledFeatures") ?? []).compactMap(Feature.init(rawValue:)))
+            if let saved = defaults.stringArray(forKey: "peekSources") {
+                let on = Set(saved.compactMap(PeekSource.init(rawValue:)))
+                peekOn = on.contains(.claudex) ? [.claudex] : on
+            }
             showOnAllDisplays = defaults.bool(forKey: "showOnAllDisplays")
             if defaults.string(forKey: "seenVersion") != version {
                 defaults.set(version, forKey: "seenVersion")
@@ -158,9 +164,27 @@ final class NotchModel {
 
     func isEnabled(_ feature: Feature) -> Bool { !disabled.contains(feature) }
     var enabledTabs: [MainTab] { MainTab.allCases.filter { isEnabled($0.feature) } }
-    /// claudex off: the peek has no usage to show, so it invites a click instead.
-    var peekHint: Bool { !isEnabled(.claudex) }
-    private var shownPeekExtents: PeekExtents { peekHint ? PeekMetrics.hintExtents : peekExtents }
+    func isPeekEnabled(_ source: PeekSource) -> Bool { peekOn.contains(source) }
+
+    /// What hover draws. claudex on: its two ears, or the hint while it has no account to show. Otherwise the TODO and
+    /// clipboard counts (left) and the Local IP (right), each only when its source is on, its menu is on and it has
+    /// something to show; with none of them, the hint invites a click.
+    var peekContent: PeekContent {
+        func shows(_ source: PeekSource) -> Bool { isPeekEnabled(source) && isEnabled(source.feature) }
+        if isPeekEnabled(.claudex) { return shows(.claudex) && claudex.hasPeek ? .claudex : .hint }
+        let info = PeekInfo(todo: shows(.todo) ? notes.peekTodo : nil,
+                            clips: shows(.clipboard) ? clipboard.peekClips : nil,
+                            ip: shows(.localIP) ? localIP.ip : nil)
+        return info.isEmpty ? .hint : .info(info)
+    }
+
+    private var shownPeekExtents: PeekExtents {
+        switch peekContent {
+        case .claudex: peekExtents
+        case .info(let info): PeekMetrics.measure(info)
+        case .hint: PeekMetrics.hintExtents
+        }
+    }
 
     /// Simulator currently booting; drives the live-activity state. Never set while the Emulator menu is off.
     var bootingName: String? { isEnabled(.emulator) ? bootingOverride ?? emulator.bootingName : nil }
@@ -207,7 +231,7 @@ final class NotchModel {
         if inside {
             guard !hover || cancelLeave != nil else { return }
             clearLeaveTimer()
-            if !hover, isEnabled(.claudex) { Task { await claudex.refresh() } } // reads are cached for 60 s
+            if !hover, isPeekEnabled(.claudex), isEnabled(.claudex) { Task { await claudex.refresh() } } // reads are cached for 60 s
             hover = true
             changed()
         } else if hover, cancelLeave == nil {
@@ -390,6 +414,20 @@ final class NotchModel {
         defaults?.set(disabled.map(\.rawValue).sorted(), forKey: "disabledFeatures")
         if !enabledTabs.contains(mainTab), let first = enabledTabs.first { setMainTab(first) }
         applyServices(only: feature)
+        changed()
+    }
+
+    /// Settings › Peek. claudex on takes the whole hover and switches the others off; claudex off puts them all back on.
+    /// The others only change while claudex is off.
+    func setPeekEnabled(_ source: PeekSource, _ on: Bool) {
+        guard on != isPeekEnabled(source) else { return }
+        if source == .claudex {
+            peekOn = on ? [.claudex] : PeekSource.defaultOn
+        } else {
+            guard !isPeekEnabled(.claudex) else { return }
+            if on { peekOn.insert(source) } else { peekOn.remove(source) }
+        }
+        defaults?.set(peekOn.map(\.rawValue).sorted(), forKey: "peekSources")
         changed()
     }
 

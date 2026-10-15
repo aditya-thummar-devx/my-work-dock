@@ -49,7 +49,7 @@ extension Geo {
 
 /// Settings: Appearance (theme, tint), Menus (which features are on) and Clipboard (history size). Applies everywhere.
 struct SettingsPopover: View {
-    enum Page: String { case appearance, menus, clipboard, version }
+    enum Page: String { case appearance, menus, peek, clipboard, version }
 
     var theme: ThemeMode
     /// What macOS is in right now; only shown while `theme == .system`.
@@ -57,6 +57,7 @@ struct SettingsPopover: View {
     var tint: Tint
     var panelSize = PanelSize.medium
     var disabled: Set<Feature> = []
+    var peekOn = PeekSource.defaultOn
     var allDisplays = false
     var clipboardLimit = ClipboardStore.defaultLimit
     var version = ""
@@ -67,24 +68,27 @@ struct SettingsPopover: View {
     var onTint: (Tint) -> Void = { _ in }
     var onPanelSize: (PanelSize) -> Void = { _ in }
     var onFeature: (Feature, Bool) -> Void = { _, _ in }
+    var onPeek: (PeekSource, Bool) -> Void = { _, _ in }
     var onAllDisplays: (Bool) -> Void = { _ in }
     var onClipboardLimit: (Int) -> Void = { _ in }
     var onClose: () -> Void = {}
     @State private var page: Page
     @Environment(\.tokens) private var t
 
-    init(theme: ThemeMode, systemIsDark: Bool = true, tint: Tint, panelSize: PanelSize = .medium, disabled: Set<Feature> = [], allDisplays: Bool = false, page: Page = .appearance,
+    init(theme: ThemeMode, systemIsDark: Bool = true, tint: Tint, panelSize: PanelSize = .medium, disabled: Set<Feature> = [], peekOn: Set<PeekSource> = PeekSource.defaultOn, allDisplays: Bool = false, page: Page = .appearance,
          clipboardLimit: Int = ClipboardStore.defaultLimit, version: String = "", updatedAt: Date? = nil,
          onCheckForUpdates: (() -> Void)? = nil,
          onTheme: @escaping (ThemeMode) -> Void = { _ in }, onTint: @escaping (Tint) -> Void = { _ in },
          onPanelSize: @escaping (PanelSize) -> Void = { _ in },
-         onFeature: @escaping (Feature, Bool) -> Void = { _, _ in }, onAllDisplays: @escaping (Bool) -> Void = { _ in },
+         onFeature: @escaping (Feature, Bool) -> Void = { _, _ in }, onPeek: @escaping (PeekSource, Bool) -> Void = { _, _ in },
+         onAllDisplays: @escaping (Bool) -> Void = { _ in },
          onClipboardLimit: @escaping (Int) -> Void = { _ in }, onClose: @escaping () -> Void = {}) {
         self.theme = theme
         self.systemIsDark = systemIsDark
         self.tint = tint
         self.panelSize = panelSize
         self.disabled = disabled
+        self.peekOn = peekOn
         self.allDisplays = allDisplays
         self.clipboardLimit = clipboardLimit
         self.version = version
@@ -95,6 +99,7 @@ struct SettingsPopover: View {
         self.onTint = onTint
         self.onPanelSize = onPanelSize
         self.onFeature = onFeature
+        self.onPeek = onPeek
         self.onAllDisplays = onAllDisplays
         self.onClose = onClose
         _page = State(initialValue: page)
@@ -104,7 +109,7 @@ struct SettingsPopover: View {
         VStack(alignment: .leading, spacing: Geo.Chrome.popoverGap) {
             HStack {
                 SubTabs(items: [SubTabItem(Page.appearance.rawValue, "Appearance"), SubTabItem(Page.menus.rawValue, "Menus"),
-                                SubTabItem(Page.clipboard.rawValue, "Clipboard"), SubTabItem(Page.version.rawValue, "Version")],
+                                SubTabItem(Page.peek.rawValue, "Peek"), SubTabItem(Page.clipboard.rawValue, "Clipboard"), SubTabItem(Page.version.rawValue, "Version")],
                         selection: page.rawValue, activeFill: t.ctrl) { page = Page(rawValue: $0) ?? .appearance }
                 Spacer()
                 IconButton(glyph: .close, label: "Close settings", size: Geo.Appearance.closeSize,
@@ -116,6 +121,8 @@ struct SettingsPopover: View {
                                   onTheme: onTheme, onTint: onTint, onPanelSize: onPanelSize)
             case .menus:
                 MenusSection(disabled: disabled, allDisplays: allDisplays, onFeature: onFeature, onAllDisplays: onAllDisplays)
+            case .peek:
+                PeekSection(on: peekOn, disabled: disabled, onPeek: onPeek)
             case .clipboard:
                 ClipboardSection(limit: clipboardLimit, onLimit: onClipboardLimit)
             case .version:
@@ -258,6 +265,49 @@ private struct MenusSection: View {
     }
 
     private func row(_ label: String, _ glyph: Glyph, on: Bool, toggle: @escaping () -> Void) -> some View {
+        SwitchRow(label: label, glyph: glyph, on: on, toggle: toggle)
+    }
+}
+
+/// Settings › Peek: what hover shows. claudex alone takes the whole hover (the rest go off and are locked); with claudex off
+/// the TODO and clipboard counts show on the left of the notch and the Local IP on its right.
+private struct PeekSection: View {
+    var on: Set<PeekSource>
+    var disabled: Set<Feature>
+    var onPeek: (PeekSource, Bool) -> Void
+    @Environment(\.tokens) private var t
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Geo.Chrome.popoverGap) {
+            Text("Hover shows").font(Typo.ui(Geo.Appearance.sectionFont, .semibold)).foregroundStyle(t.faint)
+            VStack(spacing: 0) {
+                ForEach(PeekSource.allCases) { source in
+                    let isOn = on.contains(source)
+                    // The others wait while claudex is on; a menu that is off can still be switched off here, never on.
+                    let locked = (source != .claudex && on.contains(.claudex)) || (disabled.contains(source.feature) && !isOn)
+                    SwitchRow(label: source.label, glyph: source.glyph, on: isOn, locked: locked) { onPeek(source, !isOn) }
+                }
+            }
+            .padding(.top, Geo.Appearance.pullUp)
+            Text("claudex takes the whole hover and switches the rest off; switching it off turns them back on. Otherwise TODO and Clipboard counts show left of the notch and the IP on its right. Anything with nothing to show is hidden, and each needs its menu on in Menus.")
+                .font(Typo.ui(Geo.Appearance.noteFont))
+                .foregroundStyle(t.faint)
+                .lineSpacing(Typo.lineSpacing(size: Geo.Appearance.noteFont, lineHeight: 1.4))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+/// A settings row with a switch. `locked` dims it and ignores clicks (its menu is off), keeping the stored choice.
+private struct SwitchRow: View {
+    var label: String
+    var glyph: Glyph
+    var on: Bool
+    var locked = false
+    var toggle: () -> Void
+    @Environment(\.tokens) private var t
+
+    var body: some View {
         Button(action: toggle) {
             HStack(spacing: Geo.Menu.rowGap) {
                 Icon(glyph, size: Geo.Appearance.themeIcon).foregroundStyle(on ? t.text : t.muted)
@@ -268,10 +318,12 @@ private struct MenusSection: View {
             .padding(.horizontal, Geo.Menu.rowPadX)
             .frame(height: Geo.Appearance.menuRowHeight)
             .contentShape(Rectangle())
+            .opacity(locked ? 0.45 : 1)
         }
         .buttonStyle(.plain)
+        .disabled(locked)
         .accessibilityLabel(label)
-        .accessibilityValue(on ? "On" : "Off")
+        .accessibilityValue(locked ? "Off, its menu is off" : on ? "On" : "Off")
     }
 }
 
