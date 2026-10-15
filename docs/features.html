@@ -63,7 +63,7 @@
   <p>In Commands, Prompts and Links, a double-click copies the item.</p>
 
   <h2 id="claudex">claudex</h2>
-  <p>A front-end for the <code>claudex</code> command-line tool, which manages several Claude accounts. <strong>This tab needs <code>claudex</code> installed and on your PATH</strong>; without it the tab has nothing to show. Open it with <kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>X</kbd>.</p>
+  <p>A front-end for the <code>claudex</code> command-line tool, which manages several Claude accounts. <strong>This tab needs <code>claudex</code> installed and on your PATH</strong>; without it the tab shows “claudex is not available” with the reason and a <strong>Retry</strong> button (switch the menu off in Settings › Menus if you do not use it). Open it with <kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>X</kbd>.</p>
   <figure class="shot">
     <img src="assets/shots/claudex.png" alt="claudex tab with session and weekly usage gauges per account" width="1400" height="867">
   </figure>
@@ -82,8 +82,9 @@
     <img src="assets/shots/emulator.png" alt="Emulator tab listing iOS simulators with Play, Stop and Cold boot" width="1400" height="867">
   </figure>
   <h3>Devices</h3>
-  <p>Switch between <strong>Android</strong> and <strong>iOS</strong>. Each device card shows its state and has <strong>Play</strong>, <strong>Stop</strong> and <strong>Cold boot</strong>. The list refreshes every 30 seconds, and every 2 seconds while something boots. While a device boots, the notch shows a <a href="usage.html">live activity</a> bar.</p>
+  <p>Switch between <strong>Android</strong> and <strong>iOS</strong>. Devices appear as cards, two across and three on a large panel. Each card shows its state and has <strong>Play</strong>, <strong>Stop</strong> and <strong>Cold boot</strong>. The list refreshes every 30 seconds, and every 2 seconds while something boots. While a device boots, the notch shows a <a href="usage.html">live activity</a> bar.</p>
   <h3>Wireless</h3>
+  <p>Paired devices are cards too, each with a status and a <strong>Connect</strong>, <strong>Disconnect</strong> or <strong>Retry</strong> button.</p>
   <ul>
     <li><strong>Android:</strong> pair with the IP:port and 6-digit code from the phone, then connect or disconnect. <strong>Restart adb server</strong> fixes most stuck connections.</li>
     <li><strong>iOS:</strong> lists paired devices. It cannot connect or disconnect them; a short “Go cable-free” card walks through the three setup steps.</li>
