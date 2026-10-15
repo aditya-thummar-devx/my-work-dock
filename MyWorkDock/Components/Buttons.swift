@@ -160,8 +160,8 @@ struct ButtonMetrics {
     static let save = ButtonMetrics(height: 30, radius: 9, padLeading: 12, padTrailing: 12, font: 12)
     /// Cancel / Confirm in the confirm sheet.
     static let confirm = ButtonMetrics(height: 32, radius: 10, padLeading: 12, padTrailing: 12, font: 12.5)
-    /// Connect / Disconnect / Retry in wireless rows.
-    static let wireless = ButtonMetrics(height: 30, radius: 10, padLeading: 0, padTrailing: 0, font: 12.5, width: 92)
+    /// Connect / Disconnect / Retry on wireless cards; 86 pt so a `Disconnected` pill still fits beside it in a 230 pt card.
+    static let wireless = ButtonMetrics(height: 30, radius: 10, padLeading: 0, padTrailing: 0, font: 12.5, width: 86)
     /// Copy in command rows.
     static let copy = ButtonMetrics(height: 30, radius: 9, padLeading: 10, padTrailing: 10, font: 12)
     /// Copy in the tunnel command well.

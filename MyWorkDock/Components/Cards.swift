@@ -74,9 +74,13 @@ extension Geo {
     enum CardMetrics {
         static let memberHeight: CGFloat = 118
         static let deviceHeight: CGFloat = 108
+        static let wirelessHeight: CGFloat = 108
+        /// Wireless cards share the row with the 220 pt pair card, so they go narrower: 2 columns at medium, 3 at large.
+        static let wirelessMinWidth: CGFloat = 230
         static let gridGap: CGFloat = 10
         /// Narrowest an adaptive-grid card gets; medium panel (720 pt content) stays at 2 columns, 3 needs 980 pt.
         static let adaptiveMinWidth: CGFloat = 320
+        static let maxColumns = 3
         static let activeBorder: CGFloat = 1.5
     }
 }
@@ -246,13 +250,56 @@ struct DeviceCard: View {
     }
 }
 
+/// Wireless device card: wifi tile, name, `OS · UDID / IP`, status pill and a Connect / Disconnect / Retry button.
+/// Connected gets the same green border and glow as a running `DeviceCard`.
+struct WirelessCard: View {
+    var device: WirelessSample
+    /// False when there is nothing to do for this device (shown disabled).
+    var canAct = true
+    var onAction: () -> Void = {}
+    @Environment(\.tokens) private var t
+
+    var body: some View {
+        let on = device.status == .connected
+        let off = device.status == .unavailable
+        Card(radius: 18,
+             border: on ? Fixed.runningBorder : nil,
+             glow: on ? Fixed.runningGlow : nil,
+             padding: EdgeInsets(top: 12, leading: 14, bottom: 12, trailing: 12)) {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 11) {
+                    Icon(.wifi, size: 18, stroke: 2.1)
+                        .foregroundStyle(on ? t.green : off ? t.offFg : t.text)
+                        .frame(width: 38, height: 38)
+                        .background(RoundedRectangle(cornerRadius: 12).fill(t.btn2))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(device.name).font(Typo.ui(14, .semibold)).lineLimit(1)
+                        (Text(device.meta).font(Typo.ui(12)) + Text(" · ").font(Typo.ui(12))
+                            + Text(device.addr).font(Typo.mono(11)))
+                            .foregroundStyle(t.faint).lineLimit(1)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                Spacer(minLength: 0)
+                HStack(spacing: 6) {
+                    StatusPill(kind: device.status).fixedSize()
+                    Spacer(minLength: 0)
+                    DockButton(title: on ? "Disconnect" : off ? "Retry" : "Connect", glyph: nil, metrics: .wireless,
+                               tone: !canAct ? .off : on ? .secondary : off ? .secondaryQuiet : .tint, enabled: canAct, action: onAction)
+                }
+            }
+            .frame(maxHeight: .infinity)
+        }
+        .frame(height: Geo.CardMetrics.wirelessHeight)
+    }
+}
+
 // MARK: - Grouped list rows
 
 extension Geo {
     enum Row {
         static let todoHeight: CGFloat = 46
         static let snippetHeight: CGFloat = 44
-        static let wirelessHeight: CGFloat = 64
     }
 }
 
@@ -419,54 +466,60 @@ struct SnippetRow: View {
     }
 }
 
-/// Wireless device row: wifi tile, `name · OS`, mono UDID / IP, status pill, 92 pt action button.
-struct WirelessRow: View {
-    var device: WirelessSample
-    /// False when there is nothing to do for this device (shown disabled).
-    var canAct = true
-    var onAction: () -> Void = {}
-    @Environment(\.tokens) private var t
-
-    var body: some View {
-        let on = device.status == .connected
-        let off = device.status == .unavailable
-        HStack(spacing: 12) {
-            Icon(.wifi, size: 17, stroke: 2.1)
-                .foregroundStyle(on ? t.green : off ? t.offFg : t.text)
-                .frame(width: 36, height: 36)
-                .background(RoundedRectangle(cornerRadius: 11).fill(t.btn2))
-            VStack(alignment: .leading, spacing: 2) {
-                (Text(device.name).font(Typo.ui(13.5, .semibold))
-                    + Text(" · \(device.meta)").font(Typo.ui(12, .medium)).foregroundColor(t.faint))
-                    .lineLimit(1)
-                Text(device.addr).font(Typo.mono(11)).foregroundStyle(t.faint).lineLimit(1)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            StatusPill(kind: device.status)
-            DockButton(title: on ? "Disconnect" : off ? "Retry" : "Connect", glyph: nil, metrics: .wireless,
-                       tone: !canAct ? .off : on ? .secondary : off ? .secondaryQuiet : .tint, enabled: canAct, action: onAction)
-        }
-        .padding(.leading, 14)
-        .padding(.trailing, 12)
-    }
-}
-
-/// Grid with fixed-height cards and 10 pt gaps. Two columns, or with `adaptive` as many as fit at `Geo.CardMetrics.adaptiveMinWidth`.
+/// Grid with fixed-height cards and 10 pt gaps. Two columns, or with `adaptive` as many as fit at `minWidth`, capped at
+/// `Geo.CardMetrics.maxColumns` (2 on a medium panel, 3 on a large one, never more however wide the display).
 struct CardGrid<Item: Identifiable, Cell: View>: View {
     var items: [Item]
     var adaptive = false
+    var minWidth = Geo.CardMetrics.adaptiveMinWidth
     @ViewBuilder var cell: (Item) -> Cell
 
-    private var columns: [GridItem] {
-        let gap = Geo.CardMetrics.gridGap
-        return adaptive
-            ? [GridItem(.adaptive(minimum: Geo.CardMetrics.adaptiveMinWidth), spacing: gap)]
-            : [GridItem(.flexible(), spacing: gap), GridItem(.flexible())]
+    var body: some View {
+        CardColumns(adaptive: adaptive, minWidth: minWidth) {
+            ForEach(items) { cell($0) }
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+/// Lays children out in equal-width columns that fill the proposed width. A `Layout` (not `LazyVGrid`) so the column count
+/// is known in the same pass as the width, which also holds in `ImageRenderer` snapshots.
+private struct CardColumns: Layout {
+    var adaptive: Bool
+    var minWidth: CGFloat
+    private let gap = Geo.CardMetrics.gridGap
+
+    private func columns(for width: CGFloat) -> Int {
+        guard adaptive else { return 2 }
+        return min(max(Int((width + gap) / (minWidth + gap)), 2), Geo.CardMetrics.maxColumns)
     }
 
-    var body: some View {
-        LazyVGrid(columns: columns, spacing: Geo.CardMetrics.gridGap) {
-            ForEach(items) { cell($0) }
+    private func rowHeights(_ subviews: Subviews, width: CGFloat) -> (cols: Int, cell: CGFloat, rows: [CGFloat]) {
+        let cols = columns(for: width)
+        let cell = (width - gap * CGFloat(cols - 1)) / CGFloat(cols)
+        let rows = stride(from: 0, to: subviews.count, by: cols).map { start in
+            subviews[start..<min(start + cols, subviews.count)]
+                .map { $0.sizeThatFits(ProposedViewSize(width: cell, height: nil)).height }.max() ?? 0
+        }
+        return (cols, cell, rows)
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        // A scroll view in a stack can probe with an infinite width; size that like an unspecified one.
+        let width = proposal.width.flatMap { $0.isFinite ? $0 : nil } ?? minWidth * 2 + gap
+        let rows = rowHeights(subviews, width: width).rows
+        return CGSize(width: width, height: rows.reduce(0, +) + gap * CGFloat(max(rows.count - 1, 0)))
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let (cols, cell, rows) = rowHeights(subviews, width: bounds.width)
+        var y = bounds.minY
+        for (r, height) in rows.enumerated() {
+            for c in 0..<cols where r * cols + c < subviews.count {
+                subviews[r * cols + c].place(at: CGPoint(x: bounds.minX + CGFloat(c) * (cell + gap), y: y), anchor: .topLeading,
+                                             proposal: ProposedViewSize(width: cell, height: height))
+            }
+            y += height + gap
         }
     }
 }
