@@ -5,8 +5,8 @@
 #   scripts/release.sh 0.1.1          # asks before publishing (needs a real terminal)
 #   scripts/release.sh 0.1.1 --yes    # no prompt, e.g. from Claude Code's `!`
 #
-# Needs: clean tree, HEAD pushed, `gh` logged in, and the Sparkle private key in this Mac's login Keychain
-# (restore it from the backup with `generate_keys -f <file>` on a new Mac).
+# Needs: clean tree, HEAD pushed, `gh` logged in, and the Sparkle private key: in this Mac's login Keychain
+# (restore it from the backup with `generate_keys -f <file>` on a new Mac), or in $SPARKLE_ED_PRIVATE_KEY (CI).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -32,8 +32,13 @@ git fetch --tags -q
 PREV=$(git describe --tags --abbrev=0 2>/dev/null || true)
 NOTES="$UPDATES/$(basename "$DMG" .dmg).md"
 git log -n 20 --no-merges --format='- %s' ${PREV:+$PREV..}HEAD > "$NOTES"
-build/SourcePackages/artifacts/sparkle/Sparkle/bin/generate_appcast \
+# CI has no Keychain: the key arrives in the environment and goes to generate_appcast on stdin, never to disk.
+KEYARGS=(); [ -z "${SPARKLE_ED_PRIVATE_KEY:-}" ] || KEYARGS=(--ed-key-file -)
+printf %s "${SPARKLE_ED_PRIVATE_KEY:-}" | build/SourcePackages/artifacts/sparkle/Sparkle/bin/generate_appcast ${KEYARGS[@]+"${KEYARGS[@]}"} \
   --download-url-prefix "https://github.com/$REPO/releases/download/$TAG/" --embed-release-notes "$UPDATES"
+
+# A missing or mismatched key still exits 0 but writes an unsigned appcast, which installed copies would reject.
+grep -q 'edSignature=' "$UPDATES/appcast.xml" || { echo "appcast.xml isn't signed: wrong or missing Sparkle key. Nothing published." >&2; exit 1; }
 
 echo; cat "$NOTES"; echo
 if [ "${2:-}" != --yes ]; then
