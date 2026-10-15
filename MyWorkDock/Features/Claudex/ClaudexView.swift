@@ -6,6 +6,17 @@ struct ClaudexScreen: View {
 
     var body: some View {
         let store = model.claudex
+        Group {
+            if let why = store.unavailable {
+                ClaudexUnavailable(reason: why, loading: store.loading, onRetry: store.retry)
+            } else {
+                content(store)
+            }
+        }
+        .task { await store.refresh() }
+    }
+
+    private func content(_ store: ClaudexStore) -> some View {
         VStack(spacing: 0) {
             SubNavRow(items: tabs(store), selection: store.tab.rawValue, onSelect: { store.select(ClaudexTab(rawValue: $0) ?? .usage) }) {
                 FreshLabel(store: store)
@@ -31,7 +42,6 @@ struct ClaudexScreen: View {
         .overlay {
             if store.sortOpen { Color.clear.contentShape(Rectangle()).onTapGesture { store.sortOpen = false } }
         }
-        .task { await store.refresh() }
     }
 
     private func tabs(_ store: ClaudexStore) -> [SubTabItem] {
@@ -43,6 +53,29 @@ struct ClaudexScreen: View {
         }
         return [item(.usage, "Usage", count: store.usage.data?.count ?? 0), item(.pool, "Pool", count: store.members.data?.count ?? 0),
                 item(.play, "Playground"), item(.health, "Health")]
+    }
+}
+
+/// The whole claudex menu when the CLI gave nothing: the reason and a Retry, no tabs, no commands.
+private struct ClaudexUnavailable: View {
+    var reason: String
+    var loading: Bool
+    var onRetry: () -> Void
+    @Environment(\.tokens) private var t
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 6) {
+                Icon(.warning, size: 13).foregroundStyle(t.orange)
+                Text("claudex is not available").font(Typo.ui(13, .semibold)).foregroundStyle(t.orange)
+            }
+            Text(reason).font(Typo.mono(11.5)).foregroundStyle(t.text2)
+            Text("Install claudex or add it to PATH, then retry. Switch this menu off in Settings › Menus if you do not use it.")
+                .font(Typo.ui(12.5)).foregroundStyle(t.faint)
+            PillButton(title: loading ? "Checking…" : "Retry", glyph: .refresh, iconSize: 13, action: onRetry)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 4).padding(.top, Geo.Chrome.subNavTop)
     }
 }
 

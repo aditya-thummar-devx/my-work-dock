@@ -64,6 +64,9 @@ final class ClaudexStore {
     private(set) var me: (account: String, pool: String?)?
     private(set) var fetchedAt: Date?
     private(set) var loading = false
+    /// Why claudex gave nothing at all (not installed, not runnable, timed out on the first read); nil while it answers.
+    /// Set, the claudex menu shows only this and the app stops asking in the background until Retry.
+    private(set) var unavailable: String?
     /// The pool member a confirmed write is running for (until the refresh after it lands).
     private(set) var busyMember: String?
 
@@ -240,7 +243,7 @@ final class ClaudexStore {
     }
 
     func refresh(fresh: Bool = false) async {
-        guard live, !loading else { return }
+        guard live, !loading, fresh || unavailable == nil else { return }
         loading = true
         defer { loading = false }
         async let u = parsed(["usage"], fresh: fresh, ClaudexParsers.usage)
@@ -253,7 +256,17 @@ final class ClaudexStore {
         (usage, list, current, poolStatus, doctor, members, access) = await (u, l, c, ps, d, m, a)
         me = resolveMe()
         fetchedAt = now()
+        // Every read failed without a byte (stale cache counts as output): claudex is not there, not an output change.
+        let silent = [usage.raw, list.raw, current.raw, poolStatus.raw, doctor.raw, members.raw, access.raw].allSatisfy(\.isEmpty)
+        unavailable = silent ? usage.error ?? "claudex printed nothing." : nil
         onData?()
+    }
+
+    /// "Retry" on the unavailable screen: forget a remembered miss (claudex may be installed by now) and read again.
+    func retry() {
+        guard live else { return }
+        PathResolver.forget("claudex")
+        Task { await refresh(fresh: true) }
     }
 
     /// Refresh button: bust the cache and read everything again.

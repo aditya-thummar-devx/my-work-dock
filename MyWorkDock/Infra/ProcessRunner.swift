@@ -96,6 +96,9 @@ enum PathResolver {
     private static func cached(_ name: String) -> String?? { lock.withLock { cache[name] } }
     private static func remember(_ name: String, _ path: String?) { lock.withLock { cache[name] = .some(path) } }
 
+    /// Drops a remembered result, so a tool installed since the last miss is found again.
+    static func forget(_ name: String) { lock.withLock { cache[name] = nil } }
+
     static func find(_ name: String) async -> String? {
         if let hit = cached(name) { return hit }
         let found = await lookup(name)
