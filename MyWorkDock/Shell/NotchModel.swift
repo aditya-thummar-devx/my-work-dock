@@ -107,6 +107,12 @@ final class NotchModel {
     @ObservationIgnored var onChange: (() -> Void)?
     /// Set by the app delegate once the updater runs (release builds only); nil hides "Check for Updates…".
     @ObservationIgnored var checkForUpdates: (() -> Void)?
+    static let usageGuideURL = URL(string: "https://aditya-thummar-devx.github.io/my-work-dock/usage.html")!
+    /// Settings › Version and the menu-bar menu. The panel floats above other windows, so close it before the browser opens.
+    func openUsageGuide() {
+        closePanel()
+        NSWorkspace.shared.open(Self.usageGuideURL)
+    }
     /// Schedules `work` after `delay` seconds and returns a cancel closure. Injected by tests.
     @ObservationIgnored var schedule: (TimeInterval, @escaping @MainActor () -> Void) -> () -> Void = { delay, work in
         let item = DispatchWorkItem { MainActor.assumeIsolated { work() } }
