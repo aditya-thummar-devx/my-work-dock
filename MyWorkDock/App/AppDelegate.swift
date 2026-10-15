@@ -57,6 +57,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         item.button?.image = icon
         let menu = NSMenu()
         menu.addItem(withTitle: "Show / Hide MyWorkDock", action: #selector(togglePanel), keyEquivalent: "").target = self
+        menu.addItem(withTitle: "Usage Guide…", action: #selector(openUsageGuide), keyEquivalent: "").target = self
         #if !DEBUG
         menu.addItem(withTitle: "Check for Updates…", action: #selector(checkForUpdates), keyEquivalent: "").target = self
         #endif
@@ -67,5 +68,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func togglePanel() { MainActor.assumeIsolated { controller?.model.togglePanel() } }
+    @objc private func openUsageGuide() { MainActor.assumeIsolated { controller?.model.openUsageGuide() } }
     @objc private func checkForUpdates() { MainActor.assumeIsolated { controller?.model.checkForUpdates?() } }
 }

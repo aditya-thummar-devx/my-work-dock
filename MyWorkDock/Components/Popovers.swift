@@ -64,6 +64,7 @@ struct SettingsPopover: View {
     var updatedAt: Date?
     /// nil in debug builds (no updater): the Version page then says so instead of showing the button.
     var onCheckForUpdates: (() -> Void)?
+    var onHelp: (() -> Void)?
     var onTheme: (ThemeMode) -> Void = { _ in }
     var onTint: (Tint) -> Void = { _ in }
     var onPanelSize: (PanelSize) -> Void = { _ in }
@@ -77,7 +78,7 @@ struct SettingsPopover: View {
 
     init(theme: ThemeMode, systemIsDark: Bool = true, tint: Tint, panelSize: PanelSize = .medium, disabled: Set<Feature> = [], peekOn: Set<PeekSource> = PeekSource.defaultOn, allDisplays: Bool = false, page: Page = .appearance,
          clipboardLimit: Int = ClipboardStore.defaultLimit, version: String = "", updatedAt: Date? = nil,
-         onCheckForUpdates: (() -> Void)? = nil,
+         onCheckForUpdates: (() -> Void)? = nil, onHelp: (() -> Void)? = nil,
          onTheme: @escaping (ThemeMode) -> Void = { _ in }, onTint: @escaping (Tint) -> Void = { _ in },
          onPanelSize: @escaping (PanelSize) -> Void = { _ in },
          onFeature: @escaping (Feature, Bool) -> Void = { _, _ in }, onPeek: @escaping (PeekSource, Bool) -> Void = { _, _ in },
@@ -94,6 +95,7 @@ struct SettingsPopover: View {
         self.version = version
         self.updatedAt = updatedAt
         self.onCheckForUpdates = onCheckForUpdates
+        self.onHelp = onHelp
         self.onClipboardLimit = onClipboardLimit
         self.onTheme = onTheme
         self.onTint = onTint
@@ -126,7 +128,7 @@ struct SettingsPopover: View {
             case .clipboard:
                 ClipboardSection(limit: clipboardLimit, onLimit: onClipboardLimit)
             case .version:
-                VersionSection(version: version, updatedAt: updatedAt, onCheck: onCheckForUpdates)
+                VersionSection(version: version, updatedAt: updatedAt, onCheck: onCheckForUpdates, onHelp: onHelp)
             }
         }
         .padding(Geo.Chrome.popoverPadding + 1)
@@ -145,6 +147,7 @@ private struct VersionSection: View {
     var version: String
     var updatedAt: Date?
     var onCheck: (() -> Void)?
+    var onHelp: (() -> Void)?
     @Environment(\.tokens) private var t
 
     var body: some View {
@@ -157,6 +160,9 @@ private struct VersionSection: View {
             .padding(.top, Geo.Appearance.pullUp)
             if let onCheck {
                 DockButton(title: "Check for updates", glyph: .refresh, metrics: .save, tone: .tint, weight: .bold, action: onCheck)
+            }
+            if let onHelp {
+                DockButton(title: "Help guide", glyph: .globe, metrics: .save, tone: .secondary, weight: .bold, action: onHelp)
             }
             Text(onCheck == nil ? "Update checks are off in debug builds."
                                 : "Updates are checked every hour, downloaded quietly and installed when the dock is idle.")
