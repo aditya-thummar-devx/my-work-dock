@@ -75,6 +75,8 @@ extension Geo {
         static let memberHeight: CGFloat = 118
         static let deviceHeight: CGFloat = 108
         static let gridGap: CGFloat = 10
+        /// Narrowest an adaptive-grid card gets; medium panel (720 pt content) stays at 2 columns, 3 needs 980 pt.
+        static let adaptiveMinWidth: CGFloat = 320
         static let activeBorder: CGFloat = 1.5
     }
 }
@@ -449,14 +451,21 @@ struct WirelessRow: View {
     }
 }
 
-/// Two-column grid with fixed-height cards and 10 pt gaps.
+/// Grid with fixed-height cards and 10 pt gaps. Two columns, or with `adaptive` as many as fit at `Geo.CardMetrics.adaptiveMinWidth`.
 struct CardGrid<Item: Identifiable, Cell: View>: View {
     var items: [Item]
+    var adaptive = false
     @ViewBuilder var cell: (Item) -> Cell
 
+    private var columns: [GridItem] {
+        let gap = Geo.CardMetrics.gridGap
+        return adaptive
+            ? [GridItem(.adaptive(minimum: Geo.CardMetrics.adaptiveMinWidth), spacing: gap)]
+            : [GridItem(.flexible(), spacing: gap), GridItem(.flexible())]
+    }
+
     var body: some View {
-        LazyVGrid(columns: [GridItem(.flexible(), spacing: Geo.CardMetrics.gridGap), GridItem(.flexible())],
-                  spacing: Geo.CardMetrics.gridGap) {
+        LazyVGrid(columns: columns, spacing: Geo.CardMetrics.gridGap) {
             ForEach(items) { cell($0) }
         }
     }

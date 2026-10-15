@@ -152,7 +152,7 @@ struct UsageView: View {
     var body: some View {
         if store.usage.recognised {
             DockScroll {
-                CardGrid(items: store.accountCards) { a in
+                CardGrid(items: store.accountCards, adaptive: true) { a in
                     AccountCard(account: a, onRemove: { store.removeAccount(a.id) }, onSwitch: { store.switchAccount(a.id) })
                 }
             }
@@ -168,7 +168,7 @@ struct PoolView: View {
     var body: some View {
         if store.members.recognised {
             DockScroll {
-                CardGrid(items: store.memberCards) { m in
+                CardGrid(items: store.memberCards, adaptive: true) { m in
                     MemberCard(member: m, onDeny: { store.toggleAccess(m.id) }, onSwitch: { store.useMember(m.id) }, onDetails: { store.openDetail(m.id) })
                 }
             }
