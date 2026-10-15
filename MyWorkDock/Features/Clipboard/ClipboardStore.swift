@@ -34,6 +34,8 @@ final class ClipboardStore {
     ]
 
     private(set) var items: [ClipItem]
+    /// Hover: how many clips are saved and how many of them are pinned; nil when the history is empty.
+    var peekClips: PeekClips? { items.isEmpty ? nil : PeekClips(total: items.count, pinned: items.filter(\.pinned).count) }
     private(set) var limit: Int
     private(set) var copiedId: Int?
     /// Toast telling the user a clip is copied with a double-click.

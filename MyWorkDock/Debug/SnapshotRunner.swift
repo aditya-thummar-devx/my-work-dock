@@ -113,12 +113,12 @@ enum SnapshotRunner {
     /// Names match the reference PNGs in `screenshots/artboards` and `screenshots/prototype`.
     /// States whose content isn't built yet are not listed; `compare-all.sh` reports them as missing.
     static let states: [State] = screenStates + Fragments.all + [
-        State("settings-clipboard", .panel, content: .fragment(rect: CGRect(x: 330, y: 46, width: 410, height: 480),
+        State("settings-clipboard", .panel, content: .fragment(rect: CGRect(x: 260, y: 46, width: 480, height: 480),
                                                                view: { AnyView(SettingsPopover(theme: .dark, tint: .lime, page: .clipboard, clipboardLimit: 500)) })) { $0.openPanel() },
         // Settings › Menus: the popover keeps its natural height, so this shows whether every row still fits the panel.
-        State("settings-menus", .panel, content: .fragment(rect: CGRect(x: 330, y: 46, width: 410, height: 480),
+        State("settings-menus", .panel, content: .fragment(rect: CGRect(x: 260, y: 46, width: 480, height: 480),
                                                            view: { AnyView(SettingsPopover(theme: .dark, tint: .lime, page: .menus)) })) { $0.openPanel() },
-        State("settings-version", .panel, content: .fragment(rect: CGRect(x: 330, y: 46, width: 410, height: 480),
+        State("settings-version", .panel, content: .fragment(rect: CGRect(x: 260, y: 46, width: 480, height: 480),
                                                              view: { AnyView(SettingsPopover(theme: .dark, tint: .lime, page: .version, version: "0.1.0 (1)",
                                                                                              updatedAt: Date(timeIntervalSince1970: 1_790_000_000), onCheckForUpdates: {})) })) { $0.openPanel() },
         State("gallery-dark", .gallery, content: .gallery) { $0.setTheme(.dark) },
@@ -127,9 +127,17 @@ enum SnapshotRunner {
 
     private static let screenStates: [State] = [
         State("01-idle", .notch),
-        State("02-peek-pool", .notch) { $0.pointer(inside: true) },
-        State("31-peek-after-boot", .notch) { $0.pointer(inside: true) },
+        // The prototype's peek is claudex's; Settings › Peek has it off by default.
+        State("02-peek-pool", .notch) {
+            $0.setPeekEnabled(.claudex, true)
+            $0.pointer(inside: true)
+        },
+        State("31-peek-after-boot", .notch) {
+            $0.setPeekEnabled(.claudex, true)
+            $0.pointer(inside: true)
+        },
         State("32-peek-sso", .notch) {
+            $0.setPeekEnabled(.claudex, true)
             $0.setPeek(SampleData.peekSSO)
             $0.pointer(inside: true)
         },
@@ -334,9 +342,37 @@ enum SnapshotRunner {
             Feature.allCases.forEach { model.setEnabled($0, false) }
             model.openPanel()
         },
-        State("50-peek-claudex-off", .notch) {
-            $0.setEnabled(.claudex, false)
+        // No reference design: claudex off (the default) shows TODO and clip counts left of the notch, the IP on its right.
+        // A part with nothing to show is hidden and the rest keep their side.
+        State("50-peek-claudex-off", .notch) { $0.pointer(inside: true) },
+        State("51-peek-ip", .notch) {
+            $0.setPeekEnabled(.todo, false)
+            $0.setPeekEnabled(.clipboard, false)
             $0.pointer(inside: true)
+        },
+        State("55-peek-clipboard", .notch) {
+            $0.setPeekEnabled(.todo, false)
+            $0.setPeekEnabled(.localIP, false)
+            $0.pointer(inside: true)
+        },
+        State("56-peek-todo-clips", .notch) {
+            $0.setPeekEnabled(.localIP, false)
+            $0.pointer(inside: true)
+        },
+        State("57-peek-info-light", .notch) {
+            $0.setTheme(.light)
+            $0.pointer(inside: true)
+        },
+        State("52-peek-hint", .notch) {
+            for source in PeekSource.allCases where source != .claudex { $0.setPeekEnabled(source, false) }
+            $0.pointer(inside: true)
+        },
+        // No reference design: Settings › Peek, with claudex off (default) and on (the others wait, dimmed).
+        State.fragment("53-settings-peek-dark", rect: CGRect(x: 260, y: 46, width: 480, height: 300)) {
+            SettingsPopover(theme: .dark, tint: .lime, peekOn: [.clipboard, .localIP], page: .peek)
+        },
+        State.fragment("54-settings-peek-light-claudex", theme: .light, rect: CGRect(x: 260, y: 46, width: 480, height: 300)) {
+            SettingsPopover(theme: .light, tint: .lime, peekOn: [.claudex], page: .peek)
         },
         State("16-notes-prompts-multiline-input", .panel) {
             prototypeNotes($0, .prompts)

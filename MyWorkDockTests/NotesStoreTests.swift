@@ -584,4 +584,19 @@ final class NotesStoreTests: XCTestCase {
         model.setNotesTab(.todo)
         XCTAssertNil(model.pendingUndo)
     }
+
+    // MARK: Hover
+
+    func testPeekTodoCountsWhatIsLeftAndDoneAndIsNilWithoutTodos() {
+        let store = NotesStore(url: nil, seed: [
+            TodoSample(id: 1, title: "Plain", tag: "", due: "Today"),
+            TodoSample(id: 2, title: "Done", tag: "", due: "Today", done: true),
+            TodoSample(id: 3, title: "Hot", tag: "", due: "Today", hot: true),
+        ])
+        XCTAssertEqual(store.peekTodo, PeekTodo(left: 2, done: 1))
+        store.toggle(1)
+        store.toggle(3)
+        XCTAssertEqual(store.peekTodo, PeekTodo(left: 0, done: 3)) // all done still shows its counts
+        XCTAssertNil(NotesStore(url: nil, seed: []).peekTodo)
+    }
 }

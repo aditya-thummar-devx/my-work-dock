@@ -110,7 +110,7 @@ enum Geo {
 
         // Settings popover
         /// Wide enough for the three settings tabs (Appearance, Menus, Clipboard) beside the close button.
-        static let popoverWidth: CGFloat = 410 // four sub-tabs + close button
+        static let popoverWidth: CGFloat = 480 // five sub-tabs + close button
         static let popoverTop: CGFloat = 46
         static let popoverRight: CGFloat = 20
         static let popoverPadding: CGFloat = 14
@@ -146,6 +146,11 @@ enum Geo {
         static let resetSize: CGFloat = 11.5
         /// SF Symbol stand-in for the ↻ glyph; sized to match the reference's small fallback-font glyph.
         static let resetIcon: CGFloat = 10
+        /// Glyph before a count (TODO, clips, pinned).
+        static let countIcon: CGFloat = 12
+        static let countSize: CGFloat = 13
+        static let countGap: CGFloat = 4
+        static let countPairGap: CGFloat = 9
     }
 
     // MARK: Live activity

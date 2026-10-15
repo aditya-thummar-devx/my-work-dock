@@ -332,6 +332,21 @@ final class ClaudexStoreTests: XCTestCase {
         XCTAssertEqual(off.bars.map(\.percent), [32, 87])
     }
 
+    func testHasPeekNeedsAnAccountClaudexCanName() async {
+        let pool = await liveStore(poolOn: true), sso = await liveStore(poolOn: false)
+        XCTAssertTrue(pool.hasPeek)
+        XCTAssertTrue(sso.hasPeek)
+
+        // claudex is not installed: no account, so hover must not draw a made-up one.
+        let missing = ClaudexStore()
+        missing.findTool = { _ in nil }
+        missing.identityURL = URL(fileURLWithPath: "/nonexistent")
+        await missing.refresh(fresh: true)
+        XCTAssertFalse(missing.hasPeek)
+        XCTAssertEqual(missing.peekData.name, "claudex") // the fallback the peek no longer draws
+        XCTAssertEqual(missing.peekData.bars.map(\.percent), [nil, nil])
+    }
+
     func testHealthCountsAndLabels() {
         let s = store()
         XCTAssertEqual(s.healthCounts.ok, 12)

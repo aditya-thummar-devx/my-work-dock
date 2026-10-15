@@ -192,6 +192,7 @@ final class NotchModelTests: XCTestCase {
     }
 
     func testPeekHugsItsEarsAroundTheCentredKeepOut() {
+        model.setPeekEnabled(.claudex, true)
         model.pointer(inside: true)
         let g = model.geometry(), e = model.peekExtents
         XCTAssertEqual(g.width, Geo.keepOutWidth + e.left + e.right)
@@ -365,23 +366,111 @@ final class NotchModelTests: XCTestCase {
         XCTAssertEqual(model.mode, .live)
     }
 
-    func testClaudexOffPeeksWithTheHintOnTheRightOfTheNotch() {
-        XCTAssertFalse(model.peekHint)
-        model.setEnabled(.claudex, false)
+    // MARK: Settings › Peek
+
+    func testPeekSourceRawValuesAreStable() {
+        // Stored in UserDefaults as "peekSources".
+        XCTAssertEqual(PeekSource.allCases.map(\.rawValue), ["claudex", "todo", "clipboard", "localIP"])
+    }
+
+    private static let todo = PeekTodo(left: 3, done: 2)
+    private static let clips = PeekClips(total: 4, pinned: 1)
+    private static let ip = "192.168.1.24"
+
+    /// The shell hugs the ears the content measures: counts left of the notch, the IP right of it, an empty side 0 wide.
+    private func assertInfo(todo: PeekTodo? = nil, clips: PeekClips? = nil, ip: String? = nil,
+                            file: StaticString = #filePath, line: UInt = #line) {
+        let info = PeekInfo(todo: todo, clips: clips, ip: ip)
+        XCTAssertEqual(model.peekContent, .info(info), file: file, line: line)
+        let e = PeekMetrics.measure(info)
+        XCTAssertEqual(e.left > 0, info.hasLeft, file: file, line: line)
+        XCTAssertEqual(e.right > 0, ip != nil, file: file, line: line)
+        XCTAssertEqual(model.geometry().width, Geo.keepOutWidth + e.left + e.right, file: file, line: line)
+        XCTAssertEqual(model.geometry().centerOffset, (e.right - e.left) / 2, file: file, line: line)
+    }
+
+    func testPeekDefaultsToClaudexOffWithTodoClipsAndIPOn() {
+        XCTAssertEqual(model.peekOn, [.todo, .clipboard, .localIP])
         model.pointer(inside: true)
         XCTAssertEqual(model.mode, .peek)
-        XCTAssertTrue(model.peekHint)
-        let hint = PeekMetrics.hintExtents
-        XCTAssertGreaterThan(hint.right, 0)
-        XCTAssertEqual(hint.left, 0)
-        XCTAssertEqual(model.geometry().width, Geo.keepOutWidth + hint.right)
-        XCTAssertEqual(model.geometry().centerOffset, hint.right / 2)
+        assertInfo(todo: Self.todo, clips: Self.clips, ip: Self.ip)
+    }
+
+    func testClaudexOnTakesTheWholePeekAndSwitchesTheOthersOff() {
+        model.setPeekEnabled(.claudex, true)
+        XCTAssertEqual(model.peekOn, [.claudex])
+        model.pointer(inside: true)
+        XCTAssertEqual(model.peekContent, .claudex)
+        XCTAssertEqual(model.geometry().width, Geo.keepOutWidth + model.peekExtents.left + model.peekExtents.right)
+        model.setPeekEnabled(.todo, true) // locked while claudex is on
+        XCTAssertEqual(model.peekOn, [.claudex])
+    }
+
+    func testClaudexOffPutsEveryOtherSourceBackOn() {
+        model.setPeekEnabled(.todo, false)
+        model.setPeekEnabled(.localIP, false)
+        model.setPeekEnabled(.claudex, true)
+        model.setPeekEnabled(.claudex, false)
+        XCTAssertEqual(model.peekOn, [.todo, .clipboard, .localIP])
+    }
+
+    func testAPartWithNothingToShowIsHiddenAndTheOthersKeepTheirSide() {
+        model.pointer(inside: true)
+        model.setPeekEnabled(.todo, false)
+        assertInfo(clips: Self.clips, ip: Self.ip) // clips stay on the left
+        model.setPeekEnabled(.localIP, false)
+        assertInfo(clips: Self.clips) // left only: the shell grows left
+        XCTAssertLessThan(model.geometry().centerOffset, 0)
+        model.setPeekEnabled(.localIP, true)
+        model.setPeekEnabled(.clipboard, false)
+        assertInfo(ip: Self.ip) // IP only: the shell grows right
+        XCTAssertGreaterThan(model.geometry().centerOffset, 0)
+    }
+
+    func testAMenuThatIsOffHidesItsPart() {
+        model.pointer(inside: true)
+        model.setEnabled(.notes, false)
+        assertInfo(clips: Self.clips, ip: Self.ip)
+        model.setEnabled(.clipboard, false)
+        assertInfo(ip: Self.ip)
+    }
+
+    func testNoNetworkHidesTheIPButTheCountsStayOnTheLeft() {
+        model.localIP.read = { nil }
+        model.localIP.refresh()
+        model.pointer(inside: true)
+        assertInfo(todo: Self.todo, clips: Self.clips)
+        XCTAssertEqual(PeekMetrics.measure(PeekInfo(todo: Self.todo, clips: Self.clips)).right, 0)
+    }
+
+    func testPeekShowsTheHintWhenNothingIsLeftToShow() {
+        for source in [PeekSource.todo, .clipboard, .localIP] { model.setPeekEnabled(source, false) }
+        model.pointer(inside: true)
+        XCTAssertEqual(model.peekContent, .hint)
+        XCTAssertEqual(model.geometry().width, Geo.keepOutWidth + PeekMetrics.hintExtents.right)
+        XCTAssertEqual(model.geometry().centerOffset, PeekMetrics.hintExtents.right / 2)
+    }
+
+    func testClaudexOnWithItsMenuOffShowsTheHint() {
+        model.setPeekEnabled(.claudex, true)
+        model.setEnabled(.claudex, false)
+        XCTAssertEqual(model.peekContent, .hint)
+    }
+
+    func testSettingAPeekSwitchTwiceChangesNothing() {
+        var calls = 0
+        model.onChange = { calls += 1 }
+        model.setPeekEnabled(.todo, true) // already on
+        XCTAssertEqual(calls, 0)
+        model.setPeekEnabled(.todo, false)
+        model.setPeekEnabled(.todo, false)
+        XCTAssertEqual(calls, 1)
+        XCTAssertEqual(model.peekOn, [.clipboard, .localIP])
     }
 
     func testTurningAMenuBackOnRestoresItsPeekAndTab() {
         model.setEnabled(.claudex, false)
         model.setEnabled(.claudex, true)
-        XCTAssertFalse(model.peekHint)
         XCTAssertEqual(model.enabledTabs, MainTab.allCases)
     }
 }

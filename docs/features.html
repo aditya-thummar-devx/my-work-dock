@@ -72,7 +72,7 @@
     <li><strong>Pool:</strong> accounts pooled behind one auto-failover proxy. Allow or deny members, switch, view details, start or stop the pool, and enable autoswitch.</li>
     <li><strong>Playground:</strong> run claudex commands (usage, list, current account, doctor and more) and see the output.</li>
     <li><strong>Health:</strong> claudex doctor results: what is on, wired or failing.</li>
-    <li>The hover <strong>peek</strong> shows the 5-hour and weekly rings for the active account.</li>
+    <li>The hover <strong>peek</strong> shows the 5-hour and weekly rings for the active account when you switch it on in Settings › Peek. It then takes the whole peek.</li>
     <li>Results are cached for 60 seconds (use <strong>Refresh</strong>). Any change, such as switching or removing an account, asks you to confirm first. If claudex output looks unfamiliar the tab shows the raw text with a ⚠ instead of guessing.</li>
   </ul>
 
@@ -114,6 +114,7 @@
     <tbody>
       <tr><td><strong>Appearance</strong></td><td>Theme: System, Dark or Light. Tint: lime (default), blue, purple, pink, orange, yellow, green or teal. Panel size: Medium, or Large (three quarters of the display).</td></tr>
       <tr><td><strong>Menus</strong></td><td>Switch Clipboard, Notes, claudex, Emulator and Local IP on or off. A menu that is off is hidden and stops everything it runs in the background. Also <strong>Show on all displays</strong>.</td></tr>
+      <tr><td><strong>Peek</strong></td><td>What hover shows. claudex usage is off by default; switching it on takes the whole hover and switches the rest off. Otherwise the TODO counts (not done, done) and clipboard counts (total, pinned) show left of the notch and the local IP on its right. Anything with nothing to show is hidden, and each needs its menu on.</td></tr>
       <tr><td><strong>Clipboard</strong></td><td>How many untagged clips to keep (1 to 1000, default 200). Lowering it deletes the oldest ones, so it asks first.</td></tr>
       <tr><td><strong>Version</strong></td><td>Current version, when it last updated, and <strong>Check for updates</strong>.</td></tr>
     </tbody>
