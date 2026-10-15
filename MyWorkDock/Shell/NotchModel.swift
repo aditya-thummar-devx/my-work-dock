@@ -151,6 +151,10 @@ final class NotchModel {
         if !sample { peek = claudex.peekData } // snapshots keep the prototype's POOL sample
         peekExtents = PeekMetrics.measure(peek)
         claudex.onData = { [weak self] in self?.refreshPeek() }
+        clipboard.onCopied = { [weak self] in self?.closePanel() }
+        commands.onCopied = { [weak self] in self?.closePanel() }
+        prompts.onCopied = { [weak self] in self?.closePanel() }
+        links.onCopied = { [weak self] in self?.closePanel() }
         if let first = enabledTabs.first, !enabledTabs.contains(mainTab) { mainTab = first }
     }
 

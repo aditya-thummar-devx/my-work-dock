@@ -46,6 +46,24 @@ final class NotchModelTests: XCTestCase {
         XCTAssertEqual(model.mode, .idle)
     }
 
+    func testCopyFromAnyListClosesAndUnpinsThePanel() {
+        model.clipboard.copyToClipboard = { _ in }
+        for store in [model.commands, model.prompts, model.links] { store.copyToClipboard = { _ in } }
+        let copies: [() -> Void] = [
+            { self.model.clipboard.copy(self.model.clipboard.items[0].id) },
+            { self.model.commands.copy(self.model.commands.items[0].id) },
+            { self.model.prompts.copy(self.model.prompts.items[0].id) },
+            { self.model.links.copy(self.model.links.items[0].id) },
+        ]
+        for copy in copies {
+            model.openPanel()
+            model.togglePin()
+            copy()
+            XCTAssertFalse(model.open)
+            XCTAssertFalse(model.pinned)
+        }
+    }
+
     func testIsIdleOnlyWhilePanelClosedAndNothingPending() {
         XCTAssertTrue(model.isIdle)
         model.pointer(inside: true)

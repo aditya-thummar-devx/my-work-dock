@@ -119,6 +119,16 @@ final class ClipboardStoreTests: XCTestCase {
         XCTAssertEqual(store.footer, "Copied to clipboard")
     }
 
+    func testCopyNotifiesOnCopied() {
+        let (store, pb) = make()
+        copy("a", store, pb)
+        var count = 0
+        store.copyToClipboard = { _ in }
+        store.onCopied = { count += 1 }
+        store.copy(store.items[0].id)
+        XCTAssertEqual(count, 1)
+    }
+
     func testDoubleClickCopiesWithoutHintAndSingleClickShowsThenHidesTheHint() async {
         let (store, pb) = make()
         copy("a", store, pb)
