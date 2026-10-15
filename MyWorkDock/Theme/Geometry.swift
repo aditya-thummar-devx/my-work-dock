@@ -39,7 +39,7 @@ enum Geo {
     static let keepOutWidth: CGFloat = 200
     static let keepOutHeight: CGFloat = 32
 
-    /// Idle size on a screen with no hardware notch; with one, idle is the notch's own size (`NotchModel.notch`).
+    /// Idle size when no connected screen has a hardware notch; otherwise idle is a notch's own size (`ShellScreen.idleNotch`).
     static let idle = (width: CGFloat(190), height: CGFloat(32), radius: CGFloat(14))
     /// Idle corners matching the physical notch (~4 pt top flare, ~8 pt bottom; Apple publishes no radii, tune by eye).
     static let hardwareNotch = (shoulder: CGFloat(4), radius: CGFloat(8))

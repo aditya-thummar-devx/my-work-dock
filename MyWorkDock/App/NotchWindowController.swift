@@ -131,21 +131,26 @@ final class NotchWindowController {
         return shell
     }
 
+    private static func hardwareNotch(of screen: NSScreen) -> (centerX: CGFloat, size: CGSize)? {
+        guard let l = screen.auxiliaryTopLeftArea, let r = screen.auxiliaryTopRightArea else { return nil }
+        return ((l.maxX + r.minX) / 2, CGSize(width: r.minX - l.maxX, height: screen.safeAreaInsets.top))
+    }
+
     private func place(_ shell: Shell, on screen: NSScreen) {
-        var cx = screen.frame.midX
-        var notch: CGSize?
-        if let l = screen.auxiliaryTopLeftArea, let r = screen.auxiliaryTopRightArea {
-            cx = (l.maxX + r.minX) / 2
-            notch = CGSize(width: r.minX - l.maxX, height: screen.safeAreaInsets.top)
-        }
+        let hardware = Self.hardwareNotch(of: screen)
+        let cx = hardware?.centerX ?? screen.frame.midX
+        let notch = hardware?.size
         if notch != shell.screen.notch {
             shell.screen.notch = notch
             if let notch {
                 NSLog("MyWorkDock: hardware notch %.0f pt wide, %.0f pt tall, centre x %.1f", notch.width, notch.height, cx)
             } else {
-                NSLog("MyWorkDock: no hardware notch on this screen; drawing a %.0f x %.0f pill", Geo.idle.width, Geo.idle.height)
+                NSLog("MyWorkDock: no hardware notch on this screen")
             }
         }
+        // No notch here: idle mirrors another display's notch; the pill only when no display has one.
+        let borrowed = notch == nil ? NSScreen.screens.lazy.compactMap(Self.hardwareNotch).first?.size : nil
+        if borrowed != shell.screen.borrowedNotch { shell.screen.borrowedNotch = borrowed }
         shell.centerX = cx
         shell.topY = screen.frame.maxY
         shell.frame = screen.frame
@@ -163,7 +168,7 @@ final class NotchWindowController {
                width: g.width, height: g.height + Self.topSlop)
     }
 
-    private func geometry(_ shell: Shell) -> ShellGeometry { model.geometry(notch: shell.screen.notch, on: shell.id, screen: shell.screen.size) }
+    private func geometry(_ shell: Shell) -> ShellGeometry { model.geometry(notch: shell.screen.idleNotch, on: shell.id, screen: shell.screen.size) }
 
     /// Each panel takes clicks only over its own drawn shape.
     private func updateMouse() {
