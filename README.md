@@ -44,3 +44,7 @@ cd my-work-dock
 xcodegen generate
 open MyWorkDock.xcodeproj
 ```
+
+## Releasing
+
+Actions tab > **Release** > Run workflow > enter the version (e.g. `0.1.13`) > approve the run. It builds the DMG, signs the appcast and publishes the GitHub release; installed copies pick it up on their next hourly check. It only runs from `main` and needs the `SPARKLE_ED_PRIVATE_KEY` secret on the `release` environment. `scripts/release.sh <version>` does the same from a Mac that holds the key in its Keychain.
