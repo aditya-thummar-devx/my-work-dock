@@ -1,4 +1,5 @@
 :root {
+  color-scheme: dark;
   --bg: #0b0b0f;
   --surface: #14141b;
   --surface-2: #1c1c26;
@@ -14,20 +15,20 @@
   --code-bg: #0f0f15;
 }
 
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme="dark"]) {
-    --bg: #fbfbf8;
-    --surface: #ffffff;
-    --surface-2: #f1f1ea;
-    --border: #deded4;
-    --text: #15151a;
-    --muted: #5b5b66;
-    --link: #3f5d00;
-    --warn: #8a4b00;
-    --warn-bg: rgba(255, 149, 0, 0.12);
-    --note-bg: rgba(212, 255, 58, 0.25);
-    --code-bg: #efefe6;
-  }
+/* theme.js sets data-theme from the saved choice, else the OS setting */
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #fbfbf8;
+  --surface: #ffffff;
+  --surface-2: #f1f1ea;
+  --border: #deded4;
+  --text: #15151a;
+  --muted: #5b5b66;
+  --link: #3f5d00;
+  --warn: #8a4b00;
+  --warn-bg: rgba(255, 149, 0, 0.12);
+  --note-bg: rgba(212, 255, 58, 0.25);
+  --code-bg: #efefe6;
 }
 
 * { box-sizing: border-box; }
@@ -64,6 +65,8 @@ img { max-width: 100%; height: auto; }
 .site-header nav { display: flex; flex-wrap: wrap; gap: 2px 14px; margin-left: auto; font-size: 14px; }
 .site-header nav a { color: var(--muted); text-decoration: none; padding: 4px 0; border-bottom: 2px solid transparent; }
 .site-header nav a:hover { color: var(--text); }
+.theme-toggle { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 999px; width: 32px; height: 32px; font-size: 15px; line-height: 1; cursor: pointer; }
+.theme-toggle:hover { color: var(--text); border-color: var(--muted); }
 .site-header nav a[aria-current="page"] { color: var(--text); border-bottom-color: var(--accent); }
 
 /* ---------- type ---------- */
@@ -154,5 +157,6 @@ details[open] summary { margin-bottom: 4px; }
 
 @media (max-width: 560px) {
   main { padding-top: 28px; }
-  .site-header nav { margin-left: 0; width: 100%; }
+  .brand { margin-right: auto; }
+  .site-header nav { margin-left: 0; width: 100%; order: 3; }
 }
