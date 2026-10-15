@@ -345,6 +345,7 @@ struct SnippetRow: View {
     var editing = false
     /// Edit-field text; nil draws `text` statically (snapshots).
     var editText: Binding<String>?
+    var onTap: () -> Void = {}
     var onOpen: () -> Void = {}
     var onCopy: () -> Void = {}
     var onEdit: () -> Void = {}
@@ -393,6 +394,8 @@ struct SnippetRow: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.top, Geo.Prompt.textTop)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+                .onTapGesture(perform: onTap) // the store tells a single click (hint) from a double-click (copy)
                 .help(text)
         } else {
             Text(text)
@@ -401,6 +404,8 @@ struct SnippetRow: View {
                 .lineLimit(1)
                 .truncationMode(.tail)
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+                .onTapGesture(perform: onTap)
         }
         if kind == .links {
             DockButton(title: "Open", glyph: .globe, iconSize: 12, metrics: .copy, tone: .ctrl, action: onOpen)

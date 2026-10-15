@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Features · MyWorkDock</title>
+<meta name="description" content="Everything MyWorkDock does: Clipboard, Notes, claudex, Emulator, the local IP chip, live activity and settings.">
+<link rel="icon" href="assets/icon.png">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<header class="site-header"><div class="wrap">
+  <a class="brand" href="index.html"><img src="assets/icon.png" alt="">MyWorkDock</a>
+  <nav>
+    <a href="install.html">Install</a>
+    <a href="privacy-blocker.html">Privacy blocker</a>
+    <a href="usage.html">Usage</a>
+    <a href="features.html" aria-current="page">Features</a>
+    <a href="updates.html">Updates</a>
+    <a href="troubleshooting.html">Help</a>
+  </nav>
+</div></header>
+
+<main><div class="wrap">
+  <h1>Features</h1>
+  <p class="lead">Four menus, a header chip and a settings page. Each menu can be switched off if you do not need it.</p>
+  <p>Jump to: <a href="#clipboard">Clipboard</a> · <a href="#notes">Notes</a> · <a href="#claudex">claudex</a> · <a href="#emulator">Emulator</a> · <a href="#header">Header</a> · <a href="#settings">Settings</a> · <a href="#data">Your data</a></p>
+
+  <h2 id="clipboard">Clipboard</h2>
+  <p>A searchable history of text you copy. Open it with <kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>V</kbd>.</p>
+  <figure class="shot">
+    <img src="assets/shots/clipboard.png" alt="Clipboard tab with tag chips and clips" width="1400" height="867">
+  </figure>
+  <ul>
+    <li><strong>Text only</strong>, newest first. Copy the same text again and it moves to the top.</li>
+    <li><strong>Tags:</strong> give a clip one tag with a colour. Tag chips above the list filter it, and <strong>Manage</strong> lets you rename, recolour, merge or delete tags.</li>
+    <li><strong>Pin</strong> a clip to keep it at the top. Pinned and tagged clips are never dropped.</li>
+    <li><strong>Search</strong> with <kbd>⌘</kbd> <kbd>F</kbd> or the magnifier.</li>
+    <li><strong>Copy back</strong> with the Copy button or a double-click.</li>
+    <li><strong>Privacy:</strong> copies from password managers (1Password, Bitwarden, Apple Passwords, Keychain Access, KeePassXC) and anything an app marks secret are never recorded. Clips longer than 50,000 characters are ignored.</li>
+    <li><strong>Limit:</strong> keeps the last 200 untagged clips by default. Change it in Settings › Clipboard (1 to 1000).</li>
+  </ul>
+
+  <h2 id="notes">Notes</h2>
+  <p>Four sub-tabs: <strong>TODO</strong>, <strong>Commands</strong>, <strong>Prompts</strong> and <strong>Links</strong>. Open TODO with <kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>T</kbd>, Prompts with <kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>P</kbd>, Links with <kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>L</kbd>.</p>
+  <figure class="shot">
+    <img src="assets/shots/todo.png" alt="Notes tab showing the TODO list grouped by day" width="1400" height="867">
+  </figure>
+  <h3>TODO</h3>
+  <ul>
+    <li>Type a task and press <kbd>Enter</kbd>. Write <code>#bug</code> (or any tag) in the text to tag it as you type.</li>
+    <li>Tap the circle to tick a task off. The pencil edits it inline, the bin deletes it.</li>
+    <li><strong>Undo:</strong> a deleted task can be restored from the Undo button in the footer.</li>
+    <li>Tasks are grouped by day (Today, Yesterday, then dates). Filter by tag from the <strong>All tags</strong> menu, or search.</li>
+    <li>Tags have a name and colour. Names are lowercase letters, digits, <code>_</code> and <code>-</code>, up to 20 characters.</li>
+  </ul>
+  <h3>Commands</h3>
+  <p>One-line shell commands you keep reusing, shown in a monospace font. Add, copy, edit, delete.</p>
+  <h3>Prompts</h3>
+  <p>Longer, multi-line text such as AI prompts or canned replies. <kbd>⇧</kbd> <kbd>Enter</kbd> inserts a new line, <kbd>Enter</kbd> saves. Each row previews up to three lines. Searchable.</p>
+  <h3>Links</h3>
+  <p>Paste a URL and press Enter. <strong>Open</strong> launches it in your default browser, <strong>Copy</strong> copies it. Searchable.</p>
+  <p>In Commands, Prompts and Links, a double-click copies the item.</p>
+
+  <h2 id="claudex">claudex</h2>
+  <p>A front-end for the <code>claudex</code> command-line tool, which manages several Claude accounts. <strong>This tab needs <code>claudex</code> installed and on your PATH</strong>; without it the tab has nothing to show. Open it with <kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>X</kbd>.</p>
+  <figure class="shot">
+    <img src="assets/shots/claudex.png" alt="claudex tab with session and weekly usage gauges per account" width="1400" height="867">
+  </figure>
+  <ul>
+    <li><strong>Usage:</strong> session and weekly gauges for each saved account. Filter to “5x only”, sort by reset time, <strong>Switch</strong> to an account, or <strong>Switch to mine</strong>.</li>
+    <li><strong>Pool:</strong> accounts pooled behind one auto-failover proxy. Allow or deny members, switch, view details, start or stop the pool, and enable autoswitch.</li>
+    <li><strong>Playground:</strong> run claudex commands (usage, list, current account, doctor and more) and see the output.</li>
+    <li><strong>Health:</strong> claudex doctor results: what is on, wired or failing.</li>
+    <li>The hover <strong>peek</strong> shows the 5-hour and weekly rings for the active account.</li>
+    <li>Results are cached for 60 seconds (use <strong>Refresh</strong>). Any change, such as switching or removing an account, asks you to confirm first. If claudex output looks unfamiliar the tab shows the raw text with a ⚠ instead of guessing.</li>
+  </ul>
+
+  <h2 id="emulator">Emulator</h2>
+  <p>Control iOS simulators and Android emulators without opening Xcode or Android Studio. Open it with <kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>E</kbd>. iOS needs Xcode; Android needs the Android SDK (<code>adb</code> and <code>emulator</code>). MyWorkDock looks in the usual places (such as <code>~/Library/Android/sdk</code> and Homebrew) before falling back to your shell.</p>
+  <figure class="shot">
+    <img src="assets/shots/emulator.png" alt="Emulator tab listing iOS simulators with Play, Stop and Cold boot" width="1400" height="867">
+  </figure>
+  <h3>Devices</h3>
+  <p>Switch between <strong>Android</strong> and <strong>iOS</strong>. Each device card shows its state and has <strong>Play</strong>, <strong>Stop</strong> and <strong>Cold boot</strong>. The list refreshes every 30 seconds, and every 2 seconds while something boots. While a device boots, the notch shows a <a href="usage.html">live activity</a> bar.</p>
+  <h3>Wireless</h3>
+  <ul>
+    <li><strong>Android:</strong> pair with the IP:port and 6-digit code from the phone, then connect or disconnect. <strong>Restart adb server</strong> fixes most stuck connections.</li>
+    <li><strong>iOS:</strong> lists paired devices. It cannot connect or disconnect them; a short “Go cable-free” card walks through the three setup steps.</li>
+  </ul>
+  <h3>Tunnel</h3>
+  <figure class="shot">
+    <img src="assets/shots/tunnel.png" alt="Tunnel tab building an adb reverse command with a host port" width="1400" height="867">
+  </figure>
+  <p>Builds <code>adb reverse</code> tunnels so an Android device can reach a server running on your Mac. Pick a preset (Metro 8081, API 3000, Vite 5173, Storybook 7007) or type ports, review the command, and press <strong>Run reverse tunnel</strong>. Active tunnels are listed and removable.</p>
+  <div class="callout">
+    <strong>Nothing runs behind your back.</strong>
+    <p>Anything that changes state (stop, cold boot, disconnect, pair, remove tunnel, restart adb) shows a confirmation with the exact command first. Play, Connect and Run tunnel go straight through.</p>
+  </div>
+
+  <h2 id="header">Header: local IP, pin, settings</h2>
+  <ul>
+    <li><strong>Local IP chip:</strong> your Mac’s LAN address. Click it to refresh and copy it to the clipboard. Handy for pointing a phone at your dev server.</li>
+    <li><strong>Pin:</strong> keeps the panel open.</li>
+    <li><strong>Settings:</strong> the sliders icon.</li>
+  </ul>
+
+  <h2 id="settings">Settings</h2>
+  <figure class="shot">
+    <img src="assets/shots/settings.png" alt="Settings panel on the Menus page with feature switches" width="1400" height="867">
+  </figure>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Page</th><th>What you can change</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Appearance</strong></td><td>Theme: System, Dark or Light. Tint: lime (default), blue, purple, pink, orange, yellow, green or teal. Panel size: Medium, or Large (three quarters of the display).</td></tr>
+      <tr><td><strong>Menus</strong></td><td>Switch Clipboard, Notes, claudex, Emulator and Local IP on or off. A menu that is off is hidden and stops everything it runs in the background. Also <strong>Show on all displays</strong>.</td></tr>
+      <tr><td><strong>Clipboard</strong></td><td>How many untagged clips to keep (1 to 1000, default 200). Lowering it deletes the oldest ones, so it asks first.</td></tr>
+      <tr><td><strong>Version</strong></td><td>Current version, when it last updated, and <strong>Check for updates</strong>.</td></tr>
+    </tbody>
+  </table></div>
+  <figure class="shot">
+    <img src="assets/shots/light.png" alt="The panel in the light theme" width="1400" height="867">
+    <figcaption>The light theme. “System” follows macOS automatically.</figcaption>
+  </figure>
+
+  <h2 id="data">Your data</h2>
+  <p>Everything is stored locally. See <a href="troubleshooting.html#data">where your data lives</a>.</p>
+</div></main>
+
+<footer class="site-footer"><div class="wrap">
+  <a href="https://github.com/aditya-thummar-devx/my-work-dock">GitHub</a> ·
+  <a href="https://github.com/aditya-thummar-devx/my-work-dock/releases">Releases</a> ·
+  <a href="troubleshooting.html">Help</a>
+</div></footer>
+</body>
+</html>

@@ -23,7 +23,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         #if !DEBUG
         MainActor.assumeIsolated {
             let updater = Updater(isIdle: { [unowned model] in model.isIdle })
-            model.checkForUpdates = { updater.checkForUpdates() }
+            // Sparkle's window is a normal-level window and the open panel floats above it (and never closes on outside clicks), so close it first.
+            model.checkForUpdates = { [unowned model] in
+                model.closePanel()
+                updater.checkForUpdates()
+            }
         }
         #endif
         // No automatic login item: "Open at login" in the right-click menu is the only way to turn it on.
@@ -34,6 +38,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let keys: [HotKey?] = [
             HotKey(keyCode: kVK_Space, modifiers: optionKey) { [weak controller] in controller?.model.togglePanel() },
             HotKey(keyCode: kVK_ANSI_V, modifiers: cmdShift) { [weak controller] in controller?.model.show(.clipboard) },
+            HotKey(keyCode: kVK_ANSI_T, modifiers: cmdShift) { [weak controller] in controller?.model.show(.notes, notes: .todo) },
             HotKey(keyCode: kVK_ANSI_P, modifiers: cmdShift) { [weak controller] in controller?.model.show(.notes, notes: .prompts) },
             HotKey(keyCode: kVK_ANSI_L, modifiers: cmdShift) { [weak controller] in controller?.model.show(.notes, notes: .links) },
             HotKey(keyCode: kVK_ANSI_E, modifiers: cmdShift) { [weak controller] in controller?.model.show(.emulator) },

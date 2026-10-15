@@ -84,6 +84,8 @@ final class NotchModel {
     private(set) var theme: ThemeMode = .dark
     let appearance: AppearanceObserver
     private(set) var tint: Tint = .lime
+    /// Settings › Appearance: size of the open panel.
+    private(set) var panelSize: PanelSize = .medium
     /// Settings › Menus: a disabled feature is hidden and runs nothing in the background.
     private(set) var disabled: Set<Feature> = []
     var emulatorTab: EmulatorTab = .devices
@@ -121,6 +123,7 @@ final class NotchModel {
         if let defaults {
             theme = defaults.string(forKey: "theme").flatMap(ThemeMode.init(rawValue:)) ?? .system
             tint = defaults.string(forKey: "tint").flatMap(Tint.init(rawValue:)) ?? .lime
+            panelSize = defaults.string(forKey: "panelSize").flatMap(PanelSize.init(rawValue:)) ?? .medium
             disabled = Set((defaults.stringArray(forKey: "disabledFeatures") ?? []).compactMap(Feature.init(rawValue:)))
             showOnAllDisplays = defaults.bool(forKey: "showOnAllDisplays")
             if defaults.string(forKey: "seenVersion") != version {
@@ -174,7 +177,8 @@ final class NotchModel {
     }
 
     /// Shell size on `display`. `notch` is that display's hardware notch size in points (nil: none); idle is drawn at exactly it.
-    func geometry(notch: CGSize? = nil, on display: DisplayID? = nil) -> ShellGeometry {
+    /// `screen` is the display's size in points; the open panel scales with it when `panelSize` is large.
+    func geometry(notch: CGSize? = nil, on display: DisplayID? = nil, screen: CGSize? = nil) -> ShellGeometry {
         switch mode(on: display) {
         case .idle:
             if let notch {
@@ -190,7 +194,7 @@ final class NotchModel {
         case .live:
             ShellGeometry(width: Geo.live.width, height: Geo.live.height, radius: Geo.live.radius)
         case .open:
-            ShellGeometry(width: Geo.open.width, height: Geo.open.height, radius: Geo.open.radius)
+            ShellGeometry(width: panelSize.size(on: screen).width, height: panelSize.size(on: screen).height, radius: Geo.open.radius)
         }
     }
 
@@ -345,7 +349,7 @@ final class NotchModel {
         open ? closePanel() : openPanel()
     }
 
-    /// ⌘⇧V / ⌘⇧P / ⌘⇧L / ⌘⇧E / ⌘⇧X: opens the panel on `tab` (and Notes sub-tab `sub`). No-op if that menu is switched off.
+    /// ⌘⇧V / ⌘⇧T / ⌘⇧P / ⌘⇧L / ⌘⇧E / ⌘⇧X: opens the panel on `tab` (and Notes sub-tab `sub`). No-op if that menu is switched off.
     func show(_ tab: MainTab, notes sub: NotesTab? = nil) {
         guard isEnabled(tab.feature) else { return }
         if mainTab != tab { setMainTab(tab) }
@@ -362,6 +366,14 @@ final class NotchModel {
     func setTheme(_ t: ThemeMode) {
         theme = t
         defaults?.set(t.rawValue, forKey: "theme")
+        changed()
+    }
+
+    func setPanelSize(_ s: PanelSize) {
+        guard s != panelSize else { return }
+        shrinking = s == .medium // the container picks its curve from this
+        panelSize = s
+        defaults?.set(s.rawValue, forKey: "panelSize")
         changed()
     }
 

@@ -167,4 +167,24 @@ final class SnippetStoreTests: XCTestCase {
         XCTAssertFalse(store.searchOpen)
         XCTAssertEqual(store.query, "")
     }
+
+    func testDoubleClickCopiesWithoutHintAndSingleClickShowsThenHidesTheHint() async {
+        let store = SnippetStore(.commands, url: nil, seed: ["a"])
+        var written = ""
+        store.copyToClipboard = { written = $0 }
+        store.pause = { _ in }
+
+        store.tap(1) // two clicks before the double-click interval ends
+        store.tap(1)
+        await Task.yield() // lets the cancelled first sequence finish
+        XCTAssertEqual(written, "a")
+        XCTAssertFalse(store.hintShown)
+
+        var seen: [(TimeInterval, Bool)] = []
+        store.pause = { d in seen.append((d, store.hintShown)) }
+        await store.tap(1)?.value // one click, no second one
+        XCTAssertEqual(seen.map(\.0), [store.doubleClickInterval, SnippetStore.hintTime])
+        XCTAssertEqual(seen.map(\.1), [false, true]) // hint is up while the second wait runs
+        XCTAssertFalse(store.hintShown) // and gone after it
+    }
 }

@@ -55,6 +55,7 @@ struct SettingsPopover: View {
     /// What macOS is in right now; only shown while `theme == .system`.
     var systemIsDark = true
     var tint: Tint
+    var panelSize = PanelSize.medium
     var disabled: Set<Feature> = []
     var allDisplays = false
     var clipboardLimit = ClipboardStore.defaultLimit
@@ -64,6 +65,7 @@ struct SettingsPopover: View {
     var onCheckForUpdates: (() -> Void)?
     var onTheme: (ThemeMode) -> Void = { _ in }
     var onTint: (Tint) -> Void = { _ in }
+    var onPanelSize: (PanelSize) -> Void = { _ in }
     var onFeature: (Feature, Bool) -> Void = { _, _ in }
     var onAllDisplays: (Bool) -> Void = { _ in }
     var onClipboardLimit: (Int) -> Void = { _ in }
@@ -71,15 +73,17 @@ struct SettingsPopover: View {
     @State private var page: Page
     @Environment(\.tokens) private var t
 
-    init(theme: ThemeMode, systemIsDark: Bool = true, tint: Tint, disabled: Set<Feature> = [], allDisplays: Bool = false, page: Page = .appearance,
+    init(theme: ThemeMode, systemIsDark: Bool = true, tint: Tint, panelSize: PanelSize = .medium, disabled: Set<Feature> = [], allDisplays: Bool = false, page: Page = .appearance,
          clipboardLimit: Int = ClipboardStore.defaultLimit, version: String = "", updatedAt: Date? = nil,
          onCheckForUpdates: (() -> Void)? = nil,
          onTheme: @escaping (ThemeMode) -> Void = { _ in }, onTint: @escaping (Tint) -> Void = { _ in },
+         onPanelSize: @escaping (PanelSize) -> Void = { _ in },
          onFeature: @escaping (Feature, Bool) -> Void = { _, _ in }, onAllDisplays: @escaping (Bool) -> Void = { _ in },
          onClipboardLimit: @escaping (Int) -> Void = { _ in }, onClose: @escaping () -> Void = {}) {
         self.theme = theme
         self.systemIsDark = systemIsDark
         self.tint = tint
+        self.panelSize = panelSize
         self.disabled = disabled
         self.allDisplays = allDisplays
         self.clipboardLimit = clipboardLimit
@@ -89,6 +93,7 @@ struct SettingsPopover: View {
         self.onClipboardLimit = onClipboardLimit
         self.onTheme = onTheme
         self.onTint = onTint
+        self.onPanelSize = onPanelSize
         self.onFeature = onFeature
         self.onAllDisplays = onAllDisplays
         self.onClose = onClose
@@ -107,7 +112,8 @@ struct SettingsPopover: View {
             }
             switch page {
             case .appearance:
-                AppearanceSection(theme: theme, systemIsDark: systemIsDark, tint: tint, onTheme: onTheme, onTint: onTint)
+                AppearanceSection(theme: theme, systemIsDark: systemIsDark, tint: tint, panelSize: panelSize,
+                                  onTheme: onTheme, onTint: onTint, onPanelSize: onPanelSize)
             case .menus:
                 MenusSection(disabled: disabled, allDisplays: allDisplays, onFeature: onFeature, onAllDisplays: onAllDisplays)
             case .clipboard:
@@ -294,8 +300,10 @@ private struct AppearanceSection: View {
     var theme: ThemeMode
     var systemIsDark = true
     var tint: Tint
+    var panelSize = PanelSize.medium
     var onTheme: (ThemeMode) -> Void = { _ in }
     var onTint: (Tint) -> Void = { _ in }
+    var onPanelSize: (PanelSize) -> Void = { _ in }
     @Environment(\.tokens) private var t
 
     var body: some View {
@@ -329,6 +337,13 @@ private struct AppearanceSection: View {
                 .foregroundStyle(t.faint)
                 .lineSpacing(Typo.lineSpacing(size: Geo.Appearance.noteFont, lineHeight: 1.4))
                 .fixedSize(horizontal: false, vertical: true)
+
+            HStack {
+                Text("Panel size").font(Typo.ui(Geo.Appearance.sectionFont, .semibold)).foregroundStyle(t.faint)
+                Spacer()
+                SubTabs(items: PanelSize.allCases.map { SubTabItem($0.rawValue, $0.label) },
+                        selection: panelSize.rawValue, activeFill: t.ctrl) { onPanelSize(PanelSize(rawValue: $0) ?? .medium) }
+            }
         }
     }
 
@@ -744,5 +759,26 @@ struct TagFormPopover: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// Inverted pill so it reads on both themes.
+struct HintToast: View {
+    var text: String
+    @Environment(\.tokens) private var t
+
+    init(_ text: String) { self.text = text }
+
+    var body: some View {
+        HStack(spacing: 7) {
+            Icon(.copy, size: 12)
+            Text(text).font(Typo.ui(12.5, .semibold))
+        }
+        .foregroundStyle(t.panel)
+        .padding(.horizontal, 14)
+        .frame(height: 34)
+        .background(Capsule().fill(t.text))
+        .accessibilityElement(children: .combine)
+        .allowsHitTesting(false)
     }
 }
