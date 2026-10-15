@@ -68,6 +68,8 @@ final class ClipboardStore {
     /// True once the user switched MyWorkDock to "Don't allow" under Paste from Other Apps.
     @ObservationIgnored var accessDenied: () -> Bool = { false }
     @ObservationIgnored var copyToClipboard: (String) -> Void = Clipboard.copy
+    /// Called after an item is copied; the shell closes the panel.
+    @ObservationIgnored var onCopied: () -> Void = {}
     @ObservationIgnored private var lastCount = -1
     @ObservationIgnored private var timer: Timer?
     @ObservationIgnored private var copyTask: Task<Void, Never>?
@@ -340,6 +342,7 @@ final class ClipboardStore {
             guard !Task.isCancelled else { return }
             self?.copiedId = nil
         }
+        onCopied()
     }
 
     /// Click on a clip's text. A second click within the double-click interval copies it; if none comes, the hint toast

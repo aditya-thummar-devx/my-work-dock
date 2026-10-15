@@ -50,6 +50,15 @@ final class SnippetStoreTests: XCTestCase {
         XCTAssertEqual(store.footer, "Copied to clipboard")
     }
 
+    func testCopyNotifiesOnCopied() {
+        let store = SnippetStore(.commands, url: nil, seed: ["a"])
+        var count = 0
+        store.copyToClipboard = { _ in }
+        store.onCopied = { count += 1 }
+        store.copy(1)
+        XCTAssertEqual(count, 1)
+    }
+
     func testPromptsUseTheirOwnNounsAndSeed() {
         let store = SnippetStore.sample(.prompts)
         XCTAssertEqual(store.items.count, 5)

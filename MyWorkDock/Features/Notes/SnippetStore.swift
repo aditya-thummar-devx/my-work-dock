@@ -88,6 +88,8 @@ final class SnippetStore {
 
     @ObservationIgnored private let url: URL?
     @ObservationIgnored var copyToClipboard: (String) -> Void = Clipboard.copy
+    /// Called after an item is copied; the shell closes the panel.
+    @ObservationIgnored var onCopied: () -> Void = {}
     @ObservationIgnored var openURL: (URL) -> Void = { NSWorkspace.shared.open($0) }
     @ObservationIgnored private var copyTask: Task<Void, Never>?
     /// Row clicked once and still waiting for its second click.
@@ -194,6 +196,7 @@ final class SnippetStore {
             guard !Task.isCancelled else { return }
             self?.copiedId = nil
         }
+        onCopied()
     }
 
     /// Click on an item's text. A second click within the double-click interval copies it; if none comes, the hint toast
