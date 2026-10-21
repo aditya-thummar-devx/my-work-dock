@@ -296,6 +296,23 @@ final class CalendarDataTests: XCTestCase {
         XCTAssertEqual(details.recurrence, "Weekly on Wednesday")
     }
 
+    func testPressingMoreListsEveryGuestUntilTheSheetCloses() throws {
+        let store = CalendarStore.sample(.signedIn(email: "me@x.com"))
+        let lunch = try XCTUnwrap(store.visibleEvents.first { $0.title == "Lunch" })
+        store.select(lunch)
+        guard case .loaded(let details) = store.detail else { return XCTFail("\(store.detail)") }
+        XCTAssertGreaterThan(details.guests.count, Geo.Cal.guestsShown) // the sample invite is long enough to need "+N more"
+        XCTAssertFalse(store.guestsExpanded)
+        store.showAllGuests()
+        XCTAssertTrue(store.guestsExpanded)
+        store.closeDetail()
+        XCTAssertFalse(store.guestsExpanded)
+        store.select(lunch)
+        store.showAllGuests()
+        store.select(try XCTUnwrap(store.visibleEvents.first { $0.title != "Lunch" })) // another event starts collapsed again
+        XCTAssertFalse(store.guestsExpanded)
+    }
+
     // MARK: Calendars menu
 
     func testHiddenCalendarsAreNotFetchedAndTheChoicePersists() async throws {

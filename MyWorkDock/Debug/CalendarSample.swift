@@ -67,6 +67,11 @@ enum CalendarSample {
         var details = EventDetails()
         details.reminders = ["10 minutes before"]
         details.link = URL(string: "https://calendar.google.com/calendar/event?eid=sample")
+        if event.title == "Lunch" { // a big invite whose guests carry no display names: the sheet shows their emails
+            details.guests = bigInvite
+            details.organizer = "meera.iyer@devxlabs.ai"
+            return details
+        }
         guard event.title.hasPrefix("Client call") else { return details }
         details.location = "Aurora Tower, 4th floor, Pune"
         details.meetURL = URL(string: "https://meet.google.com/abc-defg-hij")
@@ -88,6 +93,23 @@ enum CalendarSample {
         details.recurrence = "Weekly on Wednesday"
         return details
     }
+
+    /// 14 guests, 6 yes · 1 no · 3 maybe · 4 awaiting, organizer first and the rest by name, as `EventDetails.make` orders them.
+    private static let bigInvite: [EventDetails.Guest] = {
+        let people: [(String, EventDetails.Response)] = [
+            ("meera.iyer", .accepted), ("aditya.thummar", .needsAction), ("arjun.kulkarni", .accepted), ("dev.patel", .accepted),
+            ("isha.menon", .tentative), ("kabir.rao", .accepted), ("lena.fischer", .needsAction), ("neel.joshi", .needsAction),
+            ("omar.sheikh", .declined), ("priya.shah", .needsAction), ("rohan.das", .tentative), ("sana.khan", .tentative),
+            ("tara.nair", .accepted), ("vikram.rao", .accepted),
+        ]
+        var guests: [EventDetails.Guest] = []
+        for (index, person) in people.enumerated() {
+            let email = person.0 + "@devxlabs.ai"
+            guests.append(EventDetails.Guest(id: email, name: email, response: person.1, organizer: index == 0, optional: false,
+                                             isMe: person.0 == "aditya.thummar"))
+        }
+        return guests
+    }()
 
     /// One fetch per calendar covering the whole October grid (27 Sep – 31 Oct), so every view finds its data.
     static func chunks(cal: Calendar) -> [CalendarStore.Chunk] {

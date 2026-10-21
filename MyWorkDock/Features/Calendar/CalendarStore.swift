@@ -62,6 +62,8 @@ final class CalendarStore {
     private(set) var detail = DetailState.loading
     /// "Copied" on the Meet link button for a moment.
     private(set) var copied = false
+    /// "+6 more" was pressed: the sheet lists every guest instead of the first few.
+    private(set) var guestsExpanded = false
 
     // Data
     private(set) var calendars: [CalendarInfo] = []
@@ -131,11 +133,12 @@ final class CalendarStore {
 
     #if DEBUG
     /// Snapshots draw each state.
-    func preview(_ auth: Auth, mode: CalendarMode? = nil, menuOpen: Bool = false, selecting title: String? = nil) {
+    func preview(_ auth: Auth, mode: CalendarMode? = nil, menuOpen: Bool = false, selecting title: String? = nil, allGuests: Bool = false) {
         self.auth = auth
         if let mode { self.mode = mode }
         calendarsMenuOpen = menuOpen
         if let title, let event = visibleEvents.first(where: { $0.title == title }) { select(event) }
+        if allGuests { showAllGuests() }
     }
     #endif
 
@@ -352,6 +355,7 @@ final class CalendarStore {
         selected = event
         detail = .loading
         copied = false
+        guestsExpanded = false
         detailTask?.cancel()
         detailTask = nil
         guard let client else {
@@ -371,7 +375,10 @@ final class CalendarStore {
         detailTask = nil
         selected = nil
         detail = .loading
+        guestsExpanded = false
     }
+
+    func showAllGuests() { guestsExpanded = true }
 
     func retryDetail() {
         if let selected { select(selected) }

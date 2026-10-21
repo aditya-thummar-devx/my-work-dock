@@ -168,7 +168,7 @@ private struct CalendarEventSheet: View {
             if !details.guests.isEmpty {
                 Text(EventDetails.summary(details.guests)).font(Typo.ui(12.5, .semibold)).foregroundStyle(t.text)
             }
-            ForEach(details.guests.prefix(Geo.Cal.guestsShown)) { guest in
+            ForEach(store.guestsExpanded ? details.guests : Array(details.guests.prefix(Geo.Cal.guestsShown))) { guest in
                 HStack(spacing: 8) {
                     responseIcon(guest.response)
                     Text(guest.name + (guest.isMe ? " (you)" : "")).font(Typo.ui(12.5)).foregroundStyle(t.text).lineLimit(1)
@@ -177,8 +177,14 @@ private struct CalendarEventSheet: View {
                 }
                 .accessibilityElement(children: .combine)
             }
-            if details.guests.count > Geo.Cal.guestsShown {
-                Text("+\(details.guests.count - Geo.Cal.guestsShown) more").font(Typo.ui(11.5)).foregroundStyle(t.faint)
+            if !store.guestsExpanded, details.guests.count > Geo.Cal.guestsShown {
+                Button(action: store.showAllGuests) {
+                    Text("+\(details.guests.count - Geo.Cal.guestsShown) more").font(Typo.ui(11.5, .semibold)).foregroundStyle(t.text2)
+                        .padding(.vertical, 3)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint("Shows every guest")
             }
             if let note = details.guestsNote { Text(note).font(Typo.ui(11.5)).foregroundStyle(t.faint) }
         }
