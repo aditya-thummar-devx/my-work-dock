@@ -313,6 +313,68 @@ final class CalendarDataTests: XCTestCase {
         XCTAssertFalse(store.guestsExpanded)
     }
 
+    // MARK: Today, for the peek
+
+    func testUpcomingTodayKeepsWhatIsStillToComeSoonestFirst() async throws {
+        api.events["cal-a"] = [
+            FakeCalendarAPI.event("over", "Over", hour: 8), // ended at 9:00
+            FakeCalendarAPI.event("later", "Later", hour: 14),
+            FakeCalendarAPI.event("run", "Running", hour: 10), // 10:00–11:00, and it is 10:30
+            FakeCalendarAPI.event("tomorrow", "Tomorrow", day: 22, hour: 9),
+            ##"{"id":"allday","summary":"All day","start":{"date":"2026-10-21"},"end":{"date":"2026-10-22"}}"##,
+            ##"{"id":"no","summary":"Declined","start":{"dateTime":"2026-10-21T16:00:00+05:30"},"end":{"dateTime":"2026-10-21T17:00:00+05:30"},"attendees":[{"email":"cal-a","responseStatus":"declined"}]}"##,
+        ]
+        api.events["cal-b"] = [FakeCalendarAPI.event("team", "Team", hour: 12)]
+        let store = makeStore()
+        XCTAssertNil(store.upcomingToday()) // nothing fetched yet: not "no events"
+        await store.refreshToday()
+        XCTAssertEqual(store.upcomingToday()?.map(\.title), ["Running", "Team", "Later"])
+        store.toggle("cal-b") // a calendar the user hid stays out
+        XCTAssertEqual(store.upcomingToday()?.map(\.title), ["Running", "Later"])
+        await settle(store)
+    }
+
+    func testUpcomingTodayIsNilWhileSignedOutAndAsksNothing() async {
+        try? FileManager.default.removeItem(at: file)
+        let store = makeStore()
+        await store.refreshToday()
+        XCTAssertNil(store.upcomingToday())
+        XCTAssertTrue(api.eventRequests().isEmpty)
+    }
+
+    func testRefreshTodayAsksForTodayWhateverTheTabShows() async throws {
+        let store = makeStore()
+        await store.refresh() // this week
+        store.go(.next)
+        await settle(store) // the tab is now on next week
+        clock.now = clock.now.addingTimeInterval(61) // everything fetched is stale
+        let before = api.eventRequests().count
+        await store.refreshToday()
+        let requests = Array(api.eventRequests().dropFirst(before))
+        XCTAssertEqual(requests.count, 2) // cal-a and cal-b, one request each
+        let query = api.query(try XCTUnwrap(requests.first))
+        XCTAssertEqual(query["timeMin"], "2026-10-20T18:30:00Z") // Wed 21 Oct 00:00 in Kolkata
+        XCTAssertEqual(query["timeMax"], "2026-10-21T18:30:00Z")
+    }
+
+    func testRefreshTodayReusesAFreshFetchThatCoversToday() async {
+        let store = makeStore()
+        await store.refresh() // the week around today
+        let count = api.eventRequests().count
+        await store.refreshToday()
+        XCTAssertEqual(api.eventRequests().count, count)
+    }
+
+    func testUpcomingTodayTrustsTheFreshestFetchPerCalendar() async throws {
+        api.events["cal-a"] = [FakeCalendarAPI.event("old", "Old", hour: 14)]
+        let store = makeStore()
+        await store.refresh()
+        api.events["cal-a"] = [FakeCalendarAPI.event("new", "New", hour: 15)] // the old one was moved
+        clock.now = clock.now.addingTimeInterval(61)
+        await store.refreshToday() // a newer fetch that also covers today
+        XCTAssertEqual(store.upcomingToday()?.filter { $0.calendarID == "cal-a" }.map(\.title), ["New"])
+    }
+
     // MARK: Calendars menu
 
     func testHiddenCalendarsAreNotFetchedAndTheChoicePersists() async throws {

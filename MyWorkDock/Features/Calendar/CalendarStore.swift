@@ -161,6 +161,28 @@ final class CalendarStore {
             .filter { $0.start < to && $0.end > from && seen.insert($0.id).inserted }
     }
 
+    /// What is left of today for the peek: timed events that have not ended and were not declined, on the shown calendars, soonest
+    /// first. nil until a fetch that covers today has landed (and while signed out). Reads what is cached, however old: the hover
+    /// that shows it also starts `refreshToday()`.
+    func upcomingToday() -> [CalendarEvent]? {
+        guard case .signedIn = auth else { return nil }
+        let current = now()
+        let day = cal.startOfDay(for: current)
+        guard let next = cal.date(byAdding: .day, value: 1, to: day) else { return nil }
+        let shown = Set(shownCalendars.map(\.id))
+        // Per calendar only the freshest fetch that covers today: an older copy must not bring back what a newer one dropped.
+        var freshest: [String: Chunk] = [:]
+        for chunk in chunks where shown.contains(chunk.calendarID) && chunk.from <= day && chunk.to >= next {
+            if let known = freshest[chunk.calendarID], known.fetchedAt >= chunk.fetchedAt { continue }
+            freshest[chunk.calendarID] = chunk
+        }
+        guard !freshest.isEmpty else { return nil }
+        var seen = Set<String>()
+        return freshest.values.flatMap(\.events)
+            .filter { !$0.allDay && !$0.declined && $0.end > current && $0.start < next && seen.insert($0.id).inserted }
+            .sorted { ($0.start, $0.end, $0.id) < ($1.start, $1.end, $1.id) }
+    }
+
     var title: String {
         let days = visibleDays
         switch mode {
@@ -442,7 +464,15 @@ final class CalendarStore {
 
     /// Loads what the visible range still lacks, one request per shown calendar. A fresh fetch that already covers the range
     /// (Month → Week → Day) is reused; `force` (↻) asks again.
-    func refresh(force: Bool = false) async {
+    func refresh(force: Bool = false) async { await refresh(range: nil, force: force) }
+
+    /// The peek was hovered: today's events, whatever range the tab shows. Reuses any fetch under a minute old.
+    func refreshToday() async {
+        await refresh(range: CalendarLayout.range(of: [cal.startOfDay(for: now())], cal: cal), force: false)
+    }
+
+    /// `range` nil is what the tab shows; it is read after the calendar list arrives, so a late answer never fetches a stale range.
+    private func refresh(range: (from: Date, to: Date)?, force: Bool) async {
         guard let client, case .signedIn = auth else { return }
         let started = epoch
         if calendars.isEmpty {
@@ -464,7 +494,7 @@ final class CalendarStore {
             }
             failures["calendarList"] = nil
         }
-        let (from, to) = CalendarLayout.range(of: visibleDays, cal: cal)
+        let (from, to) = range ?? CalendarLayout.range(of: visibleDays, cal: cal)
         let todo = shownCalendars.filter { !inFlight.contains(Self.key($0.id, from, to)) && (force || !isFresh($0.id, from, to)) }
         guard !todo.isEmpty else { return }
         for calendar in todo { inFlight.insert(Self.key(calendar.id, from, to)) }

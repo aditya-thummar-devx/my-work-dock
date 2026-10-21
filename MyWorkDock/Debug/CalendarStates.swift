@@ -23,7 +23,28 @@ enum CalendarStates {
         }
     }
 
+    /// The hover peek with today's events under the ears, on the sample Wednesday (10:30, or `at` when given). They hang below the
+    /// strip, so these use the panel canvas: the 120 pt notch crop would cut them off.
+    private static func peek(_ name: String, theme: ThemeMode = .dark, claudex: Bool = false, at: Date? = nil) -> SnapshotRunner.State {
+        SnapshotRunner.State(name, .panel) {
+            $0.setTheme(theme)
+            if claudex { $0.setPeekEnabled(.claudex, true) }
+            $0.calendar.preview(.signedIn(email: "aditya.thummar@devxlabs.ai"))
+            if let at { $0.calendar.now = { at } }
+            $0.setPeekEnabled(.events, true)
+            $0.pointer(inside: true)
+        }
+    }
+
     static let all: [SnapshotRunner.State] = [
+        peek("calendar-peek-events"),
+        peek("calendar-peek-events-light", theme: .light),
+        peek("calendar-peek-events-claudex", claudex: true),
+        peek("calendar-peek-events-empty", at: CalendarSample.date(21, 20, 0)),
+        // claudex on takes the other peek sources off and locks them, but not today's events.
+        .fragment("calendar-settings-peek", rect: CGRect(x: 260, y: 46, width: 480, height: 380)) {
+            SettingsPopover(theme: .dark, tint: .lime, peekOn: [.claudex, .events], page: .peek)
+        },
         grid("calendar-week", .week),
         grid("calendar-week-light", theme: .light, .week),
         grid("calendar-month", .month),
