@@ -249,8 +249,7 @@ final class NotchModel {
         switch mode(on: display) {
         case .idle:
             if let notch {
-                ShellGeometry(width: notch.width, height: notch.height,
-                              radius: Geo.hardwareNotch.radius, shoulder: Geo.hardwareNotch.shoulder)
+                Geo.hardwareNotchShell(notch)
             } else {
                 ShellGeometry(width: Geo.idle.width, height: Geo.idle.height, radius: Geo.idle.radius)
             }

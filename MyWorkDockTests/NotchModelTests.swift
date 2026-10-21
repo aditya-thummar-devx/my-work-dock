@@ -160,9 +160,23 @@ final class NotchModelTests: XCTestCase {
     func testIdleIsTheHardwareNotchWhenOneExists() {
         XCTAssertEqual(model.geometry().width, Geo.idle.width)
         let g = model.geometry(notch: CGSize(width: 156, height: 28))
-        XCTAssertEqual([g.width, g.height, g.radius, g.shoulder],
-                       [156, 28, Geo.hardwareNotch.radius, Geo.hardwareNotch.shoulder])
+        XCTAssertEqual(g, Geo.hardwareNotchShell(CGSize(width: 156, height: 28)))
+        // Height is the API's; width is the real cutout, narrower than the padded API width.
+        XCTAssertEqual(g.height, 28)
+        XCTAssertEqual(g.width, 156 * Geo.hardwareNotchPx.width / Geo.hardwareNotchPx.reportedWidth, accuracy: 1e-9)
+        XCTAssertLessThan(g.width, 156)
         XCTAssertEqual(model.geometry(notch: nil).width, Geo.idle.width)
+    }
+
+    /// The hardware notch is fixed in panel pixels, so width and corners scale with the notch width across display modes.
+    func testIdleCornersKeepTheirPhysicalSizeAcrossDisplayModes() {
+        let narrow = model.geometry(notch: CGSize(width: 156, height: 28))
+        let wide = model.geometry(notch: CGSize(width: 185, height: 32))
+        XCTAssertEqual(narrow.radius / narrow.width, wide.radius / wide.width, accuracy: 1e-9)
+        XCTAssertEqual(narrow.shoulder / narrow.width, wide.shoulder / wide.width, accuracy: 1e-9)
+        // At the 14" default mode (370 px = 185 pt, 2 px/pt) the pixel constants are the point values * 2.
+        XCTAssertEqual(wide.radius, Geo.hardwareNotchPx.radius / 2, accuracy: 1e-9)
+        XCTAssertEqual(wide.width, Geo.hardwareNotchPx.width / 2, accuracy: 1e-9)
     }
 
     // MARK: Settings › Displays
