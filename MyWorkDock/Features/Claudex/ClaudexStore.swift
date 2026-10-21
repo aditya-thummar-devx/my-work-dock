@@ -1,7 +1,8 @@
 import Foundation
 import Observation
 
-enum ClaudexTab: String, CaseIterable { case usage, pool, play, health }
+/// `tokens` is Tokens & cost: it reads Claude Code's own transcripts and never needs the claudex CLI.
+enum ClaudexTab: String, CaseIterable { case usage, pool, play, health, tokens }
 
 /// One claudex read: what the parser made of it, and the raw text it came from, so a panel can fall back to
 /// plain text (with a ⚠) when the parser no longer recognises the output.
@@ -69,6 +70,9 @@ final class ClaudexStore {
     private(set) var unavailable: String?
     /// The pool member a confirmed write is running for (until the refresh after it lands).
     private(set) var busyMember: String?
+
+    /// The tab on screen. While claudex gives nothing the other four cannot show anything, so only Tokens & cost is left.
+    var activeTab: ClaudexTab { unavailable == nil ? tab : .tokens }
 
     // Member details sheet
     private(set) var detailName: String?
@@ -148,7 +152,7 @@ final class ClaudexStore {
     /// "Switch to mine" (claudex-dash mine.js): which command, if any, puts you back on your own account here.
     var mineCommand: [String]? {
         guard let me else { return nil }
-        switch tab {
+        switch activeTab {
         case .pool:
             guard let pool = me.pool, members.recognised else { return nil }
             return members.data?.first { $0.marked }?.name == pool ? nil : ["pool", "use", pool]
@@ -171,7 +175,7 @@ final class ClaudexStore {
         return s
     }
 
-    var footer: String { message ?? Self.defaultFooter }
+    var footer: String { activeTab == .tokens ? ClaudeUsageStore.footer : message ?? Self.defaultFooter }
 
     /// Peek ears: pool on -> the pool member claudex has selected (▶, POOL); pool off -> the active account of the SSO
     /// list (SSO). No reading shows "—" and "no reading". nil when claudex gave no account at all (missing, logged out, unreadable).
@@ -293,7 +297,7 @@ final class ClaudexStore {
     // MARK: Navigation
 
     func select(_ t: ClaudexTab) {
-        tab = t
+        tab = unavailable == nil ? t : .tokens
         sortOpen = false
         detailName = nil
         detailLoading = false
@@ -470,6 +474,12 @@ final class ClaudexStore {
         detailName = SampleData.memberDetail.name
         detail = Capture(data: SampleData.memberDetail, raw: SampleData.memberDetailRaw)
         detailAge = 60
+    }
+
+    /// Snapshot states only: claudex missing, so only Tokens & cost is left.
+    func showSampleUnavailable() {
+        unavailable = "claudex not found. Install it or add it to PATH."
+        tab = .tokens
     }
 
     func showSampleOutput() {

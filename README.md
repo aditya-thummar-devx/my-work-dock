@@ -10,7 +10,7 @@ Your work dock, in the notch. Hover the top of your Mac's screen: clipboard hist
 
 - **Clipboard**: searchable text history with tags and pins. Password managers are never recorded.
 - **Notes**: TODOs, plus saved Commands, Prompts and Links.
-- **claudex**: usage gauges and account switching for the optional `claudex` CLI.
+- **claudex**: usage gauges and account switching for the optional `claudex` CLI, plus **Tokens & cost**: what Claude Code used on this Mac, which works without it.
 - **Emulator**: start and stop iOS simulators and Android emulators, pair devices over Wi-Fi, run `adb reverse` tunnels.
 - **Global hotkeys**: jump to a tab from any app with `⌘ ⇧` plus a letter. `⌥ Space` opens the panel.
 - **Updates itself**: checks hourly and installs quietly when idle.

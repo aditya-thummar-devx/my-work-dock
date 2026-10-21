@@ -81,7 +81,11 @@
   <h2>claudex and Emulator</h2>
   <details>
     <summary>The claudex tab says “claudex is not available” or shows a ⚠</summary>
-    <p>The tab drives the <code>claudex</code> command-line tool, so it must be installed and on your PATH. Install it, then press <strong>Retry</strong> on that screen. A ⚠ with raw text means claudex printed something this version does not recognise; update claudex or MyWorkDock.</p>
+    <p>Usage, Pool, Playground and Health drive the <code>claudex</code> command-line tool, so it must be installed and on your PATH. Install it, then press <strong>Retry</strong>. Tokens &amp; cost does not need it and stays available meanwhile. A ⚠ with raw text means claudex printed something this version does not recognise; update claudex or MyWorkDock.</p>
+  </details>
+  <details>
+    <summary>Tokens &amp; cost says “No Claude Code usage found”, or a month says partial</summary>
+    <p>The tab reads Claude Code’s transcripts in <code>~/.claude/projects</code>. It finds nothing if Claude Code has not been used on this Mac or keeps its files elsewhere (a custom <code>CLAUDE_CONFIG_DIR</code> is not supported). Claude Code deletes a transcript 30 days after its last write, so a month that began before MyWorkDock first looked (or that includes more than 30 days in which it did not look, for example the app was not started) is marked <strong>partial</strong>: days before the date shown may be incomplete. <strong>Not tracked</strong> means that whole month was already deleted. Cost is an estimate at API list prices, not what a subscription charges.</p>
   </details>
   <details>
     <summary>No iOS simulators, or no Android emulators, are listed</summary>
@@ -101,6 +105,7 @@
       <tr><td><code>notes.json</code></td><td>TODOs and tag colours</td></tr>
       <tr><td><code>commands.json</code>, <code>prompts.json</code>, <code>links.json</code></td><td>Your saved snippets</td></tr>
       <tr><td><code>wireless-android.json</code></td><td>Known wireless Android devices</td></tr>
+      <tr><td><code>claude-usage.json</code></td><td>Daily token totals per model for Tokens &amp; cost, and where MyWorkDock stopped reading each Claude Code transcript. Numbers only, never prompts or code.</td></tr>
     </tbody>
   </table></div>
   <p>Settings (theme, tint, panel size, switched-off menus) are in the app’s macOS preferences, <code>com.adityabuilds.myworkdock</code>. To back up your notes, copy the folder above.</p>
