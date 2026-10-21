@@ -1,42 +1,49 @@
 import SwiftUI
 
-/// claudex: Usage / Pool / Playground / Health, wired to the CLI through `ClaudexStore`.
+/// claudex: Usage / Pool / Playground / Health, wired to the CLI through `ClaudexStore`, and Tokens & cost, which reads Claude Code's
+/// own transcripts and works without the CLI.
 struct ClaudexScreen: View {
     var model: NotchModel
 
     var body: some View {
         let store = model.claudex
-        Group {
-            if let why = store.unavailable {
-                ClaudexUnavailable(reason: why, loading: store.loading, onRetry: store.retry)
-            } else {
-                content(store)
-            }
-        }
-        .task { await store.refresh() }
+        content(store, model.claudeUsage)
+            .task { await store.refresh() }
     }
 
-    private func content(_ store: ClaudexStore) -> some View {
-        VStack(spacing: 0) {
-            SubNavRow(items: tabs(store), selection: store.tab.rawValue, onSelect: { store.select(ClaudexTab(rawValue: $0) ?? .usage) }) {
-                FreshLabel(store: store)
-                PillButton(title: "Refresh", glyph: .refresh, iconSize: 13, action: store.refreshNow)
+    private func content(_ store: ClaudexStore, _ usage: ClaudeUsageStore) -> some View {
+        let onTokens = store.activeTab == .tokens
+        return VStack(spacing: 0) {
+            SubNavRow(items: tabs(store), selection: store.activeTab.rawValue, onSelect: { store.select(ClaudexTab(rawValue: $0) ?? .usage) }) {
+                if onTokens {
+                    FreshLabel { usage.freshLabel }
+                    PillButton(title: "Refresh", glyph: .refresh, iconSize: 13, action: usage.refreshNow)
+                } else {
+                    FreshLabel { store.freshLabel }
+                    PillButton(title: "Refresh", glyph: .refresh, iconSize: 13, action: store.refreshNow)
+                }
             }
             .padding(.top, Geo.Chrome.subNavTop)
 
-            ClaudexToolbar(store: store)
-                .padding(.top, 10)
-                .zIndex(1) // the sort menu hangs below the toolbar, over the content
+            if let why = store.unavailable {
+                ClaudexMissing(reason: why, loading: store.loading, onRetry: store.retry)
+                    .padding(.top, 10)
+            } else if !onTokens {
+                ClaudexToolbar(store: store)
+                    .padding(.top, 10)
+                    .zIndex(1) // the sort menu hangs below the toolbar, over the content
+            }
 
             Group {
-                switch store.tab {
+                switch store.activeTab {
                 case .usage: UsageView(store: store)
                 case .pool: PoolView(store: store)
                 case .play: PlaygroundView(store: store)
                 case .health: HealthView(store: store)
+                case .tokens: TokensView(store: usage)
                 }
             }
-            .padding(.top, Geo.Chrome.contentTopClaudex)
+            .padding(.top, onTokens && store.unavailable == nil ? Geo.Chrome.contentTop : Geo.Chrome.contentTopClaudex)
             .frame(maxHeight: .infinity, alignment: .top)
         }
         .overlay {
@@ -44,7 +51,10 @@ struct ClaudexScreen: View {
         }
     }
 
+    /// claudex gives nothing: only Tokens & cost can show anything.
     private func tabs(_ store: ClaudexStore) -> [SubTabItem] {
+        let tokens = SubTabItem(ClaudexTab.tokens.rawValue, "Tokens & cost")
+        guard store.unavailable == nil else { return [tokens] }
         let bad = store.unrecognisedTabs
         func item(_ tab: ClaudexTab, _ label: String, count: Int? = nil) -> SubTabItem {
             var i = SubTabItem(tab.rawValue, label, count: count)
@@ -52,36 +62,38 @@ struct ClaudexScreen: View {
             return i
         }
         return [item(.usage, "Usage", count: store.usage.data?.count ?? 0), item(.pool, "Pool", count: store.members.data?.count ?? 0),
-                item(.play, "Playground"), item(.health, "Health")]
+                item(.play, "Playground"), item(.health, "Health"), tokens]
     }
 }
 
-/// The whole claudex menu when the CLI gave nothing: the reason and a Retry, no tabs, no commands.
-private struct ClaudexUnavailable: View {
+/// claudex gave nothing (not installed, not runnable, timed out on the first read): the reason and a Retry. The four tabs that drive the CLI
+/// are gone until it answers; Tokens & cost does not need it.
+private struct ClaudexMissing: View {
     var reason: String
     var loading: Bool
     var onRetry: () -> Void
     @Environment(\.tokens) private var t
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 6) {
-                Icon(.warning, size: 13).foregroundStyle(t.orange)
-                Text("claudex is not available").font(Typo.ui(13, .semibold)).foregroundStyle(t.orange)
+        HStack(spacing: 10) {
+            Icon(.warning, size: 13).foregroundStyle(t.orange)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("claudex is not available. Usage, Pool, Playground and Health need it.")
+                    .font(Typo.ui(12.5, .semibold)).foregroundStyle(t.orange).lineLimit(1)
+                Text(reason).font(Typo.mono(11)).foregroundStyle(t.text2).lineLimit(1)
             }
-            Text(reason).font(Typo.mono(11.5)).foregroundStyle(t.text2)
-            Text("Install claudex or add it to PATH, then retry. Switch this menu off in Settings › Menus if you do not use it.")
-                .font(Typo.ui(12.5)).foregroundStyle(t.faint)
+            Spacer(minLength: 8)
             PillButton(title: loading ? "Checking…" : "Retry", glyph: .refresh, iconSize: 13, action: onRetry)
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(.horizontal, 4).padding(.top, Geo.Chrome.subNavTop)
+        .padding(.leading, 12).padding(.trailing, 6).padding(.vertical, 6)
+        .background(RoundedRectangle(cornerRadius: 12).fill(t.inset))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(t.line, lineWidth: 1))
     }
 }
 
 /// "just now" / "42s ago", ticking while the panel is open.
 private struct FreshLabel: View {
-    var store: ClaudexStore
+    var text: () -> String
     @Environment(\.tokens) private var t
     @Environment(\.staticRender) private var staticRender
 
@@ -93,7 +105,7 @@ private struct FreshLabel: View {
         }
     }
 
-    private var label: some View { Text(store.freshLabel).font(Typo.ui(12)).foregroundStyle(t.faint) }
+    private var label: some View { Text(text()).font(Typo.ui(12)).foregroundStyle(t.faint) }
 }
 
 // MARK: Toolbar

@@ -79,6 +79,7 @@ final class NotchModel {
     let confirmer: Confirmer
     let emulator: EmulatorStore
     let claudex: ClaudexStore
+    let claudeUsage: ClaudeUsageStore
     let localIP: LocalIPStore
     /// The user's choice; `resolvedTheme` is what is drawn.
     private(set) var theme: ThemeMode = .dark
@@ -153,6 +154,7 @@ final class NotchModel {
         self.confirmer = confirmer
         emulator = sample ? EmulatorStore(sample: false, confirmer: confirmer) : EmulatorStore(confirmer: confirmer)
         claudex = sample ? ClaudexStore(sample: true, confirmer: confirmer) : ClaudexStore(confirmer: confirmer)
+        claudeUsage = sample ? ClaudeUsageStore(sample: true) : ClaudeUsageStore()
         localIP = sample ? .sample() : .live()
         if !sample { peek = claudex.peekData } // snapshots keep the prototype's POOL sample
         peekExtents = PeekMetrics.measure(peek)
@@ -454,7 +456,10 @@ final class NotchModel {
         if apply(.localIP) {
             if isEnabled(.localIP) { localIP.startMonitoring() } else { localIP.stopMonitoring() }
         }
-        if apply(.claudex), isEnabled(.claudex) { Task { await claudex.refresh() } }
+        if apply(.claudex), isEnabled(.claudex) {
+            Task { await claudex.refresh() }
+            claudeUsage.startIfActive()
+        }
     }
 
     private static var versionLabel: String {
