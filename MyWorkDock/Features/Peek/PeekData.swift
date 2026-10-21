@@ -21,12 +21,24 @@ struct PeekData: Equatable {
 }
 
 /// What hover can show; Settings › Peek switches them. claudex alone takes the whole hover; otherwise TODO and Clipboard
-/// counts share the left of the notch and the Local IP sits on its right. The raw values are stored in UserDefaults.
+/// counts share the left of the notch and the Local IP sits on its right. Today's events are not an ear: they add a row under
+/// whatever the ears show, so claudex neither switches them off nor locks them. The raw values are stored in UserDefaults.
 enum PeekSource: String, CaseIterable, Identifiable {
-    case claudex, todo, clipboard, localIP
+    case claudex, todo, clipboard, localIP, events
 
     /// What is on until the user switches claudex on (which takes the others off) or off again (which puts these back).
+    /// Today's events are opt-in.
     static let defaultOn: Set<PeekSource> = [.todo, .clipboard, .localIP]
+
+    /// True for the row under the ears, false for the sources that sit beside the notch.
+    var isRow: Bool { self == .events }
+
+    /// The saved choice. claudex alone among the ears (an older or hand-edited list may hold more); the row is its own choice.
+    static func restored(_ saved: [String]) -> Set<PeekSource> {
+        let on = Set(saved.compactMap(PeekSource.init(rawValue:)))
+        let ears = on.filter { !$0.isRow }
+        return (ears.contains(.claudex) ? [.claudex] : ears).union(on.filter(\.isRow))
+    }
 
     var id: String { rawValue }
     var label: String {
@@ -35,6 +47,7 @@ enum PeekSource: String, CaseIterable, Identifiable {
         case .todo: "TODO count"
         case .clipboard: "Clipboard count"
         case .localIP: "Local IP"
+        case .events: "Today's events"
         }
     }
     var glyph: Glyph {
@@ -43,6 +56,7 @@ enum PeekSource: String, CaseIterable, Identifiable {
         case .todo: .check
         case .clipboard: .clipboard
         case .localIP: .globe
+        case .events: .calendar
         }
     }
     /// The menu that feeds it: a source whose menu is off never shows.
@@ -52,7 +66,51 @@ enum PeekSource: String, CaseIterable, Identifiable {
         case .todo: .notes
         case .clipboard: .clipboard
         case .localIP: .localIP
+        case .events: .calendar
         }
+    }
+}
+
+/// One line of the events row: a timed event that is still to come today, or running now. It keeps the whole event so a click
+/// can open it in My Calendar.
+struct PeekEvent: Hashable, Identifiable {
+    var event: CalendarEvent
+
+    var id: String { event.id }
+    var title: String { event.title }
+    var color: UInt32 { event.color }
+    var start: Date { event.start }
+    var end: Date { event.end }
+}
+
+/// The row under the ears: the next events today (at most `Geo.Peek.eventsShown`) and how many more there are. With no rows it
+/// says nothing is left.
+struct PeekEvents: Hashable {
+    var rows: [PeekEvent]
+    var more: Int
+    /// What "now" and "in 25 min" are measured from.
+    var now: Date
+
+    /// Divider, padding, the rows (or the one "nothing left" line) and the "+N more" line: what the shell grows by.
+    var height: CGFloat {
+        Geo.Peek.eventsDivider + Geo.Peek.eventsTop + CGFloat(max(1, rows.count)) * Geo.Peek.eventRow
+            + (more > 0 ? Geo.Peek.eventsMore : 0) + Geo.Peek.eventsBottom
+    }
+
+    /// "now" once it has started, then "in 25 min", "in 1 h", "in 1 h 5 min". Rounds up: 30 s before 10:30 is "in 1 min".
+    static func timing(from start: Date, now: Date) -> String {
+        let seconds = start.timeIntervalSince(now)
+        guard seconds > 0 else { return "now" }
+        let minutes = Int((seconds / 60).rounded(.up))
+        if minutes < 60 { return "in \(minutes) min" }
+        let rest = minutes % 60
+        return rest == 0 ? "in \(minutes / 60) h" : "in \(minutes / 60) h \(rest) min"
+    }
+
+    var spoken: String {
+        if rows.isEmpty { return "No more events today" }
+        let lines = rows.map { "\($0.title), \(Self.timing(from: $0.start, now: now))" }
+        return "Today: " + lines.joined(separator: ". ") + (more > 0 ? ". \(more) more" : "")
     }
 }
 

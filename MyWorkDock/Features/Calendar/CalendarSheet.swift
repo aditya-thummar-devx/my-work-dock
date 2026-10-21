@@ -8,22 +8,35 @@ extension Geo.Cal {
     static let rowGap: CGFloat = 14
     static let columnGap: CGFloat = 28
     static let guestsShown = 8
+    /// How long after the panel appears its sheet may be drawn: the panel's entrance animation plus a margin.
+    static let sheetAfterOpen = Geo.fadeOpen.delay + Geo.fadeOpen.duration + 0.15
 }
 
 /// Over the whole panel: a scrim and, once an event is clicked, its sheet (same place and shape as claudex's member details).
 struct CalendarEventOverlay: View {
     var store: CalendarStore
+    /// False while the panel is still fading in (`Entrance`). A sheet created during that animation never gets its buttons drawn:
+    /// the close cross and the footer stay missing. A click on an event in the peek opens the panel and selects the event in the
+    /// same moment, so `selected` is set at once and the sheet waits. Snapshots run no animation (`entrance` is off): no wait.
+    @State private var ready = false
+    @Environment(\.entrance) private var entrance
 
     var body: some View {
-        if let event = store.selected {
-            ZStack(alignment: .top) {
-                Scrim().contentShape(Rectangle()).onTapGesture(perform: store.closeDetail)
-                CalendarEventSheet(store: store, event: event)
-                    .padding(.top, Geo.Cal.sheetTop)
-                    .padding(.horizontal, Geo.Cal.sheetInset)
-                    .padding(.bottom, Geo.Cal.sheetInset)
+        ZStack {
+            Color.clear.frame(width: 0, height: 0).task {
+                try? await Task.sleep(for: .seconds(Geo.Cal.sheetAfterOpen))
+                ready = true
             }
-            .transition(.opacity)
+            if let event = store.selected, ready || !entrance {
+                ZStack(alignment: .top) {
+                    Scrim().contentShape(Rectangle()).onTapGesture(perform: store.closeDetail)
+                    CalendarEventSheet(store: store, event: event)
+                        .padding(.top, Geo.Cal.sheetTop)
+                        .padding(.horizontal, Geo.Cal.sheetInset)
+                        .padding(.bottom, Geo.Cal.sheetInset)
+                }
+                .transition(.opacity)
+            }
         }
     }
 }

@@ -58,6 +58,8 @@ final class CalendarStore {
     /// Any moment inside what is shown: the day, the week or the month.
     private(set) var anchor: Date
     var calendarsMenuOpen = false
+    /// An instant the hour grid scrolls to (an event opened from the peek), until the next navigation. nil: its usual spot.
+    private(set) var focus: Date?
     private(set) var selected: CalendarEvent?
     private(set) var detail = DetailState.loading
     /// "Copied" on the Meet link button for a moment.
@@ -133,12 +135,14 @@ final class CalendarStore {
 
     #if DEBUG
     /// Snapshots draw each state.
-    func preview(_ auth: Auth, mode: CalendarMode? = nil, menuOpen: Bool = false, selecting title: String? = nil, allGuests: Bool = false) {
+    func preview(_ auth: Auth, mode: CalendarMode? = nil, menuOpen: Bool = false, selecting title: String? = nil, allGuests: Bool = false,
+                 scrolledTo scrollTitle: String? = nil) {
         self.auth = auth
         if let mode { self.mode = mode }
         calendarsMenuOpen = menuOpen
         if let title, let event = visibleEvents.first(where: { $0.title == title }) { select(event) }
         if allGuests { showAllGuests() }
+        if let scrollTitle, let event = visibleEvents.first(where: { $0.title == scrollTitle }) { focus = event.start }
     }
     #endif
 
@@ -159,6 +163,28 @@ final class CalendarStore {
             .filter { shown.contains($0.calendarID) && $0.from < to && $0.to > from }
             .flatMap(\.events)
             .filter { $0.start < to && $0.end > from && seen.insert($0.id).inserted }
+    }
+
+    /// What is left of today for the peek: timed events that have not ended and were not declined, on the shown calendars, soonest
+    /// first. nil until a fetch that covers today has landed (and while signed out). Reads what is cached, however old: the hover
+    /// that shows it also starts `refreshToday()`.
+    func upcomingToday() -> [CalendarEvent]? {
+        guard case .signedIn = auth else { return nil }
+        let current = now()
+        let day = cal.startOfDay(for: current)
+        guard let next = cal.date(byAdding: .day, value: 1, to: day) else { return nil }
+        let shown = Set(shownCalendars.map(\.id))
+        // Per calendar only the freshest fetch that covers today: an older copy must not bring back what a newer one dropped.
+        var freshest: [String: Chunk] = [:]
+        for chunk in chunks where shown.contains(chunk.calendarID) && chunk.from <= day && chunk.to >= next {
+            if let known = freshest[chunk.calendarID], known.fetchedAt >= chunk.fetchedAt { continue }
+            freshest[chunk.calendarID] = chunk
+        }
+        guard !freshest.isEmpty else { return nil }
+        var seen = Set<String>()
+        return freshest.values.flatMap(\.events)
+            .filter { !$0.allDay && !$0.declined && $0.end > current && $0.start < next && seen.insert($0.id).inserted }
+            .sorted { ($0.start, $0.end, $0.id) < ($1.start, $1.end, $1.id) }
     }
 
     var title: String {
@@ -305,13 +331,25 @@ final class CalendarStore {
         case .previous: anchor = CalendarLayout.shifted(anchor, mode, by: -1, cal: cal)
         case .next: anchor = CalendarLayout.shifted(anchor, mode, by: 1, cal: cal)
         }
+        focus = nil
         reload()
     }
 
     func setMode(_ new: CalendarMode) {
         mode = new
+        focus = nil
         defaults?.set(new.rawValue, forKey: "calendarView")
         reload()
+    }
+
+    /// An event clicked in the peek: the view moves to `day`, the hour grid scrolls to where the event starts (or to midnight when
+    /// it began earlier) and its sheet opens, as if it had been clicked in the grid. The Month / Week / Day choice stays; Month has
+    /// no hours, so there it only opens the sheet.
+    func reveal(_ event: CalendarEvent, on day: Date) {
+        anchor = day
+        focus = max(event.start, cal.startOfDay(for: day))
+        reload()
+        select(event)
     }
 
     /// Shift+Tab: Month → Week → Day → Month.
@@ -331,6 +369,7 @@ final class CalendarStore {
     /// Leaving the tab, collapsing or leaving the panel: the menu and the event sheet go.
     func closeMenus() {
         calendarsMenuOpen = false
+        focus = nil
         closeDetail()
     }
 
@@ -442,7 +481,15 @@ final class CalendarStore {
 
     /// Loads what the visible range still lacks, one request per shown calendar. A fresh fetch that already covers the range
     /// (Month → Week → Day) is reused; `force` (↻) asks again.
-    func refresh(force: Bool = false) async {
+    func refresh(force: Bool = false) async { await refresh(range: nil, force: force) }
+
+    /// The peek was hovered: today's events, whatever range the tab shows. Reuses any fetch under a minute old.
+    func refreshToday() async {
+        await refresh(range: CalendarLayout.range(of: [cal.startOfDay(for: now())], cal: cal), force: false)
+    }
+
+    /// `range` nil is what the tab shows; it is read after the calendar list arrives, so a late answer never fetches a stale range.
+    private func refresh(range: (from: Date, to: Date)?, force: Bool) async {
         guard let client, case .signedIn = auth else { return }
         let started = epoch
         if calendars.isEmpty {
@@ -464,7 +511,7 @@ final class CalendarStore {
             }
             failures["calendarList"] = nil
         }
-        let (from, to) = CalendarLayout.range(of: visibleDays, cal: cal)
+        let (from, to) = range ?? CalendarLayout.range(of: visibleDays, cal: cal)
         let todo = shownCalendars.filter { !inFlight.contains(Self.key($0.id, from, to)) && (force || !isFresh($0.id, from, to)) }
         guard !todo.isEmpty else { return }
         for calendar in todo { inFlight.insert(Self.key(calendar.id, from, to)) }

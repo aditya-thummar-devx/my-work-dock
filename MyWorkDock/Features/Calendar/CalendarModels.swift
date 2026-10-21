@@ -20,7 +20,7 @@ struct CalendarInfo: Identifiable, Equatable {
     var defaultReminders: [Int] = []
 }
 
-struct CalendarEvent: Identifiable, Equatable {
+struct CalendarEvent: Identifiable, Equatable, Hashable {
     /// `<calendar id>|<event id>`: the same event can arrive in two fetched ranges, and in two calendars.
     var id: String
     var calendarID: String
