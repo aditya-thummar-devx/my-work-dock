@@ -18,6 +18,7 @@ struct OpenPanelView: View {
                 } else {
                     switch model.mainTab {
                     case .clipboard: ClipboardScreen(store: model.clipboard).transition(.opacity)
+                    case .calendar: CalendarScreen(store: model.calendar).transition(.opacity)
                     case .notes: NotesScreen(model: model).transition(.opacity)
                     case .emulator: EmulatorScreen(model: model).transition(.opacity)
                     case .claudex: ClaudexScreen(model: model).transition(.opacity)
@@ -97,6 +98,7 @@ private struct Footer: View {
         func failed(_ why: String?) -> StatusMessage? { why.map { StatusMessage(text: "Could not save: \($0)", isError: true) } }
         switch model.mainTab {
         case .clipboard: return failed(model.clipboard.saveError) ?? StatusMessage(text: model.clipboard.footer)
+        case .calendar: return model.calendar.footer
         case .notes:
             if let snippets = model.activeSnippets { return failed(snippets.saveError) ?? StatusMessage(text: snippets.footer) }
             return failed(model.notes.saveError) ?? StatusMessage(text: model.notes.footer)

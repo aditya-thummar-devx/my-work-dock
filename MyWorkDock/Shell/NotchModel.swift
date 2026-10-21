@@ -4,13 +4,26 @@ import Observation
 typealias DisplayID = CGDirectDisplayID
 
 enum MainTab: String, CaseIterable, Identifiable {
-    case clipboard, notes, claudex, emulator
+    case clipboard, calendar, notes, claudex, emulator
+
+    /// ponytail: My Calendar is DEBUG-only until its last PR lands, because anything on `main` ships with the next release.
+    /// PR 3 deletes this and `Feature.calendarShipped`.
+    static var allCases: [MainTab] {
+        Feature.calendarShipped ? [.clipboard, .calendar, .notes, .claudex, .emulator] : [.clipboard, .notes, .claudex, .emulator]
+    }
 
     var id: String { rawValue }
-    var label: String { self == .claudex ? "claudex" : rawValue.capitalized }
+    var label: String {
+        switch self {
+        case .claudex: "claudex"
+        case .calendar: "My Calendar"
+        default: rawValue.capitalized
+        }
+    }
     var glyph: Glyph {
         switch self {
         case .clipboard: .clipboard
+        case .calendar: .calendar
         case .notes: .notes
         case .claudex: .gauge
         case .emulator: .phone
@@ -19,6 +32,7 @@ enum MainTab: String, CaseIterable, Identifiable {
     var feature: Feature {
         switch self {
         case .clipboard: .clipboard
+        case .calendar: .calendar
         case .notes: .notes
         case .claudex: .claudex
         case .emulator: .emulator
@@ -28,12 +42,26 @@ enum MainTab: String, CaseIterable, Identifiable {
 
 /// What Settings › Menus can switch off. The raw values are stored in UserDefaults.
 enum Feature: String, CaseIterable, Identifiable {
-    case clipboard, notes, claudex, emulator, localIP
+    case clipboard, calendar, notes, claudex, emulator, localIP
+
+    /// See `MainTab.allCases`.
+    static var calendarShipped: Bool {
+        #if DEBUG
+        true
+        #else
+        false
+        #endif
+    }
+
+    static var allCases: [Feature] {
+        calendarShipped ? [.clipboard, .calendar, .notes, .claudex, .emulator, .localIP] : [.clipboard, .notes, .claudex, .emulator, .localIP]
+    }
 
     var id: String { rawValue }
     var label: String {
         switch self {
         case .clipboard: "Clipboard"
+        case .calendar: "My Calendar"
         case .notes: "Notes"
         case .claudex: "claudex"
         case .emulator: "Emulator"
@@ -43,6 +71,7 @@ enum Feature: String, CaseIterable, Identifiable {
     var glyph: Glyph {
         switch self {
         case .clipboard: .clipboard
+        case .calendar: .calendar
         case .notes: .notes
         case .claudex: .gauge
         case .emulator: .phone
@@ -82,6 +111,7 @@ final class NotchModel {
     let emulator: EmulatorStore
     let claudex: ClaudexStore
     let localIP: LocalIPStore
+    let calendar: CalendarStore
     /// The user's choice; `resolvedTheme` is what is drawn.
     private(set) var theme: ThemeMode = .dark
     let appearance: AppearanceObserver
@@ -166,6 +196,7 @@ final class NotchModel {
         emulator = sample ? EmulatorStore(sample: false, confirmer: confirmer) : EmulatorStore(confirmer: confirmer)
         claudex = sample ? ClaudexStore(sample: true, confirmer: confirmer) : ClaudexStore(confirmer: confirmer)
         localIP = sample ? .sample() : .live()
+        calendar = sample ? .sample() : .live(confirmer: confirmer)
         if !sample { peek = claudex.peekData } // snapshots keep the prototype's POOL sample
         peekExtents = PeekMetrics.measure(peek)
         claudex.onData = { [weak self] in self?.refreshPeek() }
@@ -173,6 +204,8 @@ final class NotchModel {
         commands.onCopied = { [weak self] in self?.closePanel() }
         prompts.onCopied = { [weak self] in self?.closePanel() }
         links.onCopied = { [weak self] in self?.closePanel() }
+        calendar.willOpenBrowser = { [weak self] in self?.closePanel() } // the open panel floats above the browser
+        calendar.onSignedIn = { [weak self] in self?.show(.calendar) }
         if let first = enabledTabs.first, !enabledTabs.contains(mainTab) { mainTab = first }
     }
 
@@ -228,8 +261,7 @@ final class NotchModel {
         switch mode(on: display) {
         case .idle:
             if let notch {
-                ShellGeometry(width: notch.width, height: notch.height,
-                              radius: Geo.hardwareNotch.radius, shoulder: Geo.hardwareNotch.shoulder)
+                Geo.hardwareNotchShell(notch)
             } else {
                 ShellGeometry(width: Geo.idle.width, height: Geo.idle.height, radius: Geo.idle.radius)
             }
@@ -326,6 +358,7 @@ final class NotchModel {
         }
         switch mainTab {
         case .clipboard: break
+        case .calendar: break
         case .notes: setNotesTab(next(notesTab))
         case .claudex: claudex.select(next(claudex.tab))
         case .emulator: setEmulatorTab(next(emulatorTab))
@@ -427,7 +460,7 @@ final class NotchModel {
 
     /// Nothing on screen or in flight that a relaunch would interrupt; the updater waits for this before installing.
     var isIdle: Bool {
-        !open && !hover && confirmer.pending == nil && emulator.bootingName == nil && emulator.pendingBoot.isEmpty && claudex.busyMember == nil
+        !open && !hover && confirmer.pending == nil && emulator.bootingName == nil && emulator.pendingBoot.isEmpty && claudex.busyMember == nil && !calendar.isSigningIn
             && !runner.isRunning
     }
 
@@ -527,6 +560,7 @@ final class NotchModel {
             if isEnabled(.localIP) { localIP.startMonitoring() } else { localIP.stopMonitoring() }
         }
         if apply(.claudex), isEnabled(.claudex) { Task { await claudex.refresh() } }
+        if apply(.calendar), !isEnabled(.calendar) { calendar.stop() }
     }
 
     private static var versionLabel: String {

@@ -160,9 +160,23 @@ final class NotchModelTests: XCTestCase {
     func testIdleIsTheHardwareNotchWhenOneExists() {
         XCTAssertEqual(model.geometry().width, Geo.idle.width)
         let g = model.geometry(notch: CGSize(width: 156, height: 28))
-        XCTAssertEqual([g.width, g.height, g.radius, g.shoulder],
-                       [156, 28, Geo.hardwareNotch.radius, Geo.hardwareNotch.shoulder])
+        XCTAssertEqual(g, Geo.hardwareNotchShell(CGSize(width: 156, height: 28)))
+        // Height is the API's; width is the real cutout, narrower than the padded API width.
+        XCTAssertEqual(g.height, 28)
+        XCTAssertEqual(g.width, 156 * Geo.hardwareNotchPx.width / Geo.hardwareNotchPx.reportedWidth, accuracy: 1e-9)
+        XCTAssertLessThan(g.width, 156)
         XCTAssertEqual(model.geometry(notch: nil).width, Geo.idle.width)
+    }
+
+    /// The hardware notch is fixed in panel pixels, so width and corners scale with the notch width across display modes.
+    func testIdleCornersKeepTheirPhysicalSizeAcrossDisplayModes() {
+        let narrow = model.geometry(notch: CGSize(width: 156, height: 28))
+        let wide = model.geometry(notch: CGSize(width: 185, height: 32))
+        XCTAssertEqual(narrow.radius / narrow.width, wide.radius / wide.width, accuracy: 1e-9)
+        XCTAssertEqual(narrow.shoulder / narrow.width, wide.shoulder / wide.width, accuracy: 1e-9)
+        // At the 14" default mode (370 px = 185 pt, 2 px/pt) the pixel constants are the point values * 2.
+        XCTAssertEqual(wide.radius, Geo.hardwareNotchPx.radius / 2, accuracy: 1e-9)
+        XCTAssertEqual(wide.width, Geo.hardwareNotchPx.width / 2, accuracy: 1e-9)
     }
 
     // MARK: Settings › Displays
@@ -223,13 +237,15 @@ final class NotchModelTests: XCTestCase {
 
     func testFeatureRawValuesAreStable() {
         // Stored in UserDefaults as "disabledFeatures".
-        XCTAssertEqual(Feature.allCases.map(\.rawValue), ["clipboard", "notes", "claudex", "emulator", "localIP"])
+        XCTAssertEqual(Feature.allCases.map(\.rawValue), ["clipboard", "calendar", "notes", "claudex", "emulator", "localIP"])
     }
 
     func testDisablingTheCurrentMenuMovesToTheNextEnabledOne() {
         model.setMainTab(.notes)
         model.setEnabled(.clipboard, false)
         model.setEnabled(.notes, false)
+        XCTAssertEqual(model.mainTab, .calendar) // the first enabled one takes over
+        model.setEnabled(.calendar, false)
         XCTAssertEqual(model.enabledTabs, [.claudex, .emulator])
         XCTAssertEqual(model.mainTab, .claudex)
         model.setEnabled(.claudex, false)
@@ -241,7 +257,27 @@ final class NotchModelTests: XCTestCase {
         XCTAssertEqual(model.mainTab, .notes)
     }
 
+    func testCalendarSitsBetweenClipboardAndNotes() {
+        XCTAssertEqual(MainTab.allCases, [.clipboard, .calendar, .notes, .claudex, .emulator])
+        XCTAssertEqual(MainTab.calendar.label, "My Calendar")
+        model.setMainTab(.clipboard)
+        model.cycleMainTab()
+        XCTAssertEqual(model.mainTab, .calendar)
+        model.cycleMainTab()
+        XCTAssertEqual(model.mainTab, .notes)
+    }
+
+    func testSigningInKeepsTheUpdaterWaitingAndLeavingTheMenuCancelsIt() {
+        XCTAssertTrue(model.isIdle)
+        model.calendar.preview(.signingIn)
+        XCTAssertFalse(model.isIdle) // Sparkle must not relaunch the app while the browser flow runs
+        model.setEnabled(.calendar, false)
+        XCTAssertEqual(model.calendar.auth, .signedOut(nil))
+        XCTAssertTrue(model.isIdle)
+    }
+
     func testCycleMainTabWrapsAndSkipsDisabledMenus() {
+        model.setEnabled(.calendar, false)
         model.setMainTab(.clipboard)
         model.cycleMainTab()
         XCTAssertEqual(model.mainTab, .notes)
@@ -364,6 +400,7 @@ final class NotchModelTests: XCTestCase {
         model.setNotesTab(.commands)
         XCTAssertNotNil(model.activeSnippets)
         model.setEnabled(.clipboard, false)
+        model.setEnabled(.calendar, false)
         model.setEnabled(.claudex, false)
         model.setEnabled(.emulator, false)
         model.setEnabled(.notes, false) // mainTab stays .notes: nothing else to move to

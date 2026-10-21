@@ -35,6 +35,14 @@ jobs:
 
       - run: sudo xcode-select -s /Applications/Xcode_26.6.app
 
+      # My Calendar's Google OAuth client (gitignored file, so the clean-tree check in release.sh still passes).
+      # Without the secrets the build still works; the tab then says sign-in is not configured.
+      - name: Google OAuth client
+        env:
+          GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+        run: printf 'GOOGLE_CLIENT_ID = %s\nGOOGLE_CLIENT_SECRET = %s\n' "$GOOGLE_OAUTH_CLIENT_ID" "$GOOGLE_OAUTH_CLIENT_SECRET" > Config/GoogleOAuth.xcconfig
+
       - name: Release
         env:
           VERSION: ${{ inputs.version }}

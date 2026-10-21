@@ -13,6 +13,11 @@ settings:
     MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: "1"
 
+# Google OAuth client for My Calendar (empty defaults + the gitignored GoogleOAuth.xcconfig).
+configFiles:
+  Debug: Config/Base.xcconfig
+  Release: Config/Base.xcconfig
+
 packages:
   Sparkle:
     url: https://github.com/sparkle-project/Sparkle
@@ -33,6 +38,9 @@ targets:
       properties:
         SUFeedURL: https://github.com/aditya-thummar-devx/my-work-dock/releases/latest/download/appcast.xml
         SUPublicEDKey: HKw1PhCjx1ETFWAtSS179yk9rDpuHWp0oVLMZtO1EOg=
+        # My Calendar's Google OAuth client, filled from Config/GoogleOAuth.xcconfig at build time; empty = "sign-in not configured".
+        GoogleClientID: $(GOOGLE_CLIENT_ID)
+        GoogleClientSecret: $(GOOGLE_CLIENT_SECRET)
     settings:
       base:
         PRODUCT_NAME: MyWorkDock
