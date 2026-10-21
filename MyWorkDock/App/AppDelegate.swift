@@ -46,6 +46,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             HotKey(keyCode: kVK_ANSI_X, modifiers: cmdShift) { [weak controller] in controller?.model.show(.claudex) },
         ]
         hotKeys = keys.compactMap { $0 }
+        // Debug builds only until the calendar ships (see `MainTab.allCases`): never grab ⌘⇧M for a tab that is hidden.
+        if Feature.calendarShipped, let calendarKey = HotKey(keyCode: kVK_ANSI_M, modifiers: cmdShift, action: { [weak controller] in controller?.model.show(.calendar) }) {
+            hotKeys.append(calendarKey)
+        }
         addStatusItem()
     }
 

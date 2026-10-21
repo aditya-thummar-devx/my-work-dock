@@ -1,0 +1,6 @@
+// Copy this file to GoogleOAuth.xcconfig (gitignored) and fill in the Desktop-app OAuth client from Google Cloud Console:
+// APIs & Services > Credentials. The Calendar API must be enabled on the project, and the consent screen set to Internal.
+// Google's token endpoint wants the client secret even with PKCE; for a desktop client it is not truly secret, but it still stays out of git.
+// Releases get these two values from the GOOGLE_OAUTH_CLIENT_ID / GOOGLE_OAUTH_CLIENT_SECRET Actions secrets (.github/workflows/release.yml).
+GOOGLE_CLIENT_ID = 1234567890-abcdefghijklmnop.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET = GOCSPX-replace-me
