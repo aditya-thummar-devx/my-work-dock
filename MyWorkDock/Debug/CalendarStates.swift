@@ -13,7 +13,23 @@ enum CalendarStates {
         }
     }
 
+    /// The signed-in views on the sample week (Wed 21 Oct 2026, 10:30); no network.
+    private static func grid(_ name: String, theme: ThemeMode = .dark, _ mode: CalendarMode, menuOpen: Bool = false) -> SnapshotRunner.State {
+        SnapshotRunner.State(name, .panel) {
+            $0.setTheme(theme)
+            $0.mainTab = .calendar
+            $0.calendar.preview(.signedIn(email: "aditya.thummar@devxlabs.ai"), mode: mode, menuOpen: menuOpen)
+            $0.openPanel()
+        }
+    }
+
     static let all: [SnapshotRunner.State] = [
+        grid("calendar-week", .week),
+        grid("calendar-week-light", theme: .light, .week),
+        grid("calendar-month", .month),
+        grid("calendar-month-light", theme: .light, .month),
+        grid("calendar-day", .day),
+        grid("calendar-calendars-menu", .week, menuOpen: true),
         panel("calendar-signin", .signedOut(nil)),
         panel("calendar-signin-light", theme: .light, .signedOut(nil)),
         panel("calendar-signin-waiting", .signingIn),

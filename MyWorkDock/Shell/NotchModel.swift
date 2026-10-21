@@ -290,6 +290,7 @@ final class NotchModel {
             settings = false
             claudex.closeDetail()
             clipboard.closeMenus()
+            calendar.closeMenus()
         }
         changed()
     }
@@ -323,6 +324,7 @@ final class NotchModel {
         mainTab = tab
         claudex.closeDetail()
         clipboard.closeMenus()
+        calendar.closeMenus()
         notes.cancelEdit()
         commands.cancelEdit()
         prompts.cancelEdit()
@@ -345,7 +347,7 @@ final class NotchModel {
         }
         switch mainTab {
         case .clipboard: break
-        case .calendar: break
+        case .calendar: calendar.cycleMode()
         case .notes: setNotesTab(next(notesTab))
         case .claudex: claudex.select(next(claudex.tab))
         case .emulator: setEmulatorTab(next(emulatorTab))
@@ -409,6 +411,7 @@ final class NotchModel {
         settings = false
         claudex.closeDetail()
         clipboard.closeMenus()
+        calendar.closeMenus()
         changed()
     }
 

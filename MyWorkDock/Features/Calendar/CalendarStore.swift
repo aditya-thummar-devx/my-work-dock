@@ -2,9 +2,11 @@ import AppKit
 import Foundation
 import Observation
 
-/// My Calendar. For now the Google sign-in state machine; the events arrive with the data layer.
-/// signedOut → signingIn (browser open, listener waiting) → signedIn. A refresh that dies with `invalid_grant` brings back
-/// signedOut(.expired). `google == nil` (snapshots, tests, a build without an OAuth client) never touches the network.
+/// My Calendar: the Google sign-in state machine, and the events behind the Month / Week / Day views.
+/// signedOut → signingIn (browser open, listener waiting) → signedIn. A refresh token Google no longer accepts brings back
+/// signedOut(.expired). Events are fetched for the visible range only, per calendar, kept in memory for 60 s (like claudex),
+/// and fetched again on panel open, navigation and ↻. `google == nil` (snapshots, tests, a build without an OAuth client)
+/// never touches the network.
 @MainActor @Observable
 final class CalendarStore {
     enum SignedOutReason: Equatable {
@@ -19,6 +21,18 @@ final class CalendarStore {
         case signedIn(email: String)
     }
 
+    enum Step { case previous, next, today }
+
+    /// What one fetch brought back: the events of `calendarID` that touch `from..<to`.
+    struct Chunk: Equatable {
+        var calendarID: String
+        var from: Date
+        var to: Date
+        var events: [CalendarEvent]
+        var fetchedAt: Date
+    }
+
+    // Sign-in
     private(set) var auth: Auth
     let confirmer: Confirmer
     @ObservationIgnored let live: Bool
@@ -32,12 +46,48 @@ final class CalendarStore {
     /// Identifies the running sign-in: a cancelled one finishing late must not overwrite the next one's state.
     @ObservationIgnored private var flowID = 0
 
-    static let signInTimeout: TimeInterval = 300
+    // View
+    private(set) var mode: CalendarMode
+    /// Any moment inside what is shown: the day, the week or the month.
+    private(set) var anchor: Date
+    var calendarsMenuOpen = false
 
-    init(google: GoogleAuth?, confirmer: Confirmer, live: Bool = true) {
+    // Data
+    private(set) var calendars: [CalendarInfo] = []
+    private(set) var chunks: [Chunk] = []
+    /// The user's show/hide choices; a calendar never touched here follows Google's own `selected` flag.
+    private(set) var shownOverrides: [String: Bool]
+    private(set) var loading = 0
+    /// Calendars whose last fetch failed, with why.
+    private(set) var failures: [String: String] = [:]
+    private(set) var offline = false
+    private(set) var fetchedAt: Date?
+
+    @ObservationIgnored var cal: Calendar
+    @ObservationIgnored var now: () -> Date
+    @ObservationIgnored private let client: GoogleCalendarClient?
+    @ObservationIgnored private let defaults: UserDefaults?
+    /// `calendar|from|to` of the fetches running now.
+    @ObservationIgnored private var inFlight: Set<String> = []
+    /// Bumped by sign-out, expiry and "menu off": a fetch that finishes afterwards is dropped.
+    @ObservationIgnored private var epoch = 0
+
+    static let signInTimeout: TimeInterval = 300
+    static let ttl: TimeInterval = 60
+
+    init(google: GoogleAuth?, confirmer: Confirmer, transport: @escaping HTTPTransport = HTTP.live,
+         pause: @escaping @Sendable (TimeInterval) async -> Void = { try? await Task.sleep(for: .seconds($0)) },
+         cal: Calendar = .current, now: @escaping () -> Date = { Date() }, defaults: UserDefaults? = nil, live: Bool = true) {
         self.google = google
         self.confirmer = confirmer
         self.live = live
+        self.cal = cal
+        self.now = now
+        self.defaults = defaults
+        client = google.map { GoogleCalendarClient(auth: $0, transport: transport, pause: pause) }
+        mode = defaults?.string(forKey: "calendarView").flatMap(CalendarMode.init(rawValue:)) ?? .week
+        shownOverrides = defaults?.dictionary(forKey: "calendarShown") as? [String: Bool] ?? [:]
+        anchor = now()
         if let google {
             auth = google.initialEmail.map { .signedIn(email: $0) } ?? .signedOut(nil)
         } else {
@@ -47,21 +97,62 @@ final class CalendarStore {
 
     static func live(confirmer: Confirmer) -> CalendarStore {
         let google = GoogleOAuthConfig.fromBundle().map { GoogleAuth(config: $0, file: JSONFile.url("google-calendar.json")) }
-        return CalendarStore(google: google, confirmer: confirmer)
+        let store = CalendarStore(google: google, confirmer: confirmer, cal: .autoupdatingCurrent, defaults: .standard)
+        // Events are real instants but all-day events are local midnights: a new time zone invalidates what was fetched.
+        NotificationCenter.default.addObserver(forName: .NSSystemTimeZoneDidChange, object: nil, queue: .main) { [weak store] _ in
+            MainActor.assumeIsolated { store?.timeZoneChanged() }
+        }
+        return store
     }
 
-    static func sample(_ auth: Auth = .signedOut(nil)) -> CalendarStore {
-        let store = CalendarStore(google: nil, confirmer: Confirmer(), live: false)
+    /// The designs' sample week (see `CalendarSample`): signed in, four calendars, no network.
+    static func sample(_ auth: Auth = .signedOut(nil), mode: CalendarMode = .week) -> CalendarStore {
+        let cal = CalendarSample.calendar
+        let store = CalendarStore(google: nil, confirmer: Confirmer(), cal: cal, now: { CalendarSample.now }, live: false)
         store.auth = auth
+        store.mode = mode
+        store.calendars = CalendarSample.calendars
+        store.chunks = CalendarSample.chunks(cal: cal)
+        store.fetchedAt = CalendarSample.now
         return store
     }
 
     #if DEBUG
-    /// Snapshots draw each sign-in state.
-    func preview(_ auth: Auth) { self.auth = auth }
+    /// Snapshots draw each state.
+    func preview(_ auth: Auth, mode: CalendarMode? = nil, menuOpen: Bool = false) {
+        self.auth = auth
+        if let mode { self.mode = mode }
+        calendarsMenuOpen = menuOpen
+    }
     #endif
 
+    // MARK: Derived
+
     var isSigningIn: Bool { auth == .signingIn }
+    var visibleDays: [Date] { CalendarLayout.visibleDays(mode, around: anchor, cal: cal) }
+
+    func isShown(_ calendar: CalendarInfo) -> Bool { shownOverrides[calendar.id] ?? calendar.selected }
+    var shownCalendars: [CalendarInfo] { calendars.filter(isShown) }
+
+    /// Events of every shown calendar that touch the visible days, each once (an event near a range edge arrives with two fetches).
+    var visibleEvents: [CalendarEvent] {
+        let (from, to) = CalendarLayout.range(of: visibleDays, cal: cal)
+        let shown = Set(shownCalendars.map(\.id))
+        var seen = Set<String>()
+        return chunks
+            .filter { shown.contains($0.calendarID) && $0.from < to && $0.to > from }
+            .flatMap(\.events)
+            .filter { $0.start < to && $0.end > from && seen.insert($0.id).inserted }
+    }
+
+    var title: String {
+        let days = visibleDays
+        switch mode {
+        case .month: return anchor.formatted(.dateTime.month(.wide).year())
+        case .week: return (days[0]..<days[days.count - 1]).formatted(.interval.day().month(.abbreviated).year())
+        case .day: return anchor.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated).year())
+        }
+    }
 
     var footer: StatusMessage {
         switch auth {
@@ -70,8 +161,22 @@ final class CalendarStore {
         case .signedOut(.failed(let why)): StatusMessage(text: why, isError: true)
         case .signedOut(.notConfigured): StatusMessage(text: "Google sign-in is not configured")
         case .signingIn: StatusMessage(text: "Waiting for Google…")
-        case .signedIn(let email): StatusMessage(text: email)
+        case .signedIn(let email): signedInFooter(email)
         }
+    }
+
+    private func signedInFooter(_ email: String) -> StatusMessage {
+        if failures.count > 1 { return StatusMessage(text: "\(failures.count) calendars failed to load", isError: true) }
+        if let why = failures.values.first { return StatusMessage(text: why, isError: true) }
+        if offline { return StatusMessage(text: "Offline · showing what was loaded", isError: true) }
+        if loading > 0 { return StatusMessage(text: "Loading…") }
+        guard let at = fetchedAt else { return StatusMessage(text: email) }
+        let count = visibleEvents.count
+        return StatusMessage(text: "\(count) event\(count == 1 ? "" : "s") · updated \(at.formatted(date: .omitted, time: .shortened))")
+    }
+
+    var accountEmail: String? {
+        if case .signedIn(let email) = auth { email } else { nil }
     }
 
     // MARK: Sign in / out
@@ -84,7 +189,7 @@ final class CalendarStore {
         flow = Task { await runSignIn(google, id: id) }
     }
 
-    /// Cancel on the waiting screen; also what switching the menu off does.
+    /// Cancel on the waiting screen.
     func cancelSignIn() {
         flowID += 1
         flow?.cancel()
@@ -92,22 +197,46 @@ final class CalendarStore {
         if isSigningIn { auth = .signedOut(nil) }
     }
 
-    func stop() { cancelSignIn() }
-
-    /// Panel opened: proves the saved session still works. A refresh token that Google no longer accepts puts the sign-in
-    /// screen back; any other failure (offline, Google down) leaves the session alone.
-    func verifySession() async {
-        guard let google, case .signedIn = auth else { return }
-        do { _ = try await google.accessToken() } catch GoogleAuthError.invalidGrant { auth = .signedOut(.expired) } catch {}
+    /// The menu was switched off: no sign-in left running, no fetch left to land, nothing kept in memory.
+    func stop() {
+        cancelSignIn()
+        epoch += 1
+        clearData()
     }
 
     func askSignOut() {
         guard case .signedIn(let email) = auth, let google else { return }
+        calendarsMenuOpen = false
         confirmer.ask(ConfirmRequest(title: "Sign out of Google?", command: "Revoke MyWorkDock's access to \(email)",
                                      note: "Your calendar leaves this panel until you sign in again.", confirmTitle: "Sign out") { [weak self] in
             await google.signOut()
+            self?.epoch += 1
+            self?.clearData()
             self?.auth = .signedOut(nil)
         })
+    }
+
+    /// Proves the saved session still works. A refresh token that Google no longer accepts puts the sign-in screen back;
+    /// any other failure (offline, Google down) leaves the session alone.
+    func verifySession() async {
+        guard let google, case .signedIn = auth else { return }
+        do { _ = try await google.accessToken() } catch GoogleAuthError.invalidGrant { expire() } catch {}
+    }
+
+    private func expire() {
+        epoch += 1
+        clearData()
+        auth = .signedOut(.expired)
+    }
+
+    private func clearData() {
+        calendars = []
+        chunks = []
+        failures = [:]
+        inFlight = []
+        loading = 0
+        offline = false
+        fetchedAt = nil
     }
 
     private func runSignIn(_ google: GoogleAuth, id: Int) async {
@@ -126,6 +255,7 @@ final class CalendarStore {
             auth = .signedIn(email: email)
             flow = nil
             onSignedIn?()
+            await refresh()
         } catch is CancellationError {
             guard id == flowID else { return }
             auth = .signedOut(nil)
@@ -148,5 +278,133 @@ final class CalendarStore {
         case GoogleAuthError.server(let why): why
         default: error.localizedDescription
         }
+    }
+
+    // MARK: Navigation
+
+    func go(_ step: Step) {
+        switch step {
+        case .today: anchor = now()
+        case .previous: anchor = CalendarLayout.shifted(anchor, mode, by: -1, cal: cal)
+        case .next: anchor = CalendarLayout.shifted(anchor, mode, by: 1, cal: cal)
+        }
+        reload()
+    }
+
+    func setMode(_ new: CalendarMode) {
+        mode = new
+        defaults?.set(new.rawValue, forKey: "calendarView")
+        reload()
+    }
+
+    /// Shift+Tab: Month → Week → Day → Month.
+    func cycleMode() {
+        let all = CalendarMode.allCases
+        setMode(all[((all.firstIndex(of: mode) ?? 0) + 1) % all.count])
+    }
+
+    /// A day in the month grid was clicked.
+    func openDay(_ day: Date) {
+        anchor = day
+        setMode(.day)
+    }
+
+    func toggleCalendarsMenu() { calendarsMenuOpen.toggle() }
+    func closeMenus() { calendarsMenuOpen = false }
+
+    func toggle(_ calendarID: String) {
+        guard let calendar = calendars.first(where: { $0.id == calendarID }) else { return }
+        shownOverrides[calendarID] = !isShown(calendar)
+        defaults?.set(shownOverrides, forKey: "calendarShown")
+        reload()
+    }
+
+    private func timeZoneChanged() {
+        chunks = []
+        reload(force: true)
+    }
+
+    // MARK: Fetching
+
+    /// The calendar screen appeared (panel opened or tab switched).
+    func opened() async {
+        await verifySession()
+        await refresh()
+    }
+
+    private func reload(force: Bool = false) { Task { await refresh(force: force) } }
+
+    private static func key(_ id: String, _ from: Date, _ to: Date) -> String { "\(id)|\(from.timeIntervalSince1970)|\(to.timeIntervalSince1970)" }
+
+    private func isFresh(_ id: String, _ from: Date, _ to: Date) -> Bool {
+        chunks.contains { $0.calendarID == id && $0.from <= from && $0.to >= to && now().timeIntervalSince($0.fetchedAt) < Self.ttl }
+    }
+
+    /// Loads what the visible range still lacks, one request per shown calendar. A fresh fetch that already covers the range
+    /// (Month → Week → Day) is reused; `force` (↻) asks again.
+    func refresh(force: Bool = false) async {
+        guard let client, case .signedIn = auth else { return }
+        let started = epoch
+        if calendars.isEmpty {
+            do {
+                let list = try await client.calendars()
+                guard started == epoch else { return }
+                calendars = list
+            } catch is CancellationError {
+                return
+            } catch GoogleAuthError.invalidGrant {
+                if started == epoch { expire() }
+                return
+            } catch let error as CalendarAPIError {
+                guard started == epoch else { return }
+                if case .network = error { offline = true } else if case .http(_, let why) = error { failures["calendarList"] = why }
+                return
+            } catch {
+                return
+            }
+            failures["calendarList"] = nil
+        }
+        let (from, to) = CalendarLayout.range(of: visibleDays, cal: cal)
+        let todo = shownCalendars.filter { !inFlight.contains(Self.key($0.id, from, to)) && (force || !isFresh($0.id, from, to)) }
+        guard !todo.isEmpty else { return }
+        for calendar in todo { inFlight.insert(Self.key(calendar.id, from, to)) }
+        loading += todo.count
+        await withTaskGroup(of: Void.self) { group in
+            for calendar in todo { group.addTask { await self.fetch(calendar, from, to, client, started) } }
+        }
+    }
+
+    private func fetch(_ calendar: CalendarInfo, _ from: Date, _ to: Date, _ client: GoogleCalendarClient, _ started: Int) async {
+        defer {
+            inFlight.remove(Self.key(calendar.id, from, to))
+            loading = max(0, loading - 1)
+        }
+        do {
+            let events = try await client.events(in: calendar, from: from, to: to, cal: cal)
+            guard started == epoch else { return }
+            store(Chunk(calendarID: calendar.id, from: from, to: to, events: events, fetchedAt: now()))
+            failures[calendar.id] = nil
+            offline = false
+            fetchedAt = now()
+        } catch is CancellationError {
+            return
+        } catch GoogleAuthError.invalidGrant {
+            if started == epoch { expire() }
+        } catch let error as CalendarAPIError {
+            guard started == epoch else { return }
+            switch error {
+            case .network: offline = true
+            case .http(_, let why): failures[calendar.id] = why
+            }
+        } catch {
+            guard started == epoch else { return }
+            failures[calendar.id] = error.localizedDescription
+        }
+    }
+
+    private func store(_ chunk: Chunk) {
+        chunks.removeAll { $0.calendarID == chunk.calendarID && $0.from == chunk.from && $0.to == chunk.to }
+        chunks.append(chunk)
+        if chunks.count > 60 { chunks = Array(chunks.sorted { $0.fetchedAt > $1.fetchedAt }.prefix(40)) }
     }
 }
