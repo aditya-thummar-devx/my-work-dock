@@ -63,6 +63,7 @@ struct RowIconButton: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(label)
+        .help(label)
     }
 }
 

@@ -184,8 +184,9 @@ private struct ClipRow: View {
                 .onTapGesture(perform: onTap) // the store tells a single click (hint) from a double-click (copy)
                 .help(item.text)
             if let tag = item.tag { TagChip(tag: tag, custom: color).fixedSize() }
-            DockButton(title: copied ? "Copied" : "Copy", glyph: copied ? .check : .copy, iconSize: 12,
-                       iconStroke: copied ? 3 : 2.2, metrics: .copy, tone: copied ? .copied : .ctrl, action: onCopy)
+            RowIconButton(glyph: copied ? .check : .copy, label: copied ? "Copied" : "Copy clip",
+                          fg: copied ? t.green : t.muted, fill: copied ? t.greenBg : .clear,
+                          stroke: copied ? 3 : nil, action: onCopy)
             RowIconButton(glyph: .tag, label: item.tag == nil ? "Assign tag" : "Change tag", fg: item.tag == nil ? t.muted : t.accent, action: onTag)
             RowIconButton(glyph: .pin, label: item.pinned ? "Unpin clip" : "Pin clip", fg: item.pinned ? t.accent : t.muted, action: onPin)
             RowIconButton(glyph: .trash, label: "Delete clip", fg: t.red, action: onDelete)
