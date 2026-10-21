@@ -78,6 +78,39 @@
     <p>Only the last 200 untagged, unpinned clips are kept by default. Tag or pin a clip to keep it forever, or raise the limit in Settings › Clipboard.</p>
   </details>
 
+  <h2>My Calendar</h2>
+  <details>
+    <summary>Google says “Access blocked” when I sign in</summary>
+    <ul>
+      <li>My Calendar only accepts <code>devxlabs.ai</code> accounts. Pick that account in Google’s account chooser; a personal Gmail account is turned away.</li>
+      <li>If your Workspace admin restricts third-party apps, Google blocks the sign-in until they trust MyWorkDock (Admin console › Security › Access and data control › API controls). Send them the error text.</li>
+    </ul>
+  </details>
+  <details>
+    <summary>The tab says “Session expired”</summary>
+    <p>Google no longer accepts the saved sign-in. That happens after a password reset, when access was revoked at myaccount.google.com/permissions, or when your admin changes a policy. Press <strong>Sign in with Google</strong> again.</p>
+  </details>
+  <details>
+    <summary>“Google sent no refresh token”</summary>
+    <p>Google only hands out a lasting sign-in on a fresh approval. Remove MyWorkDock at myaccount.google.com/permissions, then sign in again.</p>
+  </details>
+  <details>
+    <summary>“Could not reach Google”, or the footer shows an error</summary>
+    <p>Check your connection. The tab keeps showing the events it already has and tries again when you press the refresh button, change the range or reopen the panel. Events are only cached for a minute.</p>
+  </details>
+  <details>
+    <summary>An event is missing</summary>
+    <ul>
+      <li>Open the calendar button in the header and make sure that event’s calendar is ticked.</li>
+      <li>Declined events are shown struck through, not hidden. Workspace “working location” entries are not shown.</li>
+      <li>Press the refresh button: the panel keeps what it fetched for a minute.</li>
+    </ul>
+  </details>
+  <details>
+    <summary>“Sign-in is not set up” or “this build’s OAuth client” errors</summary>
+    <p>You are running a build that was made without Google’s sign-in details, or with wrong ones. Official releases include them. If you build from source, follow the “Build from source” note in the README, and make sure the Google Calendar API is switched on for your Google Cloud project.</p>
+  </details>
+
   <h2>claudex and Emulator</h2>
   <details>
     <summary>The claudex tab says “claudex is not available” or shows a ⚠</summary>
@@ -101,6 +134,7 @@
       <tr><td><code>notes.json</code></td><td>TODOs and tag colours</td></tr>
       <tr><td><code>commands.json</code>, <code>prompts.json</code>, <code>links.json</code></td><td>Your saved snippets</td></tr>
       <tr><td><code>wireless-android.json</code></td><td>Known wireless Android devices</td></tr>
+      <tr><td><code>google-calendar.json</code></td><td>Your Google sign-in for My Calendar, in a file only you can read. Delete it, or use Sign out, to forget the sign-in. Calendar events themselves are never saved.</td></tr>
     </tbody>
   </table></div>
   <p>Settings (theme, tint, panel size, switched-off menus) are in the app’s macOS preferences, <code>com.adityabuilds.myworkdock</code>. To back up your notes, copy the folder above.</p>

@@ -16,6 +16,8 @@ struct CalendarInfo: Identifiable, Equatable {
     var selected: Bool
     /// freeBusyReader calendars carry no event titles.
     var busyOnly = false
+    /// Minutes before an event for the reminders an event with "default reminders" gets.
+    var defaultReminders: [Int] = []
 }
 
 struct CalendarEvent: Identifiable, Equatable {
@@ -29,6 +31,8 @@ struct CalendarEvent: Identifiable, Equatable {
     var allDay: Bool
     var color: UInt32
     var declined = false
+    /// Google's own id, for fetching the details; `id` is this plus the calendar.
+    var eventID = ""
 }
 
 /// The few fields of a Google event the grids need; the request's `fields` mask asks for exactly these.
@@ -103,7 +107,7 @@ enum EventParser {
         let declined = raw.attendees?.contains { ($0.isSelf == true || $0.email == calendar.id) && $0.responseStatus == "declined" } ?? false
         let title = raw.summary.flatMap { $0.isEmpty ? nil : $0 } ?? (calendar.busyOnly ? "Busy" : "(No title)")
         return CalendarEvent(id: "\(calendar.id)|\(raw.id)", calendarID: calendar.id, title: title, start: from, end: to, allDay: allDay,
-                             color: raw.colorId.flatMap { palette[$0] } ?? calendar.color, declined: declined)
+                             color: raw.colorId.flatMap { palette[$0] } ?? calendar.color, declined: declined, eventID: raw.id)
     }
 
     /// `#9fe1e7` → 0x9FE1E7.

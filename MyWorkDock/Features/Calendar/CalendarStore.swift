@@ -23,6 +23,13 @@ final class CalendarStore {
 
     enum Step { case previous, next, today }
 
+    /// The sheet of the clicked event: the title and time are known at once, the rest is fetched.
+    enum DetailState: Equatable {
+        case loading
+        case loaded(EventDetails)
+        case failed(String)
+    }
+
     /// What one fetch brought back: the events of `calendarID` that touch `from..<to`.
     struct Chunk: Equatable {
         var calendarID: String
@@ -51,6 +58,10 @@ final class CalendarStore {
     /// Any moment inside what is shown: the day, the week or the month.
     private(set) var anchor: Date
     var calendarsMenuOpen = false
+    private(set) var selected: CalendarEvent?
+    private(set) var detail = DetailState.loading
+    /// "Copied" on the Meet link button for a moment.
+    private(set) var copied = false
 
     // Data
     private(set) var calendars: [CalendarInfo] = []
@@ -71,6 +82,7 @@ final class CalendarStore {
     @ObservationIgnored private var inFlight: Set<String> = []
     /// Bumped by sign-out, expiry and "menu off": a fetch that finishes afterwards is dropped.
     @ObservationIgnored private var epoch = 0
+    @ObservationIgnored private var detailTask: Task<Void, Never>?
 
     static let signInTimeout: TimeInterval = 300
     static let ttl: TimeInterval = 60
@@ -119,10 +131,11 @@ final class CalendarStore {
 
     #if DEBUG
     /// Snapshots draw each state.
-    func preview(_ auth: Auth, mode: CalendarMode? = nil, menuOpen: Bool = false) {
+    func preview(_ auth: Auth, mode: CalendarMode? = nil, menuOpen: Bool = false, selecting title: String? = nil) {
         self.auth = auth
         if let mode { self.mode = mode }
         calendarsMenuOpen = menuOpen
+        if let title, let event = visibleEvents.first(where: { $0.title == title }) { select(event) }
     }
     #endif
 
@@ -230,6 +243,7 @@ final class CalendarStore {
     }
 
     private func clearData() {
+        closeDetail()
         calendars = []
         chunks = []
         failures = [:]
@@ -310,7 +324,12 @@ final class CalendarStore {
     }
 
     func toggleCalendarsMenu() { calendarsMenuOpen.toggle() }
-    func closeMenus() { calendarsMenuOpen = false }
+
+    /// Leaving the tab, collapsing or leaving the panel: the menu and the event sheet go.
+    func closeMenus() {
+        calendarsMenuOpen = false
+        closeDetail()
+    }
 
     func toggle(_ calendarID: String) {
         guard let calendar = calendars.first(where: { $0.id == calendarID }) else { return }
@@ -322,6 +341,80 @@ final class CalendarStore {
     private func timeZoneChanged() {
         chunks = []
         reload(force: true)
+    }
+
+    // MARK: Event sheet
+
+    /// An event was clicked: the sheet opens on what the grid knows, and the rest (guests, Meet link, description, the series'
+    /// rule) is fetched.
+    func select(_ event: CalendarEvent) {
+        calendarsMenuOpen = false
+        selected = event
+        detail = .loading
+        copied = false
+        detailTask?.cancel()
+        detailTask = nil
+        guard let client else {
+            detail = .loaded(live ? EventDetails() : CalendarSample.details(for: event))
+            return
+        }
+        guard !event.eventID.isEmpty, let calendar = calendars.first(where: { $0.id == event.calendarID }) else {
+            detail = .loaded(EventDetails())
+            return
+        }
+        let started = epoch
+        detailTask = Task { await loadDetail(of: event, in: calendar, client, started) }
+    }
+
+    func closeDetail() {
+        detailTask?.cancel()
+        detailTask = nil
+        selected = nil
+        detail = .loading
+    }
+
+    func retryDetail() {
+        if let selected { select(selected) }
+    }
+
+    /// Links leave the panel: it floats above the browser, so it closes first.
+    func open(_ url: URL) {
+        willOpenBrowser?()
+        openURL(url)
+    }
+
+    func copyMeetLink(_ url: URL) {
+        Clipboard.copy(url.absoluteString)
+        copied = true
+        Task {
+            try? await Task.sleep(for: .seconds(1.5))
+            copied = false
+        }
+    }
+
+    private func loadDetail(of event: CalendarEvent, in calendar: CalendarInfo, _ client: GoogleCalendarClient, _ started: Int) async {
+        do {
+            var details = try await client.details(of: event, in: calendar)
+            guard started == epoch, selected?.id == event.id else { return }
+            detail = .loaded(details)
+            // An instance only knows its series' id: the rule ("Weekly on Wednesday") is one more read, shown when it arrives.
+            if let series = details.recurringEventID, let rule = try? await client.recurrence(ofSeries: series, in: calendar) {
+                guard started == epoch, selected?.id == event.id else { return }
+                details.recurrence = Recurrence.describe(rule, start: event.start, cal: cal)
+                detail = .loaded(details)
+            }
+        } catch is CancellationError {
+            return
+        } catch GoogleAuthError.invalidGrant {
+            if started == epoch { expire() }
+        } catch {
+            guard started == epoch, selected?.id == event.id else { return }
+            switch error {
+            case CalendarAPIError.network: detail = .failed("Could not reach Google.")
+            case CalendarAPIError.http(_, let why): detail = .failed(why)
+            default: detail = .failed(error.localizedDescription)
+            }
+        }
     }
 
     // MARK: Fetching

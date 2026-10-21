@@ -11,6 +11,8 @@ private final class FakeCalendarAPI: @unchecked Sendable {
     var events: [String: [String]] = [:]
     /// Pages per calendar (first request, then `pageToken=<next>`); wins over `events`.
     var pages: [String: [(items: [String], next: String?)]] = [:]
+    /// The `events.get` answer per event id (an instance or its series).
+    var eventBodies: [String: String] = [:]
     var token: (Int, String) = (200, #"{"access_token":"at-new","expires_in":3600}"#)
     var delay: TimeInterval = 0
     var networkDown = false
@@ -23,6 +25,8 @@ private final class FakeCalendarAPI: @unchecked Sendable {
         requests.filter { $0.url?.path.hasSuffix("/events") == true && (id == nil || $0.url?.pathComponents.contains(id!) == true) }
     }
     var tokenRequests: Int { requests.filter { $0.url?.host == "oauth2.googleapis.com" }.count }
+    /// `events.get` calls: the path continues past `/events`.
+    var detailRequests: [URLRequest] { requests.filter { $0.url?.pathComponents.contains("events") == true && $0.url?.lastPathComponent != "events" } }
 
     func query(_ request: URLRequest) -> [String: String] {
         let items = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)?.queryItems ?? []
@@ -45,11 +49,14 @@ private final class FakeCalendarAPI: @unchecked Sendable {
             }
             if url.host == "oauth2.googleapis.com" { return reply(token.0, token.1) }
             if url.path.hasSuffix("/calendarList") {
-                let items = calendars.map { ##"{"id":"\##($0.id)","summary":"\##($0.name)","backgroundColor":"#4285f4","selected":\##($0.selected)}"## }
+                let items = calendars.map { ##"{"id":"\##($0.id)","summary":"\##($0.name)","backgroundColor":"#4285f4","selected":\##($0.selected),"defaultReminders":[{"method":"popup","minutes":10}]}"## }
                 return reply(200, #"{"items":[\#(items.joined(separator: ","))]}"#)
             }
             let id = url.pathComponents[url.pathComponents.firstIndex(of: "calendars")! + 1]
             if let next = lock.withLock({ () -> (Int, String)? in queued[id]?.isEmpty == false ? queued[id]!.removeFirst() : nil }) { return reply(next.0, next.1) }
+            if let index = url.pathComponents.firstIndex(of: "events"), index + 1 < url.pathComponents.count {
+                return reply(200, eventBodies[url.pathComponents[index + 1]] ?? "{}") // events.get
+            }
             if let pages = pages[id] {
                 let page = query(request)["pageToken"] == nil ? pages[0] : pages[1]
                 let next = page.next.map { ",\"nextPageToken\":\"\($0)\"" } ?? ""
@@ -89,6 +96,7 @@ final class CalendarDataTests: XCTestCase {
         pauses = Pauses()
         cal = Calendar(identifier: .gregorian)
         cal.timeZone = TimeZone(identifier: "Asia/Kolkata")!
+        cal.locale = Locale(identifier: "en_US_POSIX")
         cal.firstWeekday = 1
         clock = Clock(cal.date(from: DateComponents(year: 2026, month: 10, day: 21, hour: 10, minute: 30))!)
         save(expiresIn: 3000)
@@ -187,6 +195,105 @@ final class CalendarDataTests: XCTestCase {
         XCTAssertEqual(api.eventRequests(for: "cal-a").count, 2)
         XCTAssertEqual(api.query(api.eventRequests(for: "cal-a")[1])["pageToken"], "p2")
         XCTAssertEqual(Set(store.visibleEvents.map(\.title)), ["First", "Second", "Event cal-b"])
+    }
+
+    // MARK: Event sheet
+
+    private func until(_ what: String, timeout: TimeInterval = 5, _ condition: () -> Bool) async {
+        let end = Date().addingTimeInterval(timeout)
+        while !condition() && Date() < end { try? await Task.sleep(for: .milliseconds(10)) }
+        XCTAssertTrue(condition(), "timed out waiting for \(what)")
+    }
+
+    private func firstEvent(_ store: CalendarStore, of calendarID: String = "cal-a") throws -> CalendarEvent {
+        try XCTUnwrap(store.visibleEvents.first { $0.calendarID == calendarID })
+    }
+
+    func testSelectingAnEventOpensItAtOnceThenFetchesDetailsAndTheSeriesRule() async throws {
+        api.eventBodies["e-cal-a"] = #"{"hangoutLink":"https://meet.google.com/abc-defg-hij","location":"Room 4","recurringEventId":"series-1","reminders":{"useDefault":true}}"#
+        api.eventBodies["series-1"] = #"{"recurrence":["RRULE:FREQ=WEEKLY;BYDAY=WE"]}"#
+        let store = makeStore()
+        await store.refresh()
+        let event = try firstEvent(store)
+        store.select(event)
+        XCTAssertEqual(store.selected?.id, event.id)
+        XCTAssertEqual(store.detail, .loading) // the sheet is up with the title and time; the rest follows
+        await until("details and rule") { if case .loaded(let d) = store.detail { return d.recurrence != nil } else { return false } }
+        guard case .loaded(let details) = store.detail else { return XCTFail("\(store.detail)") }
+        XCTAssertEqual(details.location, "Room 4")
+        XCTAssertEqual(details.meetURL, URL(string: "https://meet.google.com/abc-defg-hij"))
+        XCTAssertEqual(details.reminders, ["10 minutes before"]) // the calendar's default
+        XCTAssertEqual(details.recurrence, "Weekly on Wednesday")
+        XCTAssertEqual(api.detailRequests.count, 2)
+        XCTAssertTrue(api.detailRequests[0].url!.absoluteString.contains("conferenceData"))
+        XCTAssertEqual(api.query(api.detailRequests[1])["fields"], "recurrence")
+    }
+
+    func testAnEventWithoutASeriesNeedsOnlyOneRead() async throws {
+        api.eventBodies["e-cal-a"] = #"{"location":"Room 4"}"#
+        let store = makeStore()
+        await store.refresh()
+        store.select(try firstEvent(store))
+        await until("details") { if case .loaded = store.detail { return true } else { return false } }
+        try await Task.sleep(for: .milliseconds(100))
+        XCTAssertEqual(api.detailRequests.count, 1)
+    }
+
+    func testSwitchingEventsDropsTheOldAnswer() async throws {
+        api.eventBodies["e-cal-a"] = #"{"location":"Room A"}"#
+        api.eventBodies["e-cal-b"] = #"{"location":"Room B"}"#
+        let store = makeStore()
+        await store.refresh()
+        api.delay = 0.2
+        store.select(try firstEvent(store, of: "cal-a"))
+        try await Task.sleep(for: .milliseconds(50))
+        store.select(try firstEvent(store, of: "cal-b"))
+        await until("the second event's details") { if case .loaded(let d) = store.detail { return d.location == "Room B" } else { return false } }
+        try await Task.sleep(for: .milliseconds(300)) // the first answer would have landed by now
+        XCTAssertEqual(store.selected?.calendarID, "cal-b")
+        guard case .loaded(let details) = store.detail else { return XCTFail("\(store.detail)") }
+        XCTAssertEqual(details.location, "Room B")
+    }
+
+    func testADetailFailureSaysWhyAndRetryTriesAgain() async throws {
+        let store = makeStore()
+        await store.refresh()
+        api.fail("cal-a", [(404, #"{"error":{"message":"Not Found"}}"#)])
+        store.select(try firstEvent(store))
+        await until("the failure") { store.detail == .failed("Not Found") }
+        store.retryDetail()
+        await until("the retry") { if case .loaded = store.detail { return true } else { return false } }
+    }
+
+    func testTheSheetClosesWhenTheTabOrTheMenuGoes() async throws {
+        let store = makeStore()
+        await store.refresh()
+        store.select(try firstEvent(store))
+        XCTAssertNotNil(store.selected)
+        store.closeMenus() // what leaving the tab, collapsing and leaving the panel call
+        XCTAssertNil(store.selected)
+        store.select(try firstEvent(store))
+        store.stop() // the menu switched off
+        XCTAssertNil(store.selected)
+    }
+
+    func testLinksLeaveThroughTheBrowserAfterThePanelCloses() {
+        let store = makeStore()
+        var log: [String] = []
+        store.willOpenBrowser = { log.append("close panel") }
+        store.openURL = { log.append($0.absoluteString) }
+        store.open(URL(string: "https://meet.google.com/x")!)
+        XCTAssertEqual(log, ["close panel", "https://meet.google.com/x"])
+    }
+
+    func testTheSampleStoreServesCannedDetails() throws {
+        let store = CalendarStore.sample(.signedIn(email: "me@x.com"))
+        let call = try XCTUnwrap(store.visibleEvents.first { $0.title.hasPrefix("Client call") })
+        store.select(call)
+        guard case .loaded(let details) = store.detail else { return XCTFail("\(store.detail)") }
+        XCTAssertNotNil(details.meetURL)
+        XCTAssertEqual(details.guests.count, 6)
+        XCTAssertEqual(details.recurrence, "Weekly on Wednesday")
     }
 
     // MARK: Calendars menu

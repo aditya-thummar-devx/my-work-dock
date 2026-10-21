@@ -267,6 +267,16 @@ final class NotchModelTests: XCTestCase {
         XCTAssertEqual(model.mainTab, .notes)
     }
 
+    func testLeavingTheCalendarTabOrThePanelClosesItsEventSheet() {
+        model.calendar.preview(.signedIn(email: "me@devxlabs.ai"), selecting: "Dentist")
+        XCTAssertNotNil(model.calendar.selected)
+        model.setMainTab(.notes)
+        XCTAssertNil(model.calendar.selected)
+        model.calendar.preview(.signedIn(email: "me@devxlabs.ai"), selecting: "Dentist")
+        model.closePanel()
+        XCTAssertNil(model.calendar.selected)
+    }
+
     func testSigningInKeepsTheUpdaterWaitingAndLeavingTheMenuCancelsIt() {
         XCTAssertTrue(model.isIdle)
         model.calendar.preview(.signingIn)

@@ -13,6 +13,14 @@ struct GoogleCalendarClient: Sendable {
     var pause: @Sendable (TimeInterval) async -> Void = { try? await Task.sleep(for: .seconds($0)) }
 
     private static let base = "https://www.googleapis.com/calendar/v3"
+    private static let pathCharacters = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~@")
+    /// What Google Calendar's own popup shows beyond what the list carries.
+    private static let detailFields = "description,location,hangoutLink,conferenceData(entryPoints(entryPointType,uri,label,pin),conferenceSolution(name)),"
+        + "attendees(email,displayName,responseStatus,organizer,optional,resource,self),attendeesOmitted,guestsCanSeeOtherGuests,"
+        + "organizer(email,displayName,self),reminders,attachments(title,fileUrl),htmlLink,transparency,visibility,recurringEventId"
+
+    /// A calendar or event id as one URL path segment (`#` and friends in holiday calendar ids must not end the path).
+    private static func segment(_ id: String) -> String { id.addingPercentEncoding(withAllowedCharacters: pathCharacters) ?? id }
     /// Everything but `workingLocation`: Workspace users get one per day and Google shows those in the day header, not as events.
     private static let eventTypes = ["default", "outOfOffice", "focusTime", "birthday", "fromGmail"]
 
@@ -25,7 +33,10 @@ struct GoogleCalendarClient: Sendable {
                 var backgroundColor: String?
                 var selected: Bool?
                 var accessRole: String?
+                var defaultReminders: [Reminder]?
             }
+
+            struct Reminder: Decodable { var minutes: Int? }
 
             var items: [Entry]?
             var nextPageToken: String?
@@ -34,12 +45,13 @@ struct GoogleCalendarClient: Sendable {
         var pageToken: String?
         repeat {
             var query = [("minAccessRole", "freeBusyReader"), ("maxResults", "250"),
-                         ("fields", "nextPageToken,items(id,summary,summaryOverride,backgroundColor,selected,accessRole)")]
+                         ("fields", "nextPageToken,items(id,summary,summaryOverride,backgroundColor,selected,accessRole,defaultReminders(minutes))")]
             if let pageToken { query.append(("pageToken", pageToken)) }
             let page = try decode(Page.self, try await get("\(Self.base)/users/me/calendarList?\(HTTP.form(query))"))
             result += (page.items ?? []).map {
                 CalendarInfo(id: $0.id, name: $0.summaryOverride ?? $0.summary ?? $0.id, color: EventParser.hex($0.backgroundColor) ?? 0x4285F4,
-                             selected: $0.selected ?? false, busyOnly: $0.accessRole == "freeBusyReader")
+                             selected: $0.selected ?? false, busyOnly: $0.accessRole == "freeBusyReader",
+                             defaultReminders: ($0.defaultReminders ?? []).compactMap(\.minutes))
             }
             pageToken = page.nextPageToken
         } while pageToken != nil
@@ -55,7 +67,7 @@ struct GoogleCalendarClient: Sendable {
         }
         // UTC "Z": a "+" in an offset would be read as a space.
         let utc = ISO8601DateFormatter()
-        let id = calendar.id.addingPercentEncoding(withAllowedCharacters: CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-._~@")) ?? calendar.id
+        let id = Self.segment(calendar.id)
         var result: [CalendarEvent] = []
         var pageToken: String?
         repeat {
@@ -69,6 +81,21 @@ struct GoogleCalendarClient: Sendable {
             pageToken = page.nextPageToken
         } while pageToken != nil
         return result
+    }
+
+    /// The popup's content for one event, fetched when the event is clicked.
+    func details(of event: CalendarEvent, in calendar: CalendarInfo) async throws -> EventDetails {
+        let query = HTTP.form([("fields", Self.detailFields)])
+        let data = try await get("\(Self.base)/calendars/\(Self.segment(calendar.id))/events/\(Self.segment(event.eventID))?\(query)")
+        return EventDetails.make(try decode(RawDetails.self, data), calendar: calendar)
+    }
+
+    /// The rule lines (`RRULE:FREQ=WEEKLY;BYDAY=WE`) of a recurring series, for "Weekly on Wednesday".
+    func recurrence(ofSeries masterID: String, in calendar: CalendarInfo) async throws -> [String] {
+        struct Master: Decodable { var recurrence: [String]? }
+        let query = HTTP.form([("fields", "recurrence")])
+        let data = try await get("\(Self.base)/calendars/\(Self.segment(calendar.id))/events/\(Self.segment(masterID))?\(query)")
+        return try decode(Master.self, data).recurrence ?? []
     }
 
     private func decode<T: Decodable>(_ type: T.Type, _ data: Data) throws -> T {

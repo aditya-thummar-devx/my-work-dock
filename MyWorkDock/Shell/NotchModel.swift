@@ -6,12 +6,6 @@ typealias DisplayID = CGDirectDisplayID
 enum MainTab: String, CaseIterable, Identifiable {
     case clipboard, calendar, notes, claudex, emulator
 
-    /// ponytail: My Calendar is DEBUG-only until its last PR lands, because anything on `main` ships with the next release.
-    /// PR 3 deletes this and `Feature.calendarShipped`.
-    static var allCases: [MainTab] {
-        Feature.calendarShipped ? [.clipboard, .calendar, .notes, .claudex, .emulator] : [.clipboard, .notes, .claudex, .emulator]
-    }
-
     var id: String { rawValue }
     var label: String {
         switch self {
@@ -43,19 +37,6 @@ enum MainTab: String, CaseIterable, Identifiable {
 /// What Settings › Menus can switch off. The raw values are stored in UserDefaults.
 enum Feature: String, CaseIterable, Identifiable {
     case clipboard, calendar, notes, claudex, emulator, localIP
-
-    /// See `MainTab.allCases`.
-    static var calendarShipped: Bool {
-        #if DEBUG
-        true
-        #else
-        false
-        #endif
-    }
-
-    static var allCases: [Feature] {
-        calendarShipped ? [.clipboard, .calendar, .notes, .claudex, .emulator, .localIP] : [.clipboard, .notes, .claudex, .emulator, .localIP]
-    }
 
     var id: String { rawValue }
     var label: String {
