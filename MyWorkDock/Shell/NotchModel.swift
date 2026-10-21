@@ -106,6 +106,8 @@ final class NotchModel {
     let prompts: SnippetStore
     let links: SnippetStore
     let confirmer: Confirmer
+    /// Notes › Commands › Run: one command at a time, its output in a sheet over the panel.
+    let runner: CommandRunner
     let emulator: EmulatorStore
     let claudex: ClaudexStore
     let localIP: LocalIPStore
@@ -150,6 +152,15 @@ final class NotchModel {
         return { item.cancel() }
     }
     @ObservationIgnored private var cancelLeave: (() -> Void)?
+    /// The folder picker for a Run is open.
+    private(set) var picking = false
+    /// Asks for a folder; nil when cancelled. Injected by tests.
+    @ObservationIgnored var pickFolder: () async -> URL? = NotchModel.chooseFolder
+    /// Touch ID / password prompt for an unlock is open.
+    private(set) var authenticating = false
+    /// Why this Mac cannot check its owner, nil when it can; the prompt itself. Injected by tests.
+    @ObservationIgnored var authUnavailable: () -> String? = Authenticator.unavailableReason
+    @ObservationIgnored var authenticate: (String) async -> Bool = { await Authenticator.authenticate(reason: $0) }
     @ObservationIgnored private var lastRank = NotchMode.idle.rank
 
     /// `sample: true` keeps every store in memory with the designs' sample data (snapshots, tests).
@@ -181,6 +192,7 @@ final class NotchModel {
         links = sample ? .sample(.links) : .persistent(.links)
         let confirmer = Confirmer()
         self.confirmer = confirmer
+        runner = CommandRunner()
         emulator = sample ? EmulatorStore(sample: false, confirmer: confirmer) : EmulatorStore(confirmer: confirmer)
         claudex = sample ? ClaudexStore(sample: true, confirmer: confirmer) : ClaudexStore(confirmer: confirmer)
         localIP = sample ? .sample() : .live()
@@ -283,6 +295,8 @@ final class NotchModel {
 
     private func leaveFired() {
         cancelLeave = nil
+        // The folder picker, its confirm sheet and the run sheet all lead the pointer away from the panel; none of them may vanish under it.
+        if picking || authenticating || runner.sheetOpen || confirmer.pending?.keepPanelOpen == true { return }
         hover = false
         if !pinned {
             open = false
@@ -388,9 +402,66 @@ final class NotchModel {
         })
     }
 
+    /// Notes › Commands › Run: pick a folder, confirm, then run and show the output. Cancelling either step runs nothing.
+    func runCommand(_ id: Int) {
+        guard let text = commands.items.first(where: { $0.id == id })?.text,
+              !picking, !runner.isRunning, runner.availability(of: text) == .ready || runner.availability(of: text) == .unlocked else { return }
+        picking = true
+        Task {
+            let folder = await pickFolder()
+            picking = false
+            changed() // the picker took key status; the panel takes it back for the confirm sheet
+            guard let folder else { return }
+            confirmer.ask(ConfirmRequest(title: "Run this command?", command: "cd \(Self.shellQuoted(folder.path)) && \(text)",
+                                         note: "Runs in \(folder.path). Stop ends it.", confirmTitle: "Run",
+                                         commandLines: 4, keepPanelOpen: true) { [runner] in
+                runner.start(command: text, in: folder)
+            })
+        }
+    }
+
+    /// Click on a blocked command's lock: confirm, then the Mac's owner check; only then is that exact text runnable.
+    /// A cancel, a failure or a Mac that cannot check its owner leaves it locked.
+    func unlockCommand(_ id: Int) {
+        guard let text = commands.items.first(where: { $0.id == id })?.text, !authenticating,
+              let why = CommandSafety.blockedReason(text), !runner.unlocked.contains(text) else { return }
+        if let unavailable = authUnavailable() {
+            runner.unlockUnavailable = unavailable
+            return
+        }
+        runner.unlockUnavailable = nil
+        confirmer.ask(ConfirmRequest(title: "Unlock this command?", command: text, note: "Blocked: \(why). Needs Touch ID or your password.",
+                                     confirmTitle: "Unlock", danger: true, commandLines: 4, keepPanelOpen: true) { [weak self] in
+            guard let self else { return }
+            authenticating = true
+            let ok = await authenticate("Unlock a blocked command in MyWorkDock")
+            authenticating = false
+            if ok { runner.unlock(text) }
+            changed() // the prompt took key status; the panel takes it back
+        })
+    }
+
+    static func shellQuoted(_ s: String) -> String { "'" + s.replacingOccurrences(of: "'", with: "'\\''") + "'" }
+
+    /// One-folder picker. The panel floats at status-bar level, so the picker goes one above it.
+    static func chooseFolder() async -> URL? {
+        NSApp.activate()
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Run Here"
+        panel.message = "Choose the folder to run the command in"
+        panel.level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 1)
+        return await withCheckedContinuation { cont in
+            panel.begin { cont.resume(returning: $0 == .OK ? panel.url : nil) }
+        }
+    }
+
     /// Nothing on screen or in flight that a relaunch would interrupt; the updater waits for this before installing.
     var isIdle: Bool {
         !open && !hover && confirmer.pending == nil && emulator.bootingName == nil && emulator.pendingBoot.isEmpty && claudex.busyMember == nil && !calendar.isSigningIn
+            && !runner.isRunning
     }
 
     func openPanel() {

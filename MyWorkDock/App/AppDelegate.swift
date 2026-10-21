@@ -53,6 +53,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         addStatusItem()
     }
 
+    func applicationWillTerminate(_ notification: Notification) {
+        MainActor.assumeIsolated { controller?.model.runner.killNow() }
+    }
+
     private func addStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         let icon = NSImage(named: "MenuBarIcon")

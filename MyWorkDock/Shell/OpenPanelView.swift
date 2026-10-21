@@ -50,6 +50,7 @@ struct OpenPanelView: View {
         }
         .animation(.easeOut(duration: Geo.popoverFade), value: model.settings)
         .overlay { DetailOverlay(store: model.claudex) }
+        .overlay { CommandRunOverlay(runner: model.runner) }
         .overlay { ConfirmOverlay(confirmer: model.confirmer) }
         .foregroundStyle(model.tokens.text)
     }
@@ -175,7 +176,7 @@ private struct ConfirmOverlay: View {
         if let r = confirmer.pending {
             ZStack(alignment: .bottom) {
                 Scrim().contentShape(Rectangle()).onTapGesture(perform: confirmer.cancel)
-                ConfirmSheet(title: r.title, command: r.command, note: r.note, confirmTitle: r.confirmTitle, danger: r.danger,
+                ConfirmSheet(title: r.title, command: r.command, note: r.note, confirmTitle: r.confirmTitle, danger: r.danger, commandLines: r.commandLines,
                              onCancel: confirmer.cancel, onConfirm: confirmer.confirm)
                     .padding(.horizontal, Geo.Sheet.insetX)
                     .padding(.bottom, Geo.Sheet.bottom)

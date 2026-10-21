@@ -29,6 +29,7 @@ struct ConfirmSheet: View {
     var note: String
     var confirmTitle: String
     var danger = false
+    var commandLines = 1
     var onCancel: () -> Void = {}
     var onConfirm: () -> Void = {}
     @Environment(\.tokens) private var t
@@ -45,7 +46,7 @@ struct ConfirmSheet: View {
                 Text("$ \(command)")
                     .font(Typo.mono(Geo.Sheet.commandFont))
                     .foregroundStyle(t.text2)
-                    .lineLimit(1)
+                    .lineLimit(commandLines)
                     .truncationMode(.tail)
                 Text(note).font(Typo.ui(Geo.Sheet.noteFont)).foregroundStyle(danger ? t.red : t.faint)
             }

@@ -394,8 +394,12 @@ struct SnippetRow: View {
     var editing = false
     /// Edit-field text; nil draws `text` statically (snapshots).
     var editText: Binding<String>?
+    /// Commands only: Run, or the lock that explains why there is none.
+    var run = RunAvailability.none
     var onTap: () -> Void = {}
     var onOpen: () -> Void = {}
+    var onRun: () -> Void = {}
+    var onUnlock: () -> Void = {}
     var onCopy: () -> Void = {}
     var onEdit: () -> Void = {}
     var onDelete: () -> Void = {}
@@ -458,6 +462,15 @@ struct SnippetRow: View {
         }
         if kind == .links {
             RowIconButton(glyph: .globe, label: "Open link", fg: t.muted, action: onOpen)
+        }
+        switch run {
+        case .none: EmptyView()
+        case .ready: RowIconButton(glyph: .play, label: "Run command", fg: t.green, iconSize: 12, action: onRun)
+        case .unlocked: RowIconButton(glyph: .play, label: "Run command (unlocked)", fg: t.red, iconSize: 12, action: onRun)
+        case .busy: RowIconButton(glyph: .play, label: "Another command is running", fg: t.offFg, iconSize: 12)
+        case .blocked(let why):
+            RowIconButton(glyph: .lock, label: "Blocked: \(why). Click to unlock", fg: t.offFg, iconSize: 13, action: onUnlock)
+                .help("Blocked: \(why). Click to unlock")
         }
         RowIconButton(glyph: copied ? .check : .copy, label: copied ? "Copied" : "Copy \(kind.noun)",
                       fg: copied ? t.green : t.muted, fill: copied ? t.greenBg : .clear,
