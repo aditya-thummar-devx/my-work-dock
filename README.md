@@ -1,6 +1,6 @@
 # MyWorkDock
 
-Your work dock, in the notch. Hover the top of your Mac's screen: clipboard history, notes, Claude account usage and simulator controls are one hover or one hotkey away.
+Your work dock, in the notch. Hover the top of your Mac's screen: clipboard history, your Google Calendar, notes, Claude account usage and simulator controls are one hover or one hotkey away.
 
 **📖 Documentation: https://aditya-thummar-devx.github.io/my-work-dock/**
 
@@ -9,6 +9,7 @@ Your work dock, in the notch. Hover the top of your Mac's screen: clipboard hist
 ## What is inside
 
 - **Clipboard**: searchable text history with tags and pins. Password managers are never recorded.
+- **My Calendar**: your Google Calendar by month, week or day, with the same event details Google shows. Read-only, for devxlabs.ai accounts.
 - **Notes**: TODOs, plus saved Commands, Prompts and Links.
 - **claudex**: usage gauges and account switching for the optional `claudex` CLI.
 - **Emulator**: start and stop iOS simulators and Android emulators, pair devices over Wi-Fi, run `adb reverse` tunnels.

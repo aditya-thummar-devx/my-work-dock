@@ -34,6 +34,7 @@
 		5D28024A03706983BC069D11 /* GoogleAuthTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 308A58D40F4981EFC551C093 /* GoogleAuthTests.swift */; };
 		5E65EC8287E549466ECA3E00 /* GeistMono[wght].ttf in Resources */ = {isa = PBXBuildFile; fileRef = D9B7773923C58AE624A0EE0C /* GeistMono[wght].ttf */; };
 		6016275A67B5EB37DFAEC6C8 /* Persistence.swift in Sources */ = {isa = PBXBuildFile; fileRef = 764A39EA4A29DEA4E06B5FCF /* Persistence.swift */; };
+		61721B0F4DB201CDDA2C57E4 /* CalendarSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57F7D732533030CFD5FA33DD /* CalendarSheet.swift */; };
 		63FF7EB4FD7751D78EE9405B /* NotchContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9560B277AF811CBA16AF9406 /* NotchContainer.swift */; };
 		68B0274058D31A6E30473865 /* LoopbackServerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89EC4CE70B75822520082210 /* LoopbackServerTests.swift */; };
 		69C96EA425D71957CD2DD204 /* SVGPath.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0E1258D4A7B0AAFCFF40DFAC /* SVGPath.swift */; };
@@ -69,6 +70,7 @@
 		B1B9B238698B8D847189604C /* Tokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9973D49E4E706206141196C5 /* Tokens.swift */; };
 		B21ED8F73D62619EBB015952 /* Geist[wght].ttf in Resources */ = {isa = PBXBuildFile; fileRef = 74EA9F0816C0D446937D2461 /* Geist[wght].ttf */; };
 		B453D9C2544FBFF5EDBD53FF /* LiveActivityView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DEBD5E069AA24E98235E5E59 /* LiveActivityView.swift */; };
+		B5D5ED043788F47D8DA1953D /* CalendarDetails.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00248C7800786512F861D4C /* CalendarDetails.swift */; };
 		B68982D5E1377CF2698C4F94 /* NotchShape.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20E785AE8A7FC410EAE0E333 /* NotchShape.swift */; };
 		B8C5E1FCE9B4E176017791B8 /* NotchPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7DA5FE2F6D886BF709FA203 /* NotchPanel.swift */; };
 		B98A18F746BF9A6D3D2CE088 /* Compositions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44D99B6DC498BF6E254ECA43 /* Compositions.swift */; };
@@ -78,6 +80,7 @@
 		C29B6582BE3100C84B67D17E /* CalendarSample.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5513D10DD26468BB73BC9B05 /* CalendarSample.swift */; };
 		C63AA3B3ED9418333D8CE280 /* ClipboardStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 775B32E742D61CE2103286D5 /* ClipboardStoreTests.swift */; };
 		CACBF7000B88CCEEDB0AA106 /* ClaudexTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EBBF6E673A2BD551CD61669 /* ClaudexTests.swift */; };
+		CC71DF201C5F10CA99FB1289 /* CalendarSheetTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EE8FE06581EDC80F57F162E /* CalendarSheetTests.swift */; };
 		D083D8B99E3153A33254AF8A /* SnippetStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00B0E5E86280388074A6A3BB /* SnippetStore.swift */; };
 		D38678BF67525EC618947C29 /* Popovers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00D39C277D03218395804AAA /* Popovers.swift */; };
 		D9CAB625BAD3FA98CB3E9A89 /* Buttons.swift in Sources */ = {isa = PBXBuildFile; fileRef = 027BF062CCD37353FACE585C /* Buttons.swift */; };
@@ -94,6 +97,7 @@
 		F4A516960EB8A1186A752763 /* CalendarModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EAE454CCBE842C94194E6ED /* CalendarModels.swift */; };
 		F90E30EFB2FFC2891BF8E3EB /* SampleData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47761937DF738E2DF72CAC78 /* SampleData.swift */; };
 		FA6E5329FAD31AF258C3AA25 /* SnippetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF75D679CBBD1CD31DA922BA /* SnippetView.swift */; };
+		FF06FB9EDEA7D47A13471535 /* CalendarText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 540C47594262FE6E7C8C6A23 /* CalendarText.swift */; };
 		FF5A7F1AB1319E27B59C1608 /* CalendarDataTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 742E4C637E7C173433507FA4 /* CalendarDataTests.swift */; };
 /* End PBXBuildFile section */
 
@@ -140,14 +144,17 @@
 		4FA92EF873DB92A9B2B6BB3C /* CalendarParseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarParseTests.swift; sourceTree = "<group>"; };
 		507B24A0C2AFEB72EF9DB202 /* HotKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HotKey.swift; sourceTree = "<group>"; };
 		517407DD58D7B05A8CA7129B /* CalendarStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarStore.swift; sourceTree = "<group>"; };
+		540C47594262FE6E7C8C6A23 /* CalendarText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarText.swift; sourceTree = "<group>"; };
 		54F6CBC4F1DC8445B5FC8EEE /* Confirmer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Confirmer.swift; sourceTree = "<group>"; };
 		5513D10DD26468BB73BC9B05 /* CalendarSample.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarSample.swift; sourceTree = "<group>"; };
+		57F7D732533030CFD5FA33DD /* CalendarSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarSheet.swift; sourceTree = "<group>"; };
 		5B11367F76B06B18C5572EC2 /* ClipboardStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClipboardStore.swift; sourceTree = "<group>"; };
 		5FF8AEF1AAB8EFF4689CEF53 /* Typography.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Typography.swift; sourceTree = "<group>"; };
 		6012369D297796DE2112E7CD /* NotesStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotesStore.swift; sourceTree = "<group>"; };
 		602DCC0FD6E758F724356F24 /* CalendarStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarStoreTests.swift; sourceTree = "<group>"; };
 		60EB6DD46319FA4341BD8616 /* SnippetStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnippetStoreTests.swift; sourceTree = "<group>"; };
 		667D4958D3D6A04687F27F7A /* MyWorkDockTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MyWorkDockTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		6EE8FE06581EDC80F57F162E /* CalendarSheetTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarSheetTests.swift; sourceTree = "<group>"; };
 		6F9F0014FE9F0FCD94C0112B /* Chips.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Chips.swift; sourceTree = "<group>"; };
 		742E4C637E7C173433507FA4 /* CalendarDataTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarDataTests.swift; sourceTree = "<group>"; };
 		748FC4B1F0A4DB4C2D2CC661 /* Updater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Updater.swift; sourceTree = "<group>"; };
@@ -174,6 +181,7 @@
 		A8D943A2BA73A5746BD3EAC0 /* UsageEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageEngine.swift; sourceTree = "<group>"; };
 		A8EA280944E38C0391173C03 /* UsageModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageModels.swift; sourceTree = "<group>"; };
 		A94EF0B3AF254352A2F800EC /* Icon.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Icon.swift; sourceTree = "<group>"; };
+		B00248C7800786512F861D4C /* CalendarDetails.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarDetails.swift; sourceTree = "<group>"; };
 		B97E1C4288EDC22AE19BF414 /* NotchModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchModelTests.swift; sourceTree = "<group>"; };
 		BAB8DF0A32DD802CC8142544 /* Gauges.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Gauges.swift; sourceTree = "<group>"; };
 		BB18B5C719D9F5F2EF2025E3 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -216,11 +224,14 @@
 		098471C36C6F81A30B02BADC /* Calendar */ = {
 			isa = PBXGroup;
 			children = (
+				B00248C7800786512F861D4C /* CalendarDetails.swift */,
 				9A719DBA5CFFD6B2A2A21DF6 /* CalendarGrids.swift */,
 				346CBEB1381DFE585C8DCA50 /* CalendarLayout.swift */,
 				0EAE454CCBE842C94194E6ED /* CalendarModels.swift */,
 				25D456883C688E4D2A8DF726 /* CalendarScreen.swift */,
+				57F7D732533030CFD5FA33DD /* CalendarSheet.swift */,
 				517407DD58D7B05A8CA7129B /* CalendarStore.swift */,
+				540C47594262FE6E7C8C6A23 /* CalendarText.swift */,
 				D2B18DB12BB22C1F1EC62965 /* GoogleAuth.swift */,
 				36391DD6D35CF8F34256307F /* GoogleCalendarClient.swift */,
 				C8610D8793263AD7D02E233A /* LoopbackServer.swift */,
@@ -452,6 +463,7 @@
 				742E4C637E7C173433507FA4 /* CalendarDataTests.swift */,
 				DDC506B6C38D153418426A8F /* CalendarLayoutTests.swift */,
 				4FA92EF873DB92A9B2B6BB3C /* CalendarParseTests.swift */,
+				6EE8FE06581EDC80F57F162E /* CalendarSheetTests.swift */,
 				602DCC0FD6E758F724356F24 /* CalendarStoreTests.swift */,
 				EBFE6969C234A7411B5B335B /* ClaudeUsageEngineTests.swift */,
 				91900544FAD4164858D19EE1 /* ClaudeUsageTests.swift */,
@@ -581,13 +593,16 @@
 				4B585D12ECB5DD92986FD4A2 /* AppDelegate.swift in Sources */,
 				2AE26EA033B68ABCBEB56E4B /* AppearanceObserver.swift in Sources */,
 				D9CAB625BAD3FA98CB3E9A89 /* Buttons.swift in Sources */,
+				B5D5ED043788F47D8DA1953D /* CalendarDetails.swift in Sources */,
 				E3C75166B6FD9A9F7C1B9FA6 /* CalendarGrids.swift in Sources */,
 				84DCD0505ECD9D502C695EFD /* CalendarLayout.swift in Sources */,
 				F4A516960EB8A1186A752763 /* CalendarModels.swift in Sources */,
 				C29B6582BE3100C84B67D17E /* CalendarSample.swift in Sources */,
 				9EE2ADCC4BC56EB40C058C02 /* CalendarScreen.swift in Sources */,
+				61721B0F4DB201CDDA2C57E4 /* CalendarSheet.swift in Sources */,
 				853C425250BA5227D79C9118 /* CalendarStates.swift in Sources */,
 				5A110BF69EFAE8E199D1B99C /* CalendarStore.swift in Sources */,
+				FF06FB9EDEA7D47A13471535 /* CalendarText.swift in Sources */,
 				C1D659123F163B71A8B285AF /* Cards.swift in Sources */,
 				E0BB9AAE2B904FB1BB47770E /* Chips.swift in Sources */,
 				C16E0B8C235ADA65E368E9E4 /* ClaudexParsers.swift in Sources */,
@@ -655,6 +670,7 @@
 				FF5A7F1AB1319E27B59C1608 /* CalendarDataTests.swift in Sources */,
 				72E693F0CB256E31D0782017 /* CalendarLayoutTests.swift in Sources */,
 				229ED64D9F6423260D43735F /* CalendarParseTests.swift in Sources */,
+				CC71DF201C5F10CA99FB1289 /* CalendarSheetTests.swift in Sources */,
 				9EA2CB8AFBA4979B3134550B /* CalendarStoreTests.swift in Sources */,
 				23284195AFAAE7BFEB57B489 /* ClaudeUsageEngineTests.swift in Sources */,
 				5A43BA789EAF8EB632C3784A /* ClaudeUsageTests.swift in Sources */,

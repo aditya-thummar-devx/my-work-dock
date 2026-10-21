@@ -62,6 +62,60 @@ enum CalendarSample {
         timed("work", "Retro", 30, (16, 0), (17, 0)), allDay("work", "Payroll", 30, 30),
     ]
 
+    /// What the sheet shows for a sample event: the client call has everything, the rest only the basics.
+    static func details(for event: CalendarEvent) -> EventDetails {
+        var details = EventDetails()
+        details.reminders = ["10 minutes before"]
+        details.link = URL(string: "https://calendar.google.com/calendar/event?eid=sample")
+        if event.title == "Lunch" { // a big recurring invite: a long address, a dial-in, guests that carry no display names (emails)
+            details.recurrence = "Weekly on Monday"
+            details.location = "Aurora Tower, 4th floor, Cafeteria and Terrace Lounge, Baner Road, Pune, Maharashtra 411045, India"
+            details.meetURL = URL(string: "https://meet.google.com/lmn-opqr-stu")
+            details.meetName = "Google Meet"
+            details.phones = [EventDetails.Phone(number: "+1 304-896-9055", pin: "555678390")]
+            details.guests = bigInvite
+            details.organizer = "meera.iyer@devxlabs.ai"
+            return details
+        }
+        guard event.title.hasPrefix("Client call") else { return details }
+        details.location = "Aurora Tower, 4th floor, Pune"
+        details.meetURL = URL(string: "https://meet.google.com/abc-defg-hij")
+        details.meetName = "Google Meet"
+        details.phones = [EventDetails.Phone(number: "+91 80 4684 7311", pin: "482 913 770#")]
+        details.guests = [
+            EventDetails.Guest(id: "meera", name: "Meera Iyer", response: .accepted, organizer: true, optional: false, isMe: false),
+            EventDetails.Guest(id: "aditya", name: "Aditya Thummar", response: .accepted, organizer: false, optional: false, isMe: true),
+            EventDetails.Guest(id: "kabir", name: "Kabir Rao", response: .needsAction, organizer: false, optional: true, isMe: false),
+            EventDetails.Guest(id: "neel", name: "Neel Joshi", response: .tentative, organizer: false, optional: false, isMe: false),
+            EventDetails.Guest(id: "rohan", name: "Rohan Das", response: .accepted, organizer: false, optional: false, isMe: false),
+            EventDetails.Guest(id: "sana", name: "Sana Khan", response: .declined, organizer: false, optional: false, isMe: false),
+        ]
+        details.organizer = "Meera Iyer"
+        details.reminders = ["10 minutes before", "1 day before"]
+        details.description = "<b>Agenda</b><br>• Rollout plan for the Asaya release<br>• Open risks and owners<br>• Go / no-go<br><br>"
+            + "Notes: <a href=\"https://docs.google.com/document/d/sample\">Rollout checklist</a>"
+        details.attachments = [EventDetails.Attachment(title: "Rollout checklist", url: URL(string: "https://docs.google.com/document/d/sample")!)]
+        details.recurrence = "Weekly on Wednesday"
+        return details
+    }
+
+    /// 14 guests, 6 yes · 1 no · 3 maybe · 4 awaiting, organizer first and the rest by name, as `EventDetails.make` orders them.
+    private static let bigInvite: [EventDetails.Guest] = {
+        let people: [(String, EventDetails.Response)] = [
+            ("meera.iyer", .accepted), ("aditya.thummar", .needsAction), ("arjun.kulkarni", .accepted), ("dev.patel", .accepted),
+            ("isha.menon", .tentative), ("kabir.rao", .accepted), ("lena.fischer", .needsAction), ("neel.joshi", .needsAction),
+            ("omar.sheikh", .declined), ("priya.shah", .needsAction), ("rohan.das", .tentative), ("sana.khan", .tentative),
+            ("tara.nair", .accepted), ("vikram.rao", .accepted),
+        ]
+        var guests: [EventDetails.Guest] = []
+        for (index, person) in people.enumerated() {
+            let email = person.0 + "@devxlabs.ai"
+            guests.append(EventDetails.Guest(id: email, name: email, response: person.1, organizer: index == 0, optional: false,
+                                             isMe: person.0 == "aditya.thummar"))
+        }
+        return guests
+    }()
+
     /// One fetch per calendar covering the whole October grid (27 Sep – 31 Oct), so every view finds its data.
     static func chunks(cal: Calendar) -> [CalendarStore.Chunk] {
         calendars.map { calendar in

@@ -87,6 +87,18 @@ private struct EventChip: View {
     }
 }
 
+/// A chip that opens its event's sheet.
+private struct ChipButton: View {
+    var store: CalendarStore
+    var event: CalendarEvent
+
+    var body: some View {
+        Button { store.select(event) } label: { EventChip(event: event) }
+            .buttonStyle(.plain)
+            .accessibilityHint("Shows the event")
+    }
+}
+
 // MARK: Month
 
 struct CalendarMonthView: View {
@@ -139,25 +151,27 @@ private struct MonthCell: View {
         let room = max(0, Int((height - Geo.Cal.cellHeader - 2) / (Geo.Cal.chipHeight + Geo.Cal.chipGap)))
         // With more events than lines the last line says how many are hidden.
         let shown = events.count > room ? max(0, room - 1) : events.count
-        Button { store.openDay(day) } label: {
-            VStack(alignment: .leading, spacing: Geo.Cal.chipGap) {
-                DayNumber(day: day, today: cal.isDate(day, inSameDayAs: store.now()),
-                          dim: !cal.isDate(day, equalTo: store.anchor, toGranularity: .month), cal: cal)
-                    .frame(height: Geo.Cal.cellHeader - 2, alignment: .leading)
-                ForEach(events.prefix(shown)) { EventChip(event: $0) }
-                if events.count > shown {
-                    Text("+\(events.count - shown) more").font(Typo.ui(10, .semibold)).foregroundStyle(t.faint).padding(.leading, 4)
-                }
+        // The cell opens its day; the chips inside it are buttons of their own and open their event.
+        VStack(alignment: .leading, spacing: Geo.Cal.chipGap) {
+            DayNumber(day: day, today: cal.isDate(day, inSameDayAs: store.now()),
+                      dim: !cal.isDate(day, equalTo: store.anchor, toGranularity: .month), cal: cal)
+                .frame(height: Geo.Cal.cellHeader - 2, alignment: .leading)
+            ForEach(events.prefix(shown)) { ChipButton(store: store, event: $0) }
+            if events.count > shown {
+                Text("+\(events.count - shown) more").font(Typo.ui(10, .semibold)).foregroundStyle(t.faint).padding(.leading, 4)
             }
-            .padding(.horizontal, 3)
-            .padding(.top, 2)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-            .overlay(alignment: .trailing) { Rectangle().fill(t.line).frame(width: 1) }
-            .overlay(alignment: .bottom) { Rectangle().fill(t.line).frame(height: 1) }
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .padding(.horizontal, 3)
+        .padding(.top, 2)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .overlay(alignment: .trailing) { Rectangle().fill(t.line).frame(width: 1) }
+        .overlay(alignment: .bottom) { Rectangle().fill(t.line).frame(height: 1) }
+        .contentShape(Rectangle())
+        .onTapGesture { store.openDay(day) }
+        .accessibilityElement(children: .contain)
         .accessibilityLabel(day.formatted(.dateTime.weekday(.wide).day().month(.wide)) + ", \(events.count) event\(events.count == 1 ? "" : "s")")
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction { store.openDay(day) }
     }
 }
 
@@ -225,7 +239,7 @@ struct CalendarTimeGrid: View {
             ForEach(Array(wide.enumerated()), id: \.offset) { _, events in
                 let shown = events.count > lanes ? lanes - 1 : events.count
                 VStack(spacing: Geo.Cal.chipGap) {
-                    ForEach(events.prefix(shown)) { EventChip(event: $0) }
+                    ForEach(events.prefix(shown)) { ChipButton(store: store, event: $0) }
                     if events.count > shown {
                         Text("+\(events.count - shown) more").font(Typo.ui(10, .semibold)).foregroundStyle(t.faint)
                             .frame(maxWidth: .infinity, alignment: .leading).padding(.leading, 4)
@@ -290,9 +304,13 @@ struct CalendarTimeGrid: View {
             ZStack(alignment: .topLeading) {
                 ForEach(slots) { slot in
                     let lane = geo.size.width / CGFloat(slot.columns)
-                    EventBlock(event: slot.event, height: CGFloat(slot.endMinute - slot.startMinute) / 60 * Geo.Cal.hourHeight - 1)
-                        .frame(width: max(0, lane - 2), height: max(0, CGFloat(slot.endMinute - slot.startMinute) / 60 * Geo.Cal.hourHeight - 1))
-                        .offset(x: CGFloat(slot.column) * lane + 1, y: CGFloat(slot.startMinute) / 60 * Geo.Cal.hourHeight)
+                    Button { store.select(slot.event) } label: {
+                        EventBlock(event: slot.event, height: CGFloat(slot.endMinute - slot.startMinute) / 60 * Geo.Cal.hourHeight - 1)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Shows the event")
+                    .frame(width: max(0, lane - 2), height: max(0, CGFloat(slot.endMinute - slot.startMinute) / 60 * Geo.Cal.hourHeight - 1))
+                    .offset(x: CGFloat(slot.column) * lane + 1, y: CGFloat(slot.startMinute) / 60 * Geo.Cal.hourHeight)
                 }
                 if today { NowLine(store: store) }
             }
