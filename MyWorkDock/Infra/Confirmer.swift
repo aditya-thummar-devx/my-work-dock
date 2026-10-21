@@ -9,6 +9,10 @@ struct ConfirmRequest {
     var note: String
     var confirmTitle: String
     var danger = false
+    /// Lines the command may take in the sheet; a one-liner is enough for most, a pasted command needs to be read whole.
+    var commandLines = 1
+    /// The pointer leaving the panel must not collapse it while this is up (it follows a folder picker).
+    var keepPanelOpen = false
     var run: @MainActor () async -> Void
 }
 
