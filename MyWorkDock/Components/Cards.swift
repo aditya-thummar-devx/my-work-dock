@@ -457,10 +457,11 @@ struct SnippetRow: View {
                 .onTapGesture(perform: onTap)
         }
         if kind == .links {
-            DockButton(title: "Open", glyph: .globe, iconSize: 12, metrics: .copy, tone: .ctrl, action: onOpen)
+            RowIconButton(glyph: .globe, label: "Open link", fg: t.muted, action: onOpen)
         }
-        DockButton(title: copied ? "Copied" : "Copy", glyph: copied ? .check : .copy, iconSize: 12,
-                   iconStroke: copied ? 3 : 2.2, metrics: .copy, tone: copied ? .copied : .ctrl, action: onCopy)
+        RowIconButton(glyph: copied ? .check : .copy, label: copied ? "Copied" : "Copy \(kind.noun)",
+                      fg: copied ? t.green : t.muted, fill: copied ? t.greenBg : .clear,
+                      stroke: copied ? 3 : nil, action: onCopy)
         RowIconButton(glyph: .pencil, label: "Edit \(kind.noun)", fg: t.muted, action: onEdit)
         RowIconButton(glyph: .trash, label: "Delete \(kind.noun)", fg: t.red, action: onDelete)
     }
