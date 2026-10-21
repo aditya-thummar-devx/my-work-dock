@@ -44,6 +44,7 @@ struct NotchContainer: View {
             NotchShape(bottomRadius: g.radius, shoulder: g.shoulder)
                 .fill(t.panel)
                 .shadow(color: .black.opacity(shadowOpacity), radius: Geo.shadow.blur / 2, x: 0, y: Geo.shadow.y)
+                .overlay { calibrationOutline(g, mode) }
                 .frame(width: g.width, height: g.height)
 
             content(mode, g)
@@ -70,6 +71,16 @@ struct NotchContainer: View {
         .animation(.easeInOut(duration: 0.3), value: model.isLight)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .environment(\.tokens, t)
+    }
+
+    /// DEBUG calibration aid: `defaults write <bundle id> notchCalibrate -bool YES` strokes the idle silhouette in red so it can be
+    /// compared with the real cutout. Empty in release builds.
+    @ViewBuilder private func calibrationOutline(_ g: ShellGeometry, _ mode: NotchMode) -> some View {
+        #if DEBUG
+        if mode == .idle, UserDefaults.standard.bool(forKey: "notchCalibrate") {
+            NotchShape(bottomRadius: g.radius, shoulder: g.shoulder).stroke(.red, lineWidth: 0.5)
+        }
+        #endif
     }
 
     /// Incoming content brings its own delayed fade (`Entrance`); outgoing content fades out while the shell moves.
