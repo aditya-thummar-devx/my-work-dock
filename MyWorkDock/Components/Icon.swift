@@ -7,7 +7,7 @@ enum Glyph {
     case clipboard, notes, terminal, gauge, phone, tablet, pin, sliders, search, plus, refresh, close, check, copy, pencil, trash
     case wifi, arrows, chevronDown, play, stop, power, warning, monitor, arrowLeft, moon, sun, triangle, funnel, tag, globe, ring
     case calendar
-    case clock, mapPin, video, users, bell, link, text, paperclip, recur, question
+    case clock, mapPin, video, users, bell, link, text, paperclip, recur, question, lock
 
     fileprivate enum Part {
         case path(String)
@@ -60,6 +60,7 @@ enum Glyph {
         case .paperclip: [.path("M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48")]
         case .recur: [.path("M17 1l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3")]
         case .question: [.circle(cx: 12, cy: 12, r: 10), .path("M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01")]
+        case .lock: [.rect(x: 5, y: 11, w: 14, h: 10, rx: 2.5), .path("M8 11V8a4 4 0 0 1 8 0v3")]
         }
     }
 
