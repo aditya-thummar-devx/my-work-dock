@@ -50,6 +50,7 @@ struct OpenPanelView: View {
         }
         .animation(.easeOut(duration: Geo.popoverFade), value: model.settings)
         .overlay { DetailOverlay(store: model.claudex) }
+        .overlay { CalendarEventOverlay(store: model.calendar) }
         .overlay { CommandRunOverlay(runner: model.runner) }
         .overlay { ConfirmOverlay(confirmer: model.confirmer) }
         .foregroundStyle(model.tokens.text)

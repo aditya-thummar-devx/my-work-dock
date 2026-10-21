@@ -24,6 +24,12 @@ BUILD=$(git rev-list --count HEAD)
 
 DMG=$(VERSION=$VER BUILD=$BUILD scripts/make-dmg.sh | tail -1)
 
+# My Calendar's Google client is baked into the app at build time. Empty values still build, but ship a tab that cannot sign in.
+for key in GoogleClientID GoogleClientSecret; do
+  [ -n "$(/usr/libexec/PlistBuddy -c "Print :$key" build/Build/Products/Release/MyWorkDock.app/Contents/Info.plist 2>/dev/null)" ] ||
+    { echo "$key is empty in the built app: add Config/GoogleOAuth.xcconfig (see README) or the GOOGLE_OAUTH_* Actions secrets. Nothing published." >&2; exit 1; }
+done
+
 UPDATES=build/updates
 rm -rf "$UPDATES" && mkdir -p "$UPDATES"
 cp "$DMG" "$UPDATES/"

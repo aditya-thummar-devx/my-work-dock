@@ -76,6 +76,86 @@ struct PeekInfoView: View {
     }
 }
 
+extension Geo.Peek {
+    /// Today's events row. The shell is at least `eventsMinWidth` wide while it shows, so a title has room beside its time.
+    static let eventsMinWidth: CGFloat = 420
+    static let eventsShown = 3
+    static let eventsPadX: CGFloat = 20
+    static let eventsDivider: CGFloat = 1
+    /// Between the divider and the first row, and under the last one.
+    static let eventsTop: CGFloat = 6
+    static let eventsBottom: CGFloat = 14
+    static let eventRow: CGFloat = 24
+    static let eventsMore: CGFloat = 20
+    static let eventsTimeWidth: CGFloat = 64
+}
+
+/// The row under the ears: what is left of today, `● 10:30 AM  Client call ......... in 25 min`. Clicking an event opens it in
+/// My Calendar; clicking anywhere else on the row is the caller's (it opens My Calendar on today).
+struct PeekEventsView: View {
+    var events: PeekEvents
+    var onEvent: (CalendarEvent) -> Void = { _ in }
+    @Environment(\.tokens) private var t
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Rectangle().fill(t.line).frame(height: Geo.Peek.eventsDivider).padding(.horizontal, Geo.Peek.eventsPadX)
+            VStack(alignment: .leading, spacing: 0) {
+                if events.rows.isEmpty {
+                    Text("No more events today")
+                        .font(Typo.ui(12.5, .semibold))
+                        .foregroundStyle(t.faint)
+                        .frame(height: Geo.Peek.eventRow)
+                } else {
+                    ForEach(events.rows) { row in
+                        PeekEventRow(event: row, now: events.now)
+                            .contentShape(Rectangle())
+                            .onTapGesture { onEvent(row.event) }
+                            .accessibilityElement(children: .combine)
+                            .accessibilityHint("Opens the event in My Calendar")
+                            .accessibilityAddTraits(.isButton)
+                            .accessibilityAction { onEvent(row.event) }
+                    }
+                    if events.more > 0 {
+                        Text("+\(events.more) more today")
+                            .font(Typo.ui(11.5, .semibold))
+                            .foregroundStyle(t.faint)
+                            .frame(height: Geo.Peek.eventsMore, alignment: .leading)
+                    }
+                }
+            }
+            .padding(.horizontal, Geo.Peek.eventsPadX)
+            .padding(.top, Geo.Peek.eventsTop)
+        }
+        .frame(maxWidth: .infinity, alignment: .topLeading)
+        .frame(height: events.height, alignment: .top)
+        .foregroundStyle(t.text)
+        .contentShape(Rectangle())
+    }
+}
+
+private struct PeekEventRow: View {
+    var event: PeekEvent
+    var now: Date
+    @Environment(\.tokens) private var t
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Circle().fill(Color(hex: event.color)).frame(width: 8, height: 8)
+            Text(event.start.formatted(date: .omitted, time: .shortened))
+                .font(Typo.ui(12, .semibold))
+                .foregroundStyle(t.text2)
+                .frame(width: Geo.Peek.eventsTimeWidth, alignment: .leading)
+            Text(event.title).font(Typo.ui(12.5, .semibold)).lineLimit(1)
+            Spacer(minLength: 8)
+            Text(PeekEvents.timing(from: event.start, now: now))
+                .font(Typo.ui(11.5, .semibold))
+                .foregroundStyle(event.start <= now ? t.green : t.faint)
+        }
+        .frame(height: Geo.Peek.eventRow)
+    }
+}
+
 /// Peek with nothing to show: it invites a click.
 struct PeekHintView: View {
     @Environment(\.tokens) private var t

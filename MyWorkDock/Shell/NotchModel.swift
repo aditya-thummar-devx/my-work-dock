@@ -6,12 +6,6 @@ typealias DisplayID = CGDirectDisplayID
 enum MainTab: String, CaseIterable, Identifiable {
     case clipboard, calendar, notes, claudex, emulator
 
-    /// ponytail: My Calendar is DEBUG-only until its last PR lands, because anything on `main` ships with the next release.
-    /// PR 3 deletes this and `Feature.calendarShipped`.
-    static var allCases: [MainTab] {
-        Feature.calendarShipped ? [.clipboard, .calendar, .notes, .claudex, .emulator] : [.clipboard, .notes, .claudex, .emulator]
-    }
-
     var id: String { rawValue }
     var label: String {
         switch self {
@@ -43,19 +37,6 @@ enum MainTab: String, CaseIterable, Identifiable {
 /// What Settings › Menus can switch off. The raw values are stored in UserDefaults.
 enum Feature: String, CaseIterable, Identifiable {
     case clipboard, calendar, notes, claudex, emulator, localIP
-
-    /// See `MainTab.allCases`.
-    static var calendarShipped: Bool {
-        #if DEBUG
-        true
-        #else
-        false
-        #endif
-    }
-
-    static var allCases: [Feature] {
-        calendarShipped ? [.clipboard, .calendar, .notes, .claudex, .emulator, .localIP] : [.clipboard, .notes, .claudex, .emulator, .localIP]
-    }
 
     var id: String { rawValue }
     var label: String {
@@ -127,6 +108,10 @@ final class NotchModel {
     var bootingOverride: String?
     private(set) var peek = SampleData.peekPool
     private(set) var peekExtents = PeekExtents(left: 0, right: 0)
+    /// The events row under the ears (Settings › Peek › Today's events); nil when it is off or nothing is loaded to show. Stored,
+    /// not computed: the window layer reads the geometry on every pointer move, so this is re-read only when hover starts and
+    /// when a fetch lands.
+    private(set) var peekEvents: PeekEvents?
     /// Settings › Menus: also draw the shell on every other display. Off = one shell on the notch (or pointer) display.
     private(set) var showOnAllDisplays = false
     /// Settings › Version: "1.0 (1)", and when this version first ran here (an install or an update). nil in snapshots and tests.
@@ -174,10 +159,7 @@ final class NotchModel {
             tint = defaults.string(forKey: "tint").flatMap(Tint.init(rawValue:)) ?? .lime
             panelSize = defaults.string(forKey: "panelSize").flatMap(PanelSize.init(rawValue:)) ?? .medium
             disabled = Set((defaults.stringArray(forKey: "disabledFeatures") ?? []).compactMap(Feature.init(rawValue:)))
-            if let saved = defaults.stringArray(forKey: "peekSources") {
-                let on = Set(saved.compactMap(PeekSource.init(rawValue:)))
-                peekOn = on.contains(.claudex) ? [.claudex] : on
-            }
+            if let saved = defaults.stringArray(forKey: "peekSources") { peekOn = PeekSource.restored(saved) }
             showOnAllDisplays = defaults.bool(forKey: "showOnAllDisplays")
             if defaults.string(forKey: "seenVersion") != version {
                 defaults.set(version, forKey: "seenVersion")
@@ -213,6 +195,29 @@ final class NotchModel {
     func refreshPeek() {
         let data = claudex.peekData
         if data != peek { setPeek(data) }
+    }
+
+    /// Hover began (or the row was just switched on): show what is cached at once, ask Google for fresh events (reused for 60 s),
+    /// and show those when they land. The only time the peek talks to the network; nothing polls.
+    private func loadPeekEvents() {
+        refreshPeekEvents()
+        guard isPeekEnabled(.events), isEnabled(.calendar) else { return }
+        Task {
+            await calendar.refreshToday()
+            refreshPeekEvents()
+        }
+    }
+
+    /// Re-reads today's events for the row under the ears: the next three that are not over, and how many more.
+    func refreshPeekEvents() {
+        var next: PeekEvents?
+        if isPeekEnabled(.events), isEnabled(.calendar), let upcoming = calendar.upcomingToday() {
+            let rows = upcoming.prefix(Geo.Peek.eventsShown).map(PeekEvent.init)
+            next = PeekEvents(rows: rows, more: upcoming.count - rows.count, now: calendar.now())
+        }
+        guard next != peekEvents else { return }
+        peekEvents = next
+        changed()
     }
 
     // MARK: Derived
@@ -266,8 +271,10 @@ final class NotchModel {
                 ShellGeometry(width: Geo.idle.width, height: Geo.idle.height, radius: Geo.idle.radius)
             }
         case .peek:
-            ShellGeometry(width: Geo.keepOutWidth + shownPeekExtents.left + shownPeekExtents.right,
-                          height: Geo.peek.height, radius: Geo.peek.radius,
+            // The events row hangs under the ears: the shell grows by its height and is wide enough for a title. The extra width is
+            // split evenly, so the ears stay where they were against the notch.
+            ShellGeometry(width: max(Geo.keepOutWidth + shownPeekExtents.left + shownPeekExtents.right, peekEvents == nil ? 0 : Geo.Peek.eventsMinWidth),
+                          height: Geo.peek.height + (peekEvents?.height ?? 0), radius: Geo.peek.radius,
                           centerOffset: (shownPeekExtents.right - shownPeekExtents.left) / 2)
         case .live:
             ShellGeometry(width: Geo.live.width, height: Geo.live.height, radius: Geo.live.radius)
@@ -286,6 +293,7 @@ final class NotchModel {
             guard !hover || cancelLeave != nil else { return }
             clearLeaveTimer()
             if !hover, isPeekEnabled(.claudex), isEnabled(.claudex) { Task { await claudex.refresh() } } // reads are cached for 60 s
+            if !hover { loadPeekEvents() }
             hover = true
             changed()
         } else if hover, cancelLeave == nil {
@@ -303,6 +311,7 @@ final class NotchModel {
             settings = false
             claudex.closeDetail()
             clipboard.closeMenus()
+            calendar.closeMenus()
         }
         changed()
     }
@@ -336,6 +345,7 @@ final class NotchModel {
         mainTab = tab
         claudex.closeDetail()
         clipboard.closeMenus()
+        calendar.closeMenus()
         notes.cancelEdit()
         commands.cancelEdit()
         prompts.cancelEdit()
@@ -358,7 +368,7 @@ final class NotchModel {
         }
         switch mainTab {
         case .clipboard: break
-        case .calendar: break
+        case .calendar: calendar.cycleMode()
         case .notes: setNotesTab(next(notesTab))
         case .claudex: claudex.select(next(claudex.tab))
         case .emulator: setEmulatorTab(next(emulatorTab))
@@ -479,6 +489,7 @@ final class NotchModel {
         settings = false
         claudex.closeDetail()
         clipboard.closeMenus()
+        calendar.closeMenus()
         changed()
     }
 
@@ -493,6 +504,20 @@ final class NotchModel {
         if mainTab != tab { setMainTab(tab) }
         if let sub, notesTab != sub { setNotesTab(sub) } // guarded: setNotesTab drops drafts and search
         if open { changed() } else { openPanel() }
+    }
+
+    /// A click on the peek's events (not on one of them): the panel opens on My Calendar, jumped to today. The Month / Week / Day
+    /// choice stays.
+    func showToday() {
+        calendar.go(.today)
+        show(.calendar)
+    }
+
+    /// A click on one event in the peek: the panel opens on My Calendar at that event, scrolled to it, with its sheet open, as if it
+    /// had been clicked in the grid. The tab is shown first: switching to it closes the calendar's sheet.
+    func showEvent(_ event: CalendarEvent) {
+        show(.calendar)
+        calendar.reveal(event, on: calendar.now())
     }
 
     func togglePin() {
@@ -532,16 +557,20 @@ final class NotchModel {
     }
 
     /// Settings › Peek. claudex on takes the whole hover and switches the others off; claudex off puts them all back on.
-    /// The others only change while claudex is off.
+    /// The others only change while claudex is off. Today's events are a row under whatever shows, so they change any time
+    /// and claudex leaves them as they are.
     func setPeekEnabled(_ source: PeekSource, _ on: Bool) {
         guard on != isPeekEnabled(source) else { return }
-        if source == .claudex {
-            peekOn = on ? [.claudex] : PeekSource.defaultOn
+        if source.isRow {
+            if on { peekOn.insert(source) } else { peekOn.remove(source) }
+        } else if source == .claudex {
+            peekOn = (on ? [.claudex] : PeekSource.defaultOn).union(peekOn.filter(\.isRow))
         } else {
             guard !isPeekEnabled(.claudex) else { return }
             if on { peekOn.insert(source) } else { peekOn.remove(source) }
         }
         defaults?.set(peekOn.map(\.rawValue).sorted(), forKey: "peekSources")
+        if source == .events { loadPeekEvents() } // on: fetch once now, so the first hover already has them; off: the row goes
         changed()
     }
 
