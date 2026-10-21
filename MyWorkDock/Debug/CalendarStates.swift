@@ -38,7 +38,19 @@ enum CalendarStates {
         }
     }
 
+    /// The panel as a click on an event in the peek leaves it: hover, then `showEvent`.
+    private static func peekClick(_ name: String, theme: ThemeMode = .dark, title: String) -> SnapshotRunner.State {
+        SnapshotRunner.State(name, .panel) {
+            $0.setTheme(theme)
+            $0.calendar.preview(.signedIn(email: "aditya.thummar@devxlabs.ai"))
+            $0.setPeekEnabled(.events, true)
+            $0.pointer(inside: true)
+            if let row = $0.peekEvents?.rows.first(where: { $0.title == title }) { $0.showEvent(row.event) }
+        }
+    }
+
     static let all: [SnapshotRunner.State] = [
+        peekClick("calendar-peek-click", title: "Hotfix triage"),
         peek("calendar-peek-events"),
         peek("calendar-peek-events-light", theme: .light),
         peek("calendar-peek-events-claudex", claudex: true),
