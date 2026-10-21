@@ -237,13 +237,15 @@ final class NotchModelTests: XCTestCase {
 
     func testFeatureRawValuesAreStable() {
         // Stored in UserDefaults as "disabledFeatures".
-        XCTAssertEqual(Feature.allCases.map(\.rawValue), ["clipboard", "notes", "claudex", "emulator", "localIP"])
+        XCTAssertEqual(Feature.allCases.map(\.rawValue), ["clipboard", "calendar", "notes", "claudex", "emulator", "localIP"])
     }
 
     func testDisablingTheCurrentMenuMovesToTheNextEnabledOne() {
         model.setMainTab(.notes)
         model.setEnabled(.clipboard, false)
         model.setEnabled(.notes, false)
+        XCTAssertEqual(model.mainTab, .calendar) // the first enabled one takes over
+        model.setEnabled(.calendar, false)
         XCTAssertEqual(model.enabledTabs, [.claudex, .emulator])
         XCTAssertEqual(model.mainTab, .claudex)
         model.setEnabled(.claudex, false)
@@ -255,7 +257,37 @@ final class NotchModelTests: XCTestCase {
         XCTAssertEqual(model.mainTab, .notes)
     }
 
+    func testCalendarSitsBetweenClipboardAndNotes() {
+        XCTAssertEqual(MainTab.allCases, [.clipboard, .calendar, .notes, .claudex, .emulator])
+        XCTAssertEqual(MainTab.calendar.label, "My Calendar")
+        model.setMainTab(.clipboard)
+        model.cycleMainTab()
+        XCTAssertEqual(model.mainTab, .calendar)
+        model.cycleMainTab()
+        XCTAssertEqual(model.mainTab, .notes)
+    }
+
+    func testLeavingTheCalendarTabOrThePanelClosesItsEventSheet() {
+        model.calendar.preview(.signedIn(email: "me@devxlabs.ai"), selecting: "Dentist")
+        XCTAssertNotNil(model.calendar.selected)
+        model.setMainTab(.notes)
+        XCTAssertNil(model.calendar.selected)
+        model.calendar.preview(.signedIn(email: "me@devxlabs.ai"), selecting: "Dentist")
+        model.closePanel()
+        XCTAssertNil(model.calendar.selected)
+    }
+
+    func testSigningInKeepsTheUpdaterWaitingAndLeavingTheMenuCancelsIt() {
+        XCTAssertTrue(model.isIdle)
+        model.calendar.preview(.signingIn)
+        XCTAssertFalse(model.isIdle) // Sparkle must not relaunch the app while the browser flow runs
+        model.setEnabled(.calendar, false)
+        XCTAssertEqual(model.calendar.auth, .signedOut(nil))
+        XCTAssertTrue(model.isIdle)
+    }
+
     func testCycleMainTabWrapsAndSkipsDisabledMenus() {
+        model.setEnabled(.calendar, false)
         model.setMainTab(.clipboard)
         model.cycleMainTab()
         XCTAssertEqual(model.mainTab, .notes)
@@ -393,6 +425,7 @@ final class NotchModelTests: XCTestCase {
         model.setNotesTab(.commands)
         XCTAssertNotNil(model.activeSnippets)
         model.setEnabled(.clipboard, false)
+        model.setEnabled(.calendar, false)
         model.setEnabled(.claudex, false)
         model.setEnabled(.emulator, false)
         model.setEnabled(.notes, false) // mainTab stays .notes: nothing else to move to
@@ -417,7 +450,7 @@ final class NotchModelTests: XCTestCase {
 
     func testPeekSourceRawValuesAreStable() {
         // Stored in UserDefaults as "peekSources".
-        XCTAssertEqual(PeekSource.allCases.map(\.rawValue), ["claudex", "todo", "clipboard", "localIP"])
+        XCTAssertEqual(PeekSource.allCases.map(\.rawValue), ["claudex", "todo", "clipboard", "localIP", "events"])
     }
 
     private static let todo = PeekTodo(left: 3, done: 2)
@@ -519,5 +552,131 @@ final class NotchModelTests: XCTestCase {
         model.setEnabled(.claudex, false)
         model.setEnabled(.claudex, true)
         XCTAssertEqual(model.enabledTabs, MainTab.allCases)
+    }
+
+    // MARK: Today's events in the peek
+
+    /// Signed in on the sample Wednesday (10:30), the row switched on.
+    private func enableEvents(at now: Date? = nil) {
+        model.calendar.preview(.signedIn(email: "me@devxlabs.ai"))
+        if let now { model.calendar.now = { now } }
+        model.setPeekEnabled(.events, true)
+    }
+
+    func testTodaysEventsAreOffByDefaultAndClaudexNeitherTakesThemOffNorLocksThem() {
+        XCTAssertFalse(model.isPeekEnabled(.events))
+        model.setPeekEnabled(.events, true)
+        XCTAssertEqual(model.peekOn, [.todo, .clipboard, .localIP, .events])
+        model.setPeekEnabled(.claudex, true) // takes the ears, leaves the row
+        XCTAssertEqual(model.peekOn, [.claudex, .events])
+        model.setPeekEnabled(.events, false) // the row still changes while claudex is on
+        XCTAssertEqual(model.peekOn, [.claudex])
+        model.setPeekEnabled(.events, true)
+        model.setPeekEnabled(.claudex, false) // puts the ears back, keeps the row
+        XCTAssertEqual(model.peekOn, [.todo, .clipboard, .localIP, .events])
+    }
+
+    func testSavedPeekChoicesKeepTheRowAndClaudexStaysAloneAmongTheEars() {
+        XCTAssertEqual(PeekSource.restored(["claudex", "todo", "events"]), [.claudex, .events])
+        XCTAssertEqual(PeekSource.restored(["todo", "clipboard"]), [.todo, .clipboard])
+        XCTAssertEqual(PeekSource.restored(["events"]), [.events])
+        XCTAssertEqual(PeekSource.restored(["bogus"]), [])
+    }
+
+    func testThePeekGrowsByTheEventsRowAndTheEarsStayAgainstTheNotch() throws {
+        enableEvents()
+        model.pointer(inside: true)
+        let events = try XCTUnwrap(model.peekEvents)
+        XCTAssertEqual(events.rows.map(\.title), ["Client call: Asaya rollout", "Quarterly review prep", "Hotfix triage"]) // Standup is over, Gym is the "+1"
+        XCTAssertEqual(events.more, 1)
+        let ears = PeekMetrics.measure(PeekInfo(todo: Self.todo, clips: Self.clips, ip: Self.ip))
+        let g = model.geometry()
+        XCTAssertEqual(g.height, Geo.peek.height + events.height)
+        XCTAssertEqual(g.width, max(Geo.keepOutWidth + ears.left + ears.right, Geo.Peek.eventsMinWidth))
+        XCTAssertEqual(g.centerOffset, (ears.right - ears.left) / 2) // the notch keeps its place
+    }
+
+    func testTheRowSitsUnderClaudexToo() throws {
+        model.setPeekEnabled(.claudex, true)
+        enableEvents()
+        model.pointer(inside: true)
+        XCTAssertEqual(model.peekContent, .claudex)
+        let events = try XCTUnwrap(model.peekEvents)
+        XCTAssertEqual(model.geometry().height, Geo.peek.height + events.height)
+        XCTAssertEqual(model.geometry().width, max(Geo.keepOutWidth + model.peekExtents.left + model.peekExtents.right, Geo.Peek.eventsMinWidth))
+    }
+
+    func testTheRowNeedsSignInLoadedEventsAndTheMenu() {
+        model.setPeekEnabled(.events, true)
+        model.pointer(inside: true)
+        XCTAssertNil(model.peekEvents) // the sample store starts signed out
+        XCTAssertEqual(model.geometry().height, Geo.peek.height)
+        model.calendar.preview(.signedIn(email: "me@devxlabs.ai"))
+        model.refreshPeekEvents()
+        XCTAssertNotNil(model.peekEvents)
+        model.setEnabled(.calendar, false) // My Calendar off: its data is dropped and the row goes
+        model.refreshPeekEvents()
+        XCTAssertNil(model.peekEvents)
+    }
+
+    func testSwitchingTheRowOffRemovesItAtOnce() {
+        enableEvents()
+        XCTAssertNotNil(model.peekEvents)
+        model.setPeekEnabled(.events, false)
+        XCTAssertNil(model.peekEvents)
+    }
+
+    func testNothingLeftTodayShowsOneLine() throws {
+        enableEvents(at: CalendarSample.date(21, 20, 0))
+        model.pointer(inside: true)
+        let events = try XCTUnwrap(model.peekEvents)
+        XCTAssertTrue(events.rows.isEmpty)
+        XCTAssertEqual(events.more, 0)
+        XCTAssertEqual(events.height, Geo.Peek.eventsDivider + Geo.Peek.eventsTop + Geo.Peek.eventRow + Geo.Peek.eventsBottom)
+        XCTAssertEqual(events.spoken, "No more events today")
+    }
+
+    func testClickingTheEventsOpensMyCalendarOnToday() {
+        model.calendar.preview(.signedIn(email: "me@devxlabs.ai"))
+        model.calendar.go(.next) // the tab was left on next week
+        XCTAssertFalse(model.calendar.cal.isDate(model.calendar.anchor, inSameDayAs: model.calendar.now()))
+        model.pointer(inside: true)
+        model.showToday()
+        XCTAssertTrue(model.open)
+        XCTAssertEqual(model.mainTab, .calendar)
+        XCTAssertTrue(model.calendar.cal.isDate(model.calendar.anchor, inSameDayAs: model.calendar.now()))
+        XCTAssertEqual(model.calendar.mode, .week) // the view the user chose stays
+    }
+
+    func testClickingAnEventInThePeekOpensItInMyCalendarScrolledToIt() throws {
+        enableEvents()
+        model.mainTab = .notes // the panel was left on another tab
+        model.pointer(inside: true)
+        let hotfix = try XCTUnwrap(model.peekEvents?.rows.last).event // 10:45
+        model.showEvent(hotfix)
+        XCTAssertTrue(model.open)
+        XCTAssertEqual(model.mainTab, .calendar)
+        XCTAssertEqual(model.calendar.selected?.id, hotfix.id) // its sheet is open: switching to the tab did not close it
+        XCTAssertEqual(model.calendar.focus, hotfix.start) // and the grid scrolls to it
+        XCTAssertTrue(model.calendar.cal.isDate(model.calendar.anchor, inSameDayAs: model.calendar.now()))
+    }
+
+    func testTheRowIsSpokenAsTheNextEvents() throws {
+        enableEvents()
+        let events = try XCTUnwrap(model.peekEvents)
+        XCTAssertEqual(events.spoken, "Today: Client call: Asaya rollout, now. Quarterly review prep, now. Hotfix triage, in 15 min. 1 more")
+    }
+
+    func testEventTimingReadsNowThenMinutesThenHours() {
+        let now = CalendarSample.date(21, 10, 30)
+        func timing(_ seconds: TimeInterval) -> String { PeekEvents.timing(from: now.addingTimeInterval(seconds), now: now) }
+        XCTAssertEqual(timing(0), "now")
+        XCTAssertEqual(timing(-600), "now") // running
+        XCTAssertEqual(timing(30), "in 1 min") // rounds up
+        XCTAssertEqual(timing(15 * 60), "in 15 min")
+        XCTAssertEqual(timing(59 * 60), "in 59 min")
+        XCTAssertEqual(timing(60 * 60), "in 1 h")
+        XCTAssertEqual(timing(65 * 60), "in 1 h 5 min")
+        XCTAssertEqual(timing(8 * 3600 + 120), "in 8 h 2 min")
     }
 }

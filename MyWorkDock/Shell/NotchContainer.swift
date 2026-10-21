@@ -98,26 +98,37 @@ struct NotchContainer: View {
                 .accessibilityAction { model.openPanel() }
                 .transition(.identity)
         case .peek:
-            Group {
-                switch model.peekContent {
-                case .claudex:
-                    PeekView(data: model.peek, extents: model.peekExtents)
-                        .accessibilityElement()
-                        .accessibilityLabel("\(model.peek.name), \(model.peek.isPool ? "pool" : "single sign-on"). " + model.peek.bars.map { "\($0.label) \($0.percent.map { "\($0) percent" } ?? "no reading")" }.joined(separator: ", "))
-                case .info(let info):
-                    PeekInfoView(info: info)
-                        .accessibilityElement()
-                        .accessibilityLabel(info.spoken)
-                case .hint:
-                    PeekHintView()
-                        .accessibilityElement()
-                        .accessibilityLabel("Tap to see magic")
+            VStack(spacing: 0) {
+                Group {
+                    switch model.peekContent {
+                    case .claudex:
+                        PeekView(data: model.peek, extents: model.peekExtents)
+                            .accessibilityElement()
+                            .accessibilityLabel("\(model.peek.name), \(model.peek.isPool ? "pool" : "single sign-on"). " + model.peek.bars.map { "\($0.label) \($0.percent.map { "\($0) percent" } ?? "no reading")" }.joined(separator: ", "))
+                    case .info(let info):
+                        PeekInfoView(info: info)
+                            .accessibilityElement()
+                            .accessibilityLabel(info.spoken)
+                    case .hint:
+                        PeekHintView()
+                            .accessibilityElement()
+                            .accessibilityLabel("Tap to see magic")
+                    }
+                }
+                .onTapGesture { model.openPanel() }
+                .accessibilityHint("Opens MyWorkDock")
+                .accessibilityAddTraits(.isButton)
+                .accessibilityAction { model.openPanel() }
+                // Under the ears, whatever they show: today's events. A click on an event opens it in My Calendar (scrolled to
+                // it, sheet open); a click anywhere else on the row opens My Calendar on today.
+                if let events = model.peekEvents {
+                    PeekEventsView(events: events, onEvent: model.showEvent)
+                        .onTapGesture { model.showToday() }
+                        .accessibilityElement(children: .contain)
+                        .accessibilityLabel("Today's events")
+                        .accessibilityAction(named: "Open My Calendar on today") { model.showToday() }
                 }
             }
-            .onTapGesture { model.openPanel() }
-            .accessibilityHint("Opens MyWorkDock")
-            .accessibilityAddTraits(.isButton)
-            .accessibilityAction { model.openPanel() }
             .modifier(Entrance(timing: Geo.fadePeekLive))
             .transition(Self.contentSwap)
         case .live:

@@ -6,6 +6,8 @@ import SwiftUI
 enum Glyph {
     case clipboard, notes, terminal, gauge, phone, tablet, pin, sliders, search, plus, refresh, close, check, copy, pencil, trash
     case wifi, arrows, chevronDown, play, stop, power, warning, monitor, arrowLeft, moon, sun, triangle, funnel, tag, globe, ring
+    case calendar
+    case clock, mapPin, video, users, bell, link, text, paperclip, recur, question, lock
 
     fileprivate enum Part {
         case path(String)
@@ -47,6 +49,18 @@ enum Glyph {
         case .tag: [.path("M3 12V4h8l10 10-8 8z"), .circle(cx: 7.5, cy: 7.5, r: 1.4)]
         case .globe: [.circle(cx: 12, cy: 12, r: 9), .path("M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18")]
         case .ring: [.circle(cx: 12, cy: 12, r: 8.5)]
+        case .calendar: [.rect(x: 3, y: 5, w: 18, h: 16, rx: 3), .path("M3 10h18M8 3v4M16 3v4")]
+        case .clock: [.circle(cx: 12, cy: 12, r: 9), .path("M12 7v5l3 2")]
+        case .mapPin: [.path("M21 10c0 7-9 13-9 13c0 0-9-6-9-13a9 9 0 0 1 18 0z"), .circle(cx: 12, cy: 10, r: 3)]
+        case .video: [.rect(x: 2, y: 5, w: 14, h: 14, rx: 2.5), .path("M22 8l-6 4 6 4z")]
+        case .users: [.path("M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"), .circle(cx: 9, cy: 7, r: 4), .path("M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75")]
+        case .bell: [.path("M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18c0 0-3-2-3-9"), .path("M13.73 21a2 2 0 0 1-3.46 0")]
+        case .link: [.path("M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"), .path("M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71")]
+        case .text: [.path("M17 10H3M21 6H3M21 14H3M17 18H3")]
+        case .paperclip: [.path("M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48")]
+        case .recur: [.path("M17 1l4 4-4 4M3 11V9a4 4 0 0 1 4-4h14M7 23l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3")]
+        case .question: [.circle(cx: 12, cy: 12, r: 10), .path("M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3M12 17h.01")]
+        case .lock: [.rect(x: 5, y: 11, w: 14, h: 10, rx: 2.5), .path("M8 11V8a4 4 0 0 1 8 0v3")]
         }
     }
 

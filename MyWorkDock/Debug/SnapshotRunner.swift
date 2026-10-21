@@ -112,7 +112,7 @@ enum SnapshotRunner {
 
     /// Names match the reference PNGs in `screenshots/artboards` and `screenshots/prototype`.
     /// States whose content isn't built yet are not listed; `compare-all.sh` reports them as missing.
-    static let states: [State] = screenStates + Fragments.all + [
+    static let states: [State] = screenStates + Fragments.all + CalendarStates.all + [
         State("settings-clipboard", .panel, content: .fragment(rect: CGRect(x: 260, y: 46, width: 480, height: 480),
                                                                view: { AnyView(SettingsPopover(theme: .dark, tint: .lime, page: .clipboard, clipboardLimit: 500)) })) { $0.openPanel() },
         // Settings › Menus: the popover keeps its natural height, so this shows whether every row still fits the panel.

@@ -38,6 +38,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let keys: [HotKey?] = [
             HotKey(keyCode: kVK_Space, modifiers: optionKey) { [weak controller] in controller?.model.togglePanel() },
             HotKey(keyCode: kVK_ANSI_V, modifiers: cmdShift) { [weak controller] in controller?.model.show(.clipboard) },
+            HotKey(keyCode: kVK_ANSI_M, modifiers: cmdShift) { [weak controller] in controller?.model.show(.calendar) },
             HotKey(keyCode: kVK_ANSI_T, modifiers: cmdShift) { [weak controller] in controller?.model.show(.notes, notes: .todo) },
             HotKey(keyCode: kVK_ANSI_C, modifiers: cmdShift) { [weak controller] in controller?.model.show(.notes, notes: .commands) },
             HotKey(keyCode: kVK_ANSI_P, modifiers: cmdShift) { [weak controller] in controller?.model.show(.notes, notes: .prompts) },
@@ -47,6 +48,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ]
         hotKeys = keys.compactMap { $0 }
         addStatusItem()
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        MainActor.assumeIsolated { controller?.model.runner.killNow() }
     }
 
     private func addStatusItem() {

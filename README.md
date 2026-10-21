@@ -1,6 +1,6 @@
 # MyWorkDock
 
-Your work dock, in the notch. Hover the top of your Mac's screen: clipboard history, notes, Claude account usage and simulator controls are one hover or one hotkey away.
+Your work dock, in the notch. Hover the top of your Mac's screen: clipboard history, your Google Calendar, notes, Claude account usage and simulator controls are one hover or one hotkey away.
 
 **📖 Documentation: https://aditya-thummar-devx.github.io/my-work-dock/**
 
@@ -9,6 +9,7 @@ Your work dock, in the notch. Hover the top of your Mac's screen: clipboard hist
 ## What is inside
 
 - **Clipboard**: searchable text history with tags and pins. Password managers are never recorded.
+- **My Calendar**: your Google Calendar by month, week or day, with the same event details Google shows. Read-only, for devxlabs.ai accounts.
 - **Notes**: TODOs, plus saved Commands, Prompts and Links.
 - **claudex**: usage gauges and account switching for the optional `claudex` CLI, plus **Tokens & cost**: what Claude Code used on this Mac, which works without it.
 - **Emulator**: start and stop iOS simulators and Android emulators, pair devices over Wi-Fi, run `adb reverse` tunnels.
@@ -44,6 +45,8 @@ cd my-work-dock
 xcodegen generate
 open MyWorkDock.xcodeproj
 ```
+
+My Calendar signs in with Google, so a build needs an OAuth client: a Desktop-app client from a Google Cloud project that has the Calendar API on. Copy `Config/GoogleOAuth.example.xcconfig` to `Config/GoogleOAuth.xcconfig` (gitignored) and fill it in. Without it the tab says sign-in is not configured and everything else works as usual.
 
 ## Releasing
 

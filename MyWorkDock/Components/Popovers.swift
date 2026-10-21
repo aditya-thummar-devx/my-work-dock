@@ -270,7 +270,8 @@ private struct MenusSection: View {
 }
 
 /// Settings › Peek: what hover shows. claudex alone takes the whole hover (the rest go off and are locked); with claudex off
-/// the TODO and clipboard counts show on the left of the notch and the Local IP on its right.
+/// the TODO and clipboard counts show on the left of the notch and the Local IP on its right. Today's events are a row under
+/// either, so claudex never locks them.
 private struct PeekSection: View {
     var on: Set<PeekSource>
     var disabled: Set<Feature>
@@ -284,12 +285,12 @@ private struct PeekSection: View {
                 ForEach(PeekSource.allCases) { source in
                     let isOn = on.contains(source)
                     // The others wait while claudex is on; a menu that is off can still be switched off here, never on.
-                    let locked = (source != .claudex && on.contains(.claudex)) || (disabled.contains(source.feature) && !isOn)
+                    let locked = (source != .claudex && !source.isRow && on.contains(.claudex)) || (disabled.contains(source.feature) && !isOn)
                     SwitchRow(label: source.label, glyph: source.glyph, on: isOn, locked: locked) { onPeek(source, !isOn) }
                 }
             }
             .padding(.top, Geo.Appearance.pullUp)
-            Text("claudex takes the whole hover and switches the rest off; switching it off turns them back on. Otherwise TODO and Clipboard counts show left of the notch and the IP on its right. Anything with nothing to show is hidden, and each needs its menu on in Menus.")
+            Text("claudex takes the whole hover and switches the rest off; switching it off turns them back on. Otherwise TODO and Clipboard counts show left of the notch and the IP on its right. Today's events add a row under whichever is showing, once you are signed in to My Calendar. Anything with nothing to show is hidden, and each needs its menu on in Menus.")
                 .font(Typo.ui(Geo.Appearance.noteFont))
                 .foregroundStyle(t.faint)
                 .lineSpacing(Typo.lineSpacing(size: Geo.Appearance.noteFont, lineHeight: 1.4))

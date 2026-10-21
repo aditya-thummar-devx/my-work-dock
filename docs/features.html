@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Features · MyWorkDock</title>
-<meta name="description" content="Everything MyWorkDock does: Clipboard, Notes, claudex, Emulator, the local IP chip, live activity and settings.">
+<meta name="description" content="Everything MyWorkDock does: Clipboard, My Calendar, Notes, claudex, Emulator, the local IP chip, live activity and settings.">
 <link rel="icon" href="assets/icon.png">
 <link rel="stylesheet" href="assets/style.css">
 <script src="assets/theme.js"></script>
@@ -25,8 +25,8 @@
 
 <main><div class="wrap">
   <h1>Features</h1>
-  <p class="lead">Four menus, a header chip and a settings page. Each menu can be switched off if you do not need it.</p>
-  <p>Jump to: <a href="#clipboard">Clipboard</a> · <a href="#notes">Notes</a> · <a href="#claudex">claudex</a> · <a href="#emulator">Emulator</a> · <a href="#header">Header</a> · <a href="#settings">Settings</a> · <a href="#data">Your data</a></p>
+  <p class="lead">Five menus, a header chip and a settings page. Each menu can be switched off if you do not need it.</p>
+  <p>Jump to: <a href="#clipboard">Clipboard</a> · <a href="#calendar">My Calendar</a> · <a href="#notes">Notes</a> · <a href="#claudex">claudex</a> · <a href="#emulator">Emulator</a> · <a href="#header">Header</a> · <a href="#settings">Settings</a> · <a href="#data">Your data</a></p>
 
   <h2 id="clipboard">Clipboard</h2>
   <p>A searchable history of text you copy. Open it with <kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>V</kbd>.</p>
@@ -41,6 +41,21 @@
     <li><strong>Copy back</strong> with the Copy button or a double-click.</li>
     <li><strong>Privacy:</strong> copies from password managers (1Password, Bitwarden, Apple Passwords, Keychain Access, KeePassXC) and anything an app marks secret are never recorded. Clips longer than 50,000 characters are ignored.</li>
     <li><strong>Limit:</strong> keeps the last 200 untagged clips by default. Change it in Settings › Clipboard (1 to 1000).</li>
+  </ul>
+
+  <h2 id="calendar">My Calendar</h2>
+  <p>Your Google Calendar in the panel, read-only. Open it with <kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>M</kbd>. <strong>Sign in with Google</strong> once with your <code>devxlabs.ai</code> account: the browser opens, you approve read-only access to your calendars, and the panel comes back on this tab. Other kinds of Google account are not accepted.</p>
+  <figure class="shot">
+    <img src="assets/shots/calendar.png" alt="My Calendar tab showing a week of events on a time grid" width="1400" height="867">
+  </figure>
+  <ul>
+    <li><strong>Month, Week and Day</strong> like Google Calendar. <kbd>⇧</kbd> <kbd>Tab</kbd> cycles them, the arrows step back and forward, <strong>Today</strong> jumps to now, and the last view you used is remembered. Click a day in Month to open it.</li>
+    <li><strong>Events sit in their time slot</strong>, side by side when they overlap, with a red line for now. All-day events go in a row above the grid. A multi-day event shows on each of its days. Events you declined are struck through.</li>
+    <li><strong>Click an event</strong> for the same details Google shows: when, how often it repeats, a <strong>Join with Google Meet</strong> button (and a copy button) with the dial-in number, the location (opens in Maps), the guests and who has said yes, no or maybe, reminders, the calendar it is on, the description and attachments. <strong>Open in Google Calendar</strong> takes you to the full event. <kbd>Esc</kbd> closes the sheet.</li>
+    <li><strong>Calendars:</strong> the calendar button in the header lists every calendar on the account. Tick the ones to show. Your choice is remembered.</li>
+    <li><strong>Sign out</strong> is in the same menu. If Google ever stops accepting the saved sign-in, the tab asks you to sign in again.</li>
+    <li><strong>In the peek:</strong> switch on Settings › Peek › Today’s events and hovering the notch also lists what is left of your day, such as “Client call · now” and “Hotfix triage · in 15 min”. Click one to jump to it in the grid with its details open. Timed events only; ones you declined are left out.</li>
+    <li><strong>Read-only:</strong> you cannot create, edit or answer invitations here. Use Google Calendar for that.</li>
   </ul>
 
   <h2 id="notes">Notes</h2>
@@ -122,8 +137,8 @@
     <thead><tr><th>Page</th><th>What you can change</th></tr></thead>
     <tbody>
       <tr><td><strong>Appearance</strong></td><td>Theme: System, Dark or Light. Tint: lime (default), blue, purple, pink, orange, yellow, green or teal. Panel size: Medium, or Large (three quarters of the display).</td></tr>
-      <tr><td><strong>Menus</strong></td><td>Switch Clipboard, Notes, claudex, Emulator and Local IP on or off. A menu that is off is hidden and stops everything it runs in the background. Also <strong>Show on all displays</strong>.</td></tr>
-      <tr><td><strong>Peek</strong></td><td>What hover shows. claudex usage is off by default; switching it on takes the whole hover and switches the rest off. Otherwise the TODO counts (not done, done) and clipboard counts (total, pinned) show left of the notch and the local IP on its right. Anything with nothing to show is hidden, and each needs its menu on.</td></tr>
+      <tr><td><strong>Menus</strong></td><td>Switch Clipboard, My Calendar, Notes, claudex, Emulator and Local IP on or off. A menu that is off is hidden and stops everything it runs in the background (My Calendar stops talking to Google). Also <strong>Show on all displays</strong>.</td></tr>
+      <tr><td><strong>Peek</strong></td><td>What hover shows. claudex usage is off by default; switching it on takes the whole hover and switches the rest off. Otherwise the TODO counts (not done, done) and clipboard counts (total, pinned) show left of the notch and the local IP on its right. Anything with nothing to show is hidden, and each needs its menu on. <strong>Today’s events</strong> (off by default) add a row under whichever is showing, claudex included: the next three events today that are not over yet, with how long until each starts. Click an event to open it in My Calendar, scrolled to it with its details open; click elsewhere on the row to open My Calendar on today. It needs My Calendar signed in, and it asks Google only when you hover (at most once a minute).</td></tr>
       <tr><td><strong>Clipboard</strong></td><td>How many untagged clips to keep (1 to 1000, default 200). Lowering it deletes the oldest ones, so it asks first.</td></tr>
       <tr><td><strong>Version</strong></td><td>Current version, when it last updated, and <strong>Check for updates</strong>.</td></tr>
     </tbody>
@@ -134,7 +149,7 @@
   </figure>
 
   <h2 id="data">Your data</h2>
-  <p>Everything is stored locally. See <a href="troubleshooting.html#data">where your data lives</a>.</p>
+  <p>Everything is stored locally. See <a href="troubleshooting.html#data">where your data lives</a>. Calendar events come straight from Google and are kept in memory only, for a minute at a time: nothing from your calendar is written to disk. Only the Google sign-in itself is saved, in a private file, until you sign out.</p>
 </div></main>
 
 <footer class="site-footer"><div class="wrap">
