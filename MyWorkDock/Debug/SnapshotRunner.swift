@@ -480,6 +480,42 @@ enum SnapshotRunner {
             $0.claudex.select(.health)
             $0.openPanel()
         },
+        // No reference design: Tokens & cost, from Claude Code's transcripts. It works with claudex missing (only that tab is left).
+        State("58-claudex-tokens", .panel) {
+            $0.mainTab = .claudex
+            $0.claudex.select(.tokens)
+            $0.openPanel()
+        },
+        State("59-claudex-tokens-partial", .panel) {
+            $0.mainTab = .claudex
+            $0.claudex.select(.tokens)
+            $0.claudeUsage.showSamplePartial()
+            $0.openPanel()
+        },
+        State("60-claudex-missing-tokens", .panel) {
+            $0.mainTab = .claudex
+            $0.claudex.showSampleUnavailable()
+            $0.openPanel()
+        },
+        State("61-claudex-tokens-empty", .panel) {
+            $0.mainTab = .claudex
+            $0.claudex.select(.tokens)
+            $0.claudeUsage.showSampleEmpty()
+            $0.openPanel()
+        },
+        State("62-claudex-tokens-loading", .panel) {
+            $0.mainTab = .claudex
+            $0.claudex.select(.tokens)
+            $0.claudeUsage.showSampleLoading()
+            $0.openPanel()
+        },
+        State("63-light-claudex-tokens", .panel) {
+            $0.setTheme(.light)
+            $0.mainTab = .claudex
+            $0.claudex.select(.tokens)
+            $0.claudeUsage.showSamplePartial()
+            $0.openPanel()
+        },
         State("02-notes-todo", .artboard) {
             $0.notes.pickTodoTag("bug")
             $0.notes.openSearch()

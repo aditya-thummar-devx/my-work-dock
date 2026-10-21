@@ -91,6 +91,7 @@ final class NotchModel {
     let runner: CommandRunner
     let emulator: EmulatorStore
     let claudex: ClaudexStore
+    let claudeUsage: ClaudeUsageStore
     let localIP: LocalIPStore
     let calendar: CalendarStore
     /// The user's choice; `resolvedTheme` is what is drawn.
@@ -177,6 +178,7 @@ final class NotchModel {
         runner = CommandRunner()
         emulator = sample ? EmulatorStore(sample: false, confirmer: confirmer) : EmulatorStore(confirmer: confirmer)
         claudex = sample ? ClaudexStore(sample: true, confirmer: confirmer) : ClaudexStore(confirmer: confirmer)
+        claudeUsage = sample ? ClaudeUsageStore(sample: true) : ClaudeUsageStore()
         localIP = sample ? .sample() : .live()
         calendar = sample ? .sample() : .live(confirmer: confirmer)
         if !sample { peek = claudex.peekData } // snapshots keep the prototype's POOL sample
@@ -588,7 +590,10 @@ final class NotchModel {
         if apply(.localIP) {
             if isEnabled(.localIP) { localIP.startMonitoring() } else { localIP.stopMonitoring() }
         }
-        if apply(.claudex), isEnabled(.claudex) { Task { await claudex.refresh() } }
+        if apply(.claudex), isEnabled(.claudex) {
+            Task { await claudex.refresh() }
+            claudeUsage.startIfActive()
+        }
         if apply(.calendar), !isEnabled(.calendar) { calendar.stop() }
     }
 

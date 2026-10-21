@@ -80,7 +80,7 @@
   <p>In Commands, Prompts and Links, a double-click copies the item.</p>
 
   <h2 id="claudex">claudex</h2>
-  <p>A front-end for the <code>claudex</code> command-line tool, which manages several Claude accounts. <strong>This tab needs <code>claudex</code> installed and on your PATH</strong>; without it the tab shows “claudex is not available” with the reason and a <strong>Retry</strong> button (switch the menu off in Settings › Menus if you do not use it). Open it with <kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>X</kbd>.</p>
+  <p>A front-end for the <code>claudex</code> command-line tool, which manages several Claude accounts, plus <strong>Tokens &amp; cost</strong>, which does not need it. <strong>Usage, Pool, Playground and Health need <code>claudex</code> installed and on your PATH</strong>; without it they are hidden behind a “claudex is not available” note with the reason and a <strong>Retry</strong> button, and only Tokens &amp; cost is left. Open it with <kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>X</kbd>.</p>
   <figure class="shot">
     <img src="assets/shots/claudex.png" alt="claudex tab with session and weekly usage gauges per account" width="1400" height="867">
   </figure>
@@ -89,9 +89,15 @@
     <li><strong>Pool:</strong> accounts pooled behind one auto-failover proxy. Allow or deny members, switch, view details, start or stop the pool, and enable autoswitch.</li>
     <li><strong>Playground:</strong> run claudex commands (usage, list, current account, doctor and more) and see the output.</li>
     <li><strong>Health:</strong> claudex doctor results: what is on, wired or failing.</li>
+    <li><strong>Tokens &amp; cost:</strong> what Claude Code used on this Mac, in four cards: the last 5 hours (rolling), today, this month and last month. Each shows the tokens (all kinds, cache reads included) and what they would cost at API list prices. That is an estimate, not your plan’s bill. It reads Claude Code’s own transcripts in <code>~/.claude/projects</code> (every account and subagent), so it needs no claudex. The first look takes a few seconds, then it updates every minute while the tab is open.</li>
+    <li>Claude Code deletes a transcript 30 days after its last write, so MyWorkDock keeps daily totals of its own from the first time it looks (it also looks each time the app starts, once you have opened the tab). A month that began before that, or that includes a stretch of more than 30 days in which MyWorkDock did not look, is marked <strong>partial</strong>, with the day from which its numbers are complete.</li>
     <li>The hover <strong>peek</strong> shows the 5-hour and weekly rings for the active account when you switch it on in Settings › Peek. It then takes the whole peek.</li>
     <li>Results are cached for 60 seconds (use <strong>Refresh</strong>). Any change, such as switching or removing an account, asks you to confirm first. If claudex output looks unfamiliar the tab shows the raw text with a ⚠ instead of guessing.</li>
   </ul>
+
+  <figure class="shot">
+    <img src="assets/shots/claudex-tokens.png" alt="Tokens and cost tab with cards for the last 5 hours, today, this month and last month" width="1400" height="867">
+  </figure>
 
   <h2 id="emulator">Emulator</h2>
   <p>Control iOS simulators and Android emulators without opening Xcode or Android Studio. Open it with <kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>E</kbd>. iOS needs Xcode; Android needs the Android SDK (<code>adb</code> and <code>emulator</code>). MyWorkDock looks in the usual places (such as <code>~/Library/Android/sdk</code> and Homebrew) before falling back to your shell.</p>

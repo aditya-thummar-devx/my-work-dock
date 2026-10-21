@@ -339,7 +339,7 @@ final class NotchModelTests: XCTestCase {
         model.cycleInnerTab()
         XCTAssertEqual(model.notesTab, .todo)
         model.setMainTab(.claudex)
-        for tab in [ClaudexTab.pool, .play, .health, .usage] {
+        for tab in [ClaudexTab.pool, .play, .health, .tokens, .usage] {
             model.cycleInnerTab()
             XCTAssertEqual(model.claudex.tab, tab)
         }
@@ -352,6 +352,21 @@ final class NotchModelTests: XCTestCase {
         model.cycleInnerTab()
         XCTAssertEqual(model.emulatorTab, .devices)
         XCTAssertEqual(model.mainTab, .emulator) // inner cycling never leaves the main menu
+    }
+
+    func testTokensAndCostStaysWhenClaudexIsMissing() {
+        model.claudex.showSampleUnavailable()
+        model.setMainTab(.claudex)
+        XCTAssertTrue(model.isEnabled(.claudex))
+        XCTAssertEqual(model.claudex.activeTab, .tokens)
+        model.cycleInnerTab() // the other four tabs cannot show anything: the cycle has nowhere to go
+        XCTAssertEqual(model.claudex.activeTab, .tokens)
+        model.claudex.select(.pool)
+        XCTAssertEqual(model.claudex.activeTab, .tokens)
+        model.show(.claudex) // the hotkey still opens it
+        XCTAssertTrue(model.open)
+        XCTAssertEqual(model.mainTab, .claudex)
+        XCTAssertNotNil(model.claudeUsage.snapshot)
     }
 
     func testCollapsingClosesTheDetailsSheet() throws {
