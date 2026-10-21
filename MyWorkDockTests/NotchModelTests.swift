@@ -633,6 +633,19 @@ final class NotchModelTests: XCTestCase {
         XCTAssertEqual(model.calendar.mode, .week) // the view the user chose stays
     }
 
+    func testClickingAnEventInThePeekOpensItInMyCalendarScrolledToIt() throws {
+        enableEvents()
+        model.mainTab = .notes // the panel was left on another tab
+        model.pointer(inside: true)
+        let hotfix = try XCTUnwrap(model.peekEvents?.rows.last).event // 10:45
+        model.showEvent(hotfix)
+        XCTAssertTrue(model.open)
+        XCTAssertEqual(model.mainTab, .calendar)
+        XCTAssertEqual(model.calendar.selected?.id, hotfix.id) // its sheet is open: switching to the tab did not close it
+        XCTAssertEqual(model.calendar.focus, hotfix.start) // and the grid scrolls to it
+        XCTAssertTrue(model.calendar.cal.isDate(model.calendar.anchor, inSameDayAs: model.calendar.now()))
+    }
+
     func testTheRowIsSpokenAsTheNextEvents() throws {
         enableEvents()
         let events = try XCTUnwrap(model.peekEvents)

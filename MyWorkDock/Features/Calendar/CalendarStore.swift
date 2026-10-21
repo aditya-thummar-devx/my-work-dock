@@ -58,6 +58,8 @@ final class CalendarStore {
     /// Any moment inside what is shown: the day, the week or the month.
     private(set) var anchor: Date
     var calendarsMenuOpen = false
+    /// An instant the hour grid scrolls to (an event opened from the peek), until the next navigation. nil: its usual spot.
+    private(set) var focus: Date?
     private(set) var selected: CalendarEvent?
     private(set) var detail = DetailState.loading
     /// "Copied" on the Meet link button for a moment.
@@ -133,12 +135,14 @@ final class CalendarStore {
 
     #if DEBUG
     /// Snapshots draw each state.
-    func preview(_ auth: Auth, mode: CalendarMode? = nil, menuOpen: Bool = false, selecting title: String? = nil, allGuests: Bool = false) {
+    func preview(_ auth: Auth, mode: CalendarMode? = nil, menuOpen: Bool = false, selecting title: String? = nil, allGuests: Bool = false,
+                 scrolledTo scrollTitle: String? = nil) {
         self.auth = auth
         if let mode { self.mode = mode }
         calendarsMenuOpen = menuOpen
         if let title, let event = visibleEvents.first(where: { $0.title == title }) { select(event) }
         if allGuests { showAllGuests() }
+        if let scrollTitle, let event = visibleEvents.first(where: { $0.title == scrollTitle }) { focus = event.start }
     }
     #endif
 
@@ -327,13 +331,25 @@ final class CalendarStore {
         case .previous: anchor = CalendarLayout.shifted(anchor, mode, by: -1, cal: cal)
         case .next: anchor = CalendarLayout.shifted(anchor, mode, by: 1, cal: cal)
         }
+        focus = nil
         reload()
     }
 
     func setMode(_ new: CalendarMode) {
         mode = new
+        focus = nil
         defaults?.set(new.rawValue, forKey: "calendarView")
         reload()
+    }
+
+    /// An event clicked in the peek: the view moves to `day`, the hour grid scrolls to where the event starts (or to midnight when
+    /// it began earlier) and its sheet opens, as if it had been clicked in the grid. The Month / Week / Day choice stays; Month has
+    /// no hours, so there it only opens the sheet.
+    func reveal(_ event: CalendarEvent, on day: Date) {
+        anchor = day
+        focus = max(event.start, cal.startOfDay(for: day))
+        reload()
+        select(event)
     }
 
     /// Shift+Tab: Month → Week → Day → Month.
@@ -353,6 +369,7 @@ final class CalendarStore {
     /// Leaving the tab, collapsing or leaving the panel: the menu and the event sheet go.
     func closeMenus() {
         calendarsMenuOpen = false
+        focus = nil
         closeDetail()
     }
 

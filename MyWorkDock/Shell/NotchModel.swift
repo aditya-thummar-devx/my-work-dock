@@ -200,7 +200,7 @@ final class NotchModel {
     func refreshPeekEvents() {
         var next: PeekEvents?
         if isPeekEnabled(.events), isEnabled(.calendar), let upcoming = calendar.upcomingToday() {
-            let rows = upcoming.prefix(Geo.Peek.eventsShown).map { PeekEvent(id: $0.id, title: $0.title, color: $0.color, start: $0.start, end: $0.end) }
+            let rows = upcoming.prefix(Geo.Peek.eventsShown).map(PeekEvent.init)
             next = PeekEvents(rows: rows, more: upcoming.count - rows.count, now: calendar.now())
         }
         guard next != peekEvents else { return }
@@ -435,10 +435,18 @@ final class NotchModel {
         if open { changed() } else { openPanel() }
     }
 
-    /// A click on the peek's events: the panel opens on My Calendar, jumped to today. The Month / Week / Day choice stays.
+    /// A click on the peek's events (not on one of them): the panel opens on My Calendar, jumped to today. The Month / Week / Day
+    /// choice stays.
     func showToday() {
         calendar.go(.today)
         show(.calendar)
+    }
+
+    /// A click on one event in the peek: the panel opens on My Calendar at that event, scrolled to it, with its sheet open, as if it
+    /// had been clicked in the grid. The tab is shown first: switching to it closes the calendar's sheet.
+    func showEvent(_ event: CalendarEvent) {
+        show(.calendar)
+        calendar.reveal(event, on: calendar.now())
     }
 
     func togglePin() {

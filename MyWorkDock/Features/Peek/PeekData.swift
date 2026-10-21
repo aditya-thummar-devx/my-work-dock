@@ -71,13 +71,16 @@ enum PeekSource: String, CaseIterable, Identifiable {
     }
 }
 
-/// One line of the events row: a timed event that is still to come today, or running now.
+/// One line of the events row: a timed event that is still to come today, or running now. It keeps the whole event so a click
+/// can open it in My Calendar.
 struct PeekEvent: Hashable, Identifiable {
-    var id: String
-    var title: String
-    var color: UInt32
-    var start: Date
-    var end: Date
+    var event: CalendarEvent
+
+    var id: String { event.id }
+    var title: String { event.title }
+    var color: UInt32 { event.color }
+    var start: Date { event.start }
+    var end: Date { event.end }
 }
 
 /// The row under the ears: the next events today (at most `Geo.Peek.eventsShown`) and how many more there are. With no rows it

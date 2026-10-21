@@ -14,11 +14,13 @@ enum CalendarStates {
     }
 
     /// The signed-in views on the sample week (Wed 21 Oct 2026, 10:30); no network.
-    private static func grid(_ name: String, theme: ThemeMode = .dark, _ mode: CalendarMode, menuOpen: Bool = false, selecting title: String? = nil, allGuests: Bool = false) -> SnapshotRunner.State {
+    private static func grid(_ name: String, theme: ThemeMode = .dark, _ mode: CalendarMode, menuOpen: Bool = false, selecting title: String? = nil, allGuests: Bool = false,
+                             scrolledTo scrollTitle: String? = nil) -> SnapshotRunner.State {
         SnapshotRunner.State(name, .panel) {
             $0.setTheme(theme)
             $0.mainTab = .calendar
-            $0.calendar.preview(.signedIn(email: "aditya.thummar@devxlabs.ai"), mode: mode, menuOpen: menuOpen, selecting: title, allGuests: allGuests)
+            $0.calendar.preview(.signedIn(email: "aditya.thummar@devxlabs.ai"), mode: mode, menuOpen: menuOpen, selecting: title, allGuests: allGuests,
+                                scrolledTo: scrollTitle)
             $0.openPanel()
         }
     }
@@ -46,6 +48,8 @@ enum CalendarStates {
             SettingsPopover(theme: .dark, tint: .lime, peekOn: [.claudex, .events], page: .peek)
         },
         grid("calendar-week", .week),
+        // What an event clicked in the peek scrolls the grid to: an hour above it (Gym starts at 18:30).
+        grid("calendar-week-scrolled", .week, scrolledTo: "Gym"),
         grid("calendar-week-light", theme: .light, .week),
         grid("calendar-month", .month),
         grid("calendar-month-light", theme: .light, .month),

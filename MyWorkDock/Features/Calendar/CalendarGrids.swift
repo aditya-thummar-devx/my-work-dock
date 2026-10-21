@@ -188,6 +188,8 @@ struct CalendarTimeGrid: View {
         var first: Date?
         var mode: CalendarMode
         var hour: Int
+        /// Part of the key so that revealing an event scrolls even when it sits at the hour the grid is already on.
+        var focus: Date?
     }
 
     var body: some View {
@@ -288,7 +290,7 @@ struct CalendarTimeGrid: View {
             } else {
                 ScrollViewReader { proxy in
                     ScrollView(showsIndicators: false) { content }
-                        .task(id: ScrollKey(first: days.first, mode: store.mode, hour: first)) {
+                        .task(id: ScrollKey(first: days.first, mode: store.mode, hour: first, focus: store.focus)) {
                             await Task.yield()
                             proxy.scrollTo(first, anchor: .top)
                         }
@@ -323,11 +325,14 @@ struct CalendarTimeGrid: View {
         return date.formatted(.dateTime.hour())
     }
 
-    /// Where the hour grid opens: an hour before now when today is on screen, else an hour before the earliest timed event (9 am without any).
+    /// Where the hour grid opens: an hour before the event the peek sent us to, else an hour before now when today is on screen, else
+    /// an hour before the earliest timed event (9 am without any).
     private func startHour(_ days: [Date], _ perDay: [[CalendarEvent]]) -> Int {
         let cal = store.cal
         let hour: Int
-        if days.contains(where: { cal.isDate($0, inSameDayAs: store.now()) }) {
+        if let focus = store.focus, days.contains(where: { cal.isDate($0, inSameDayAs: focus) }) {
+            hour = cal.component(.hour, from: focus) - 1
+        } else if days.contains(where: { cal.isDate($0, inSameDayAs: store.now()) }) {
             hour = cal.component(.hour, from: store.now()) - 1
         } else {
             let earliest = perDay.flatMap { $0 }.filter { !CalendarLayout.isWide($0) }.map { cal.component(.hour, from: $0.start) }.min()

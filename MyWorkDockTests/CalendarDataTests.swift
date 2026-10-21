@@ -375,6 +375,34 @@ final class CalendarDataTests: XCTestCase {
         XCTAssertEqual(store.upcomingToday()?.filter { $0.calendarID == "cal-a" }.map(\.title), ["New"])
     }
 
+    func testRevealMovesToTodayFocusesTheEventAndOpensItsSheet() async throws {
+        let store = makeStore()
+        await store.refresh()
+        let event = try firstEvent(store) // today, 10:00
+        store.go(.next)
+        await settle(store) // the tab was left on next week
+        store.reveal(event, on: clock.now)
+        XCTAssertTrue(cal.isDate(store.anchor, inSameDayAs: clock.now))
+        XCTAssertEqual(store.focus, event.start)
+        XCTAssertEqual(store.selected?.id, event.id)
+        store.closeDetail()
+        XCTAssertEqual(store.focus, event.start) // closing the sheet leaves the grid where it scrolled
+        store.go(.next)
+        XCTAssertNil(store.focus) // navigating lets go of it
+        store.reveal(event, on: clock.now)
+        store.closeMenus()
+        XCTAssertNil(store.focus) // so does leaving the tab or the panel
+        await settle(store)
+    }
+
+    func testRevealScrollsToMidnightForAnEventThatBeganEarlier() {
+        let store = makeStore()
+        let overnight = CalendarEvent(id: "cal-a|night", calendarID: "cal-a", title: "Overnight", start: cal.date(from: DateComponents(year: 2026, month: 10, day: 20, hour: 23))!,
+                                      end: cal.date(from: DateComponents(year: 2026, month: 10, day: 21, hour: 1))!, allDay: false, color: 0x4285F4)
+        store.reveal(overnight, on: clock.now)
+        XCTAssertEqual(store.focus, cal.startOfDay(for: clock.now))
+    }
+
     // MARK: Calendars menu
 
     func testHiddenCalendarsAreNotFetchedAndTheChoicePersists() async throws {

@@ -119,15 +119,14 @@ struct NotchContainer: View {
                 .accessibilityHint("Opens MyWorkDock")
                 .accessibilityAddTraits(.isButton)
                 .accessibilityAction { model.openPanel() }
-                // Under the ears, whatever they show: today's events. A click there opens My Calendar on today.
+                // Under the ears, whatever they show: today's events. A click on an event opens it in My Calendar (scrolled to
+                // it, sheet open); a click anywhere else on the row opens My Calendar on today.
                 if let events = model.peekEvents {
-                    PeekEventsView(events: events)
+                    PeekEventsView(events: events, onEvent: model.showEvent)
                         .onTapGesture { model.showToday() }
-                        .accessibilityElement()
-                        .accessibilityLabel(events.spoken)
-                        .accessibilityHint("Opens My Calendar on today")
-                        .accessibilityAddTraits(.isButton)
-                        .accessibilityAction { model.showToday() }
+                        .accessibilityElement(children: .contain)
+                        .accessibilityLabel("Today's events")
+                        .accessibilityAction(named: "Open My Calendar on today") { model.showToday() }
                 }
             }
             .modifier(Entrance(timing: Geo.fadePeekLive))

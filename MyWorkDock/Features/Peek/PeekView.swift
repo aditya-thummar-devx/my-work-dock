@@ -90,9 +90,11 @@ extension Geo.Peek {
     static let eventsTimeWidth: CGFloat = 64
 }
 
-/// The row under the ears: what is left of today, `● 10:30 AM  Client call ......... in 25 min`. Clicking it opens My Calendar.
+/// The row under the ears: what is left of today, `● 10:30 AM  Client call ......... in 25 min`. Clicking an event opens it in
+/// My Calendar; clicking anywhere else on the row is the caller's (it opens My Calendar on today).
 struct PeekEventsView: View {
     var events: PeekEvents
+    var onEvent: (CalendarEvent) -> Void = { _ in }
     @Environment(\.tokens) private var t
 
     var body: some View {
@@ -105,7 +107,15 @@ struct PeekEventsView: View {
                         .foregroundStyle(t.faint)
                         .frame(height: Geo.Peek.eventRow)
                 } else {
-                    ForEach(events.rows) { PeekEventRow(event: $0, now: events.now) }
+                    ForEach(events.rows) { row in
+                        PeekEventRow(event: row, now: events.now)
+                            .contentShape(Rectangle())
+                            .onTapGesture { onEvent(row.event) }
+                            .accessibilityElement(children: .combine)
+                            .accessibilityHint("Opens the event in My Calendar")
+                            .accessibilityAddTraits(.isButton)
+                            .accessibilityAction { onEvent(row.event) }
+                    }
                     if events.more > 0 {
                         Text("+\(events.more) more today")
                             .font(Typo.ui(11.5, .semibold))
