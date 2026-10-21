@@ -6,6 +6,7 @@ extension Geo.Cal {
     static let sheetPad: CGFloat = 18
     static let rowIcon: CGFloat = 15
     static let rowGap: CGFloat = 14
+    static let columnGap: CGFloat = 28
     static let guestsShown = 8
 }
 
@@ -98,16 +99,26 @@ private struct CalendarEventSheet: View {
     }
 
     @ViewBuilder private func loaded(_ details: EventDetails) -> some View {
-        if let recurrence = details.recurrence { InfoRow(.recur) { line(recurrence) } }
-        if let meet = details.meetURL { InfoRow(.video) { meetRow(meet, details) } }
-        if let place = details.location { InfoRow(.mapPin) { locationRow(place) } }
-        if !details.guests.isEmpty || details.guestsNote != nil { InfoRow(.users) { guestsRow(details) } }
-        if !details.reminders.isEmpty {
-            InfoRow(.bell) {
-                VStack(alignment: .leading, spacing: 2) { ForEach(details.reminders, id: \.self) { line($0) } }
+        // The sheet is wide and the guest list is its tallest block: the facts go left, the guests right. The description and
+        // attachments keep the full width below. Without guests the facts take the whole row.
+        HStack(alignment: .top, spacing: Geo.Cal.columnGap) {
+            VStack(alignment: .leading, spacing: 0) {
+                if let recurrence = details.recurrence { InfoRow(.recur) { line(recurrence) } }
+                if let meet = details.meetURL { InfoRow(.video) { meetRow(meet, details) } }
+                if let place = details.location { InfoRow(.mapPin) { locationRow(place) } }
+                if !details.reminders.isEmpty {
+                    InfoRow(.bell) {
+                        VStack(alignment: .leading, spacing: 2) { ForEach(details.reminders, id: \.self) { line($0) } }
+                    }
+                }
+                calendarRow(details)
+            }
+            .frame(maxWidth: .infinity, alignment: .topLeading)
+            if !details.guests.isEmpty || details.guestsNote != nil {
+                InfoRow(.users) { guestsRow(details) }
+                    .frame(maxWidth: .infinity, alignment: .topLeading)
             }
         }
-        calendarRow(details)
         if let description = details.description {
             InfoRow(.text) {
                 Text(RichText.attributed(html: description))
@@ -144,7 +155,7 @@ private struct CalendarEventSheet: View {
                 DockButton(title: "Join with \(details.meetName ?? "video call")", glyph: .video, iconSize: 13, metrics: .sheet, tone: .tint) { store.open(url) }
                 RowIconButton(glyph: store.copied ? .check : .copy, label: "Copy meeting link", fg: store.copied ? t.green : t.text2) { store.copyMeetLink(url) }
             }
-            Text((url.host ?? "") + url.path).font(Typo.ui(11.5)).foregroundStyle(t.faint)
+            Text((url.host ?? "") + url.path).font(Typo.ui(11.5)).foregroundStyle(t.faint).lineLimit(1).truncationMode(.middle)
             ForEach(details.phones, id: \.number) { phone in
                 Text("Join by phone: \(phone.number)" + (phone.pin.map { " · PIN \($0)" } ?? "")).font(Typo.ui(11.5)).foregroundStyle(t.faint)
             }
@@ -167,13 +178,15 @@ private struct CalendarEventSheet: View {
         VStack(alignment: .leading, spacing: 6) {
             if !details.guests.isEmpty {
                 Text(EventDetails.summary(details.guests)).font(Typo.ui(12.5, .semibold)).foregroundStyle(t.text)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             ForEach(store.guestsExpanded ? details.guests : Array(details.guests.prefix(Geo.Cal.guestsShown))) { guest in
                 HStack(spacing: 8) {
                     responseIcon(guest.response)
                     Text(guest.name + (guest.isMe ? " (you)" : "")).font(Typo.ui(12.5)).foregroundStyle(t.text).lineLimit(1)
-                    if guest.organizer { Text("Organizer").font(Typo.ui(10.5, .semibold)).foregroundStyle(t.faint) }
-                    if guest.optional { Text("Optional").font(Typo.ui(10.5, .semibold)).foregroundStyle(t.faint) }
+                    // The labels win over a long address: it is the address that gets cut.
+                    if guest.organizer { Text("Organizer").font(Typo.ui(10.5, .semibold)).foregroundStyle(t.faint).layoutPriority(1) }
+                    if guest.optional { Text("Optional").font(Typo.ui(10.5, .semibold)).foregroundStyle(t.faint).layoutPriority(1) }
                 }
                 .accessibilityElement(children: .combine)
             }

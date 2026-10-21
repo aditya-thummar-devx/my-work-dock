@@ -67,7 +67,12 @@ enum CalendarSample {
         var details = EventDetails()
         details.reminders = ["10 minutes before"]
         details.link = URL(string: "https://calendar.google.com/calendar/event?eid=sample")
-        if event.title == "Lunch" { // a big invite whose guests carry no display names: the sheet shows their emails
+        if event.title == "Lunch" { // a big recurring invite: a long address, a dial-in, guests that carry no display names (emails)
+            details.recurrence = "Weekly on Monday"
+            details.location = "Aurora Tower, 4th floor, Cafeteria and Terrace Lounge, Baner Road, Pune, Maharashtra 411045, India"
+            details.meetURL = URL(string: "https://meet.google.com/lmn-opqr-stu")
+            details.meetName = "Google Meet"
+            details.phones = [EventDetails.Phone(number: "+1 304-896-9055", pin: "555678390")]
             details.guests = bigInvite
             details.organizer = "meera.iyer@devxlabs.ai"
             return details
