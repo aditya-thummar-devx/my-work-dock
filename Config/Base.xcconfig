@@ -1,0 +1,7 @@
+// Shared by every configuration (project.yml configFiles).
+// My Calendar's Google OAuth client comes from the gitignored GoogleOAuth.xcconfig next to this file (see
+// GoogleOAuth.example.xcconfig). Without it both values stay empty and the tab says Google sign-in is not configured.
+GOOGLE_CLIENT_ID =
+GOOGLE_CLIENT_SECRET =
+
+#include? "GoogleOAuth.xcconfig"

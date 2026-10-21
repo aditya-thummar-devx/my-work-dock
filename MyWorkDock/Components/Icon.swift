@@ -6,6 +6,7 @@ import SwiftUI
 enum Glyph {
     case clipboard, notes, terminal, gauge, phone, tablet, pin, sliders, search, plus, refresh, close, check, copy, pencil, trash
     case wifi, arrows, chevronDown, play, stop, power, warning, monitor, arrowLeft, moon, sun, triangle, funnel, tag, globe, ring
+    case calendar
 
     fileprivate enum Part {
         case path(String)
@@ -47,6 +48,7 @@ enum Glyph {
         case .tag: [.path("M3 12V4h8l10 10-8 8z"), .circle(cx: 7.5, cy: 7.5, r: 1.4)]
         case .globe: [.circle(cx: 12, cy: 12, r: 9), .path("M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18")]
         case .ring: [.circle(cx: 12, cy: 12, r: 8.5)]
+        case .calendar: [.rect(x: 3, y: 5, w: 18, h: 16, rx: 3), .path("M3 10h18M8 3v4M16 3v4")]
         }
     }
 

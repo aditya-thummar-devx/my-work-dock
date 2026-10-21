@@ -18,6 +18,10 @@
 	<string>1.0</string>
 	<key>CFBundleVersion</key>
 	<string>1</string>
+	<key>GoogleClientID</key>
+	<string>$(GOOGLE_CLIENT_ID)</string>
+	<key>GoogleClientSecret</key>
+	<string>$(GOOGLE_CLIENT_SECRET)</string>
 	<key>SUFeedURL</key>
 	<string>https://github.com/aditya-thummar-devx/my-work-dock/releases/latest/download/appcast.xml</string>
 	<key>SUPublicEDKey</key>

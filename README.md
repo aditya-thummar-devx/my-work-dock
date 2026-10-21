@@ -45,6 +45,8 @@ xcodegen generate
 open MyWorkDock.xcodeproj
 ```
 
+My Calendar signs in with Google, so a build needs an OAuth client: a Desktop-app client from a Google Cloud project that has the Calendar API on. Copy `Config/GoogleOAuth.example.xcconfig` to `Config/GoogleOAuth.xcconfig` (gitignored) and fill it in. Without it the tab says sign-in is not configured and everything else works as usual.
+
 ## Releasing
 
 Actions tab > **Release** > Run workflow > enter the version (e.g. `0.1.13`) > approve the run. It builds the DMG, signs the appcast and publishes the GitHub release; installed copies pick it up on their next hourly check. It only runs from `main` and needs the `SPARKLE_ED_PRIVATE_KEY` secret on the `release` environment. `scripts/release.sh <version>` does the same from a Mac that holds the key in its Keychain.

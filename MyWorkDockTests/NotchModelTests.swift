@@ -237,13 +237,15 @@ final class NotchModelTests: XCTestCase {
 
     func testFeatureRawValuesAreStable() {
         // Stored in UserDefaults as "disabledFeatures".
-        XCTAssertEqual(Feature.allCases.map(\.rawValue), ["clipboard", "notes", "claudex", "emulator", "localIP"])
+        XCTAssertEqual(Feature.allCases.map(\.rawValue), ["clipboard", "calendar", "notes", "claudex", "emulator", "localIP"])
     }
 
     func testDisablingTheCurrentMenuMovesToTheNextEnabledOne() {
         model.setMainTab(.notes)
         model.setEnabled(.clipboard, false)
         model.setEnabled(.notes, false)
+        XCTAssertEqual(model.mainTab, .calendar) // the first enabled one takes over
+        model.setEnabled(.calendar, false)
         XCTAssertEqual(model.enabledTabs, [.claudex, .emulator])
         XCTAssertEqual(model.mainTab, .claudex)
         model.setEnabled(.claudex, false)
@@ -255,7 +257,27 @@ final class NotchModelTests: XCTestCase {
         XCTAssertEqual(model.mainTab, .notes)
     }
 
+    func testCalendarSitsBetweenClipboardAndNotes() {
+        XCTAssertEqual(MainTab.allCases, [.clipboard, .calendar, .notes, .claudex, .emulator])
+        XCTAssertEqual(MainTab.calendar.label, "My Calendar")
+        model.setMainTab(.clipboard)
+        model.cycleMainTab()
+        XCTAssertEqual(model.mainTab, .calendar)
+        model.cycleMainTab()
+        XCTAssertEqual(model.mainTab, .notes)
+    }
+
+    func testSigningInKeepsTheUpdaterWaitingAndLeavingTheMenuCancelsIt() {
+        XCTAssertTrue(model.isIdle)
+        model.calendar.preview(.signingIn)
+        XCTAssertFalse(model.isIdle) // Sparkle must not relaunch the app while the browser flow runs
+        model.setEnabled(.calendar, false)
+        XCTAssertEqual(model.calendar.auth, .signedOut(nil))
+        XCTAssertTrue(model.isIdle)
+    }
+
     func testCycleMainTabWrapsAndSkipsDisabledMenus() {
+        model.setEnabled(.calendar, false)
         model.setMainTab(.clipboard)
         model.cycleMainTab()
         XCTAssertEqual(model.mainTab, .notes)
@@ -378,6 +400,7 @@ final class NotchModelTests: XCTestCase {
         model.setNotesTab(.commands)
         XCTAssertNotNil(model.activeSnippets)
         model.setEnabled(.clipboard, false)
+        model.setEnabled(.calendar, false)
         model.setEnabled(.claudex, false)
         model.setEnabled(.emulator, false)
         model.setEnabled(.notes, false) // mainTab stays .notes: nothing else to move to
