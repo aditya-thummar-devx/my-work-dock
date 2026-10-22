@@ -104,7 +104,7 @@ final class SessionsStore {
         transcripts = [
             tx("s1", "Add the product schema to Strapi", "foxtale-admin", "feat/schema", 0.2, 152_000),
             tx("s2", "Fix checkout coupon rounding", "foxtale-web", "main", 3, 61_000),
-            tx("s3", "Port the Sessions board to Swift", "my-work-dock", "sessions-mascot", 0.5, 98_000),
+            tx("s3", "Port the Sessions board to Swift", "my-work-dock", "sessions", 0.5, 98_000),
             tx("s4", "Notch island redesign", "peekaboo", "island-design", 26, 40_000),
             tx("s5", "Reminders with custom tunes", "peekaboo", "reminders", 30, nil),
         ]

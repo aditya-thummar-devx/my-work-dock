@@ -117,7 +117,6 @@ enum SnapshotRunner {
         State("gallery-light", .gallery, content: .gallery) { $0.setTheme(.light) },
         State("60-agents", .panel) { m in m.agents.loadSample(); m.setMainTab(.agents); m.openPanel() },
         State("61-sessions", .panel) { m in m.sessions.loadSample(); m.setMainTab(.sessions); m.openPanel() },
-        .fragment("62-mascots", rect: CGRect(x: 0, y: 40, width: 760, height: 440)) { MascotSheet() },
     ]
 
     private static let screenStates: [State] = [
@@ -533,26 +532,3 @@ enum SnapshotRunner {
     }
 }
 #endif
-
-
-/// The four mascots and a sample speech bubble (snapshot only).
-private struct MascotSheet: View {
-    @Environment(\.tokens) private var t
-
-    var body: some View {
-        HStack(alignment: .bottom, spacing: 26) {
-            ForEach(MascotKind.allCases) { k in
-                VStack(spacing: 6) {
-                    MascotCharacter(kind: k, talking: false).frame(width: 100, height: 110)
-                    Text(k.name).font(Typo.ui(12, .semibold)).foregroundStyle(t.text2)
-                }
-            }
-            Text("Done: Port the Sessions board to Swift")
-                .font(Typo.ui(12.5, .semibold)).padding(12)
-                .background(RoundedRectangle(cornerRadius: 18).fill(t.panel))
-                .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(t.border, lineWidth: 1))
-                .frame(width: 180)
-        }
-        .padding(24)
-    }
-}
