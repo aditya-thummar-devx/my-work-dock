@@ -11,9 +11,13 @@ struct ClaudeScreen: View {
         let tab = model.enabledClaudeTabs.contains(model.claudeTab) ? model.claudeTab : model.enabledClaudeTabs.first ?? model.claudeTab
         VStack(spacing: 0) {
             SubNavRow(items: items, selection: tab.rawValue, onSelect: { model.setClaudeTab(ClaudeTab(rawValue: $0) ?? .agents) }) {
-                if tab == .tokens { FreshLabel { model.claudeUsage.freshLabel } }
+                if tab == .tokens {
+                    FreshLabel { model.claudeUsage.freshLabel }
+                } else if model.claudeRefreshedAt != nil {
+                    FreshLabel { model.claudeFreshLabel }
+                }
                 PillButton(title: "Refresh", glyph: .refresh, iconSize: 13,
-                           busy: model.claudeRefreshing || model.sessions.loading || model.claudeUsage.loading) {
+                           busy: model.claudeRefreshing || model.sessions.loading) {
                     Task { await model.refreshClaude() }
                 }
                 .help("Reload sessions, the agents' setup and Tokens & cost")

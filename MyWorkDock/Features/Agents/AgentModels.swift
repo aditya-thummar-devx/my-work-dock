@@ -75,6 +75,8 @@ struct AgentSession: Identifiable, Equatable {
     var lastAction: String?
     var updatedAt: Date
     var tty: String?
+    /// The `claude` process that owns `tty`; gone means the session is over.
+    var ownerPID: Int32?
     /// Terminal app ("Terminal", "Warp", …) from TERM_PROGRAM.
     var terminal: String?
     /// A wake hook is waiting: a prompt reaches this idle session at once.

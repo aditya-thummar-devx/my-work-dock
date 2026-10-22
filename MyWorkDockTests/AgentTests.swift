@@ -151,7 +151,7 @@ final class AgentCoreTests: XCTestCase {
 
     func testTTYIsLookedUpOnceInTheBackground() async {
         var lookups = 0
-        let c = AgentCore(ttyLookup: { _ in lookups += 1; return "ttys004" })
+        let c = AgentCore(ttyLookup: { _ in lookups += 1; return (7, "ttys004") })
         var m = msg("Stop", .object([:]), reply: false)
         m.pid = 42
         _ = c.handle(m, respond: { _ in })
@@ -159,6 +159,30 @@ final class AgentCoreTests: XCTestCase {
         for _ in 0..<50 where c.liveSessions().first?.tty == nil { try? await Task.sleep(nanoseconds: 10_000_000) }
         XCTAssertEqual(c.liveSessions().first?.tty, "ttys004")
         XCTAssertEqual(lookups, 1)
+        XCTAssertEqual(c.liveSessions().first?.ownerPID, 7)
+    }
+
+    func testRecheckEndsSessionsWhoseClaudeIsGoneAndRetriesTheTerminal() async {
+        var alive: Set<Int32> = [7]
+        var found: (pid: Int32, tty: String)? = (7, "ttys004")
+        let c = AgentCore(ttyLookup: { _ in found }, isAlive: { alive.contains($0) })
+        var a = msg("Stop", .object([:]), reply: false)
+        a.pid = 42
+        _ = c.handle(a, respond: { _ in })
+        for _ in 0..<50 where c.liveSessions().first?.tty == nil { try? await Task.sleep(nanoseconds: 10_000_000) }
+
+        found = nil // the second session's terminal is not found at first
+        var b = msg("Stop", .object([:]), session: "s2", reply: false)
+        b.pid = 43
+        _ = c.handle(b, respond: { _ in })
+        try? await Task.sleep(nanoseconds: 50_000_000)
+        XCTAssertEqual(c.liveSessions().count, 2)
+
+        alive = []
+        found = (8, "ttys005")
+        await c.recheck()
+        XCTAssertEqual(c.liveSessions().map(\.transcriptID), ["s2"]) // the first one's claude is gone
+        XCTAssertEqual(c.liveSessions().first?.tty, "ttys005")
     }
 }
 
