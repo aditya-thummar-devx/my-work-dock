@@ -382,10 +382,7 @@ final class ClaudexStoreTests: XCTestCase {
         await s.refresh()
         XCTAssertEqual(s.unavailable, "claudex not found. Install it or add it to PATH.")
         XCTAssertEqual(calls, 0)
-        XCTAssertEqual(s.activeTab, .tokens) // only Tokens & cost is left, and it does not need claudex
-        s.select(.pool)
-        XCTAssertEqual(s.activeTab, .tokens)
-        XCTAssertEqual(s.footer, ClaudeUsageStore.footer)
+        XCTAssertEqual(s.activeTab, .usage)
 
         await s.refresh() // background callers (hover, panel open) stay quiet while it is missing
         XCTAssertEqual(calls, 0)
@@ -394,7 +391,7 @@ final class ClaudexStoreTests: XCTestCase {
         await s.refresh(fresh: true)
         XCTAssertNil(s.unavailable)
         XCTAssertEqual(calls, 7)
-        XCTAssertEqual(s.activeTab, .tokens) // the tab you were on stays
+        XCTAssertEqual(s.activeTab, .usage) // the tab you were on stays
         s.select(.pool)
         XCTAssertEqual(s.activeTab, .pool)
         XCTAssertEqual(s.footer, ClaudexStore.defaultFooter)

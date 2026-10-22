@@ -4,13 +4,14 @@ import Observation
 typealias DisplayID = CGDirectDisplayID
 
 enum MainTab: String, CaseIterable, Identifiable {
-    case clipboard, calendar, notes, claudex, emulator, agents, sessions
+    case clipboard, calendar, notes, claudex, emulator, claude
 
     var id: String { rawValue }
     var label: String {
         switch self {
         case .claudex: "claudex"
         case .calendar: "My Calendar"
+        case .claude: "Claude"
         default: rawValue.capitalized
         }
     }
@@ -18,8 +19,7 @@ enum MainTab: String, CaseIterable, Identifiable {
         switch self {
         case .clipboard: .clipboard
         case .calendar: .calendar
-        case .agents: .chat
-        case .sessions: .terminal
+        case .claude: .chat
         case .notes: .notes
         case .claudex: .gauge
         case .emulator: .phone
@@ -29,8 +29,7 @@ enum MainTab: String, CaseIterable, Identifiable {
         switch self {
         case .clipboard: .clipboard
         case .calendar: .calendar
-        case .agents: .agents
-        case .sessions: .sessions
+        case .claude: .claude
         case .notes: .notes
         case .claudex: .claudex
         case .emulator: .emulator
@@ -40,15 +39,14 @@ enum MainTab: String, CaseIterable, Identifiable {
 
 /// What Settings › Menus can switch off. The raw values are stored in UserDefaults.
 enum Feature: String, CaseIterable, Identifiable {
-    case clipboard, calendar, notes, claudex, emulator, localIP, agents, sessions
+    case clipboard, calendar, notes, claudex, emulator, localIP, claude
 
     var id: String { rawValue }
     var label: String {
         switch self {
         case .clipboard: "Clipboard"
         case .calendar: "My Calendar"
-        case .agents: "Agents"
-        case .sessions: "Sessions"
+        case .claude: "Claude"
         case .notes: "Notes"
         case .claudex: "claudex"
         case .emulator: "Emulator"
@@ -59,8 +57,7 @@ enum Feature: String, CaseIterable, Identifiable {
         switch self {
         case .clipboard: .clipboard
         case .calendar: .calendar
-        case .agents: .chat
-        case .sessions: .terminal
+        case .claude: .chat
         case .notes: .notes
         case .claudex: .gauge
         case .emulator: .phone
@@ -115,6 +112,8 @@ final class NotchModel {
     /// Settings › Peek: the sources hover shows. `[.claudex]` alone, or any of the others (claudex takes the whole hover).
     private(set) var peekOn: Set<PeekSource> = PeekSource.defaultOn
     var emulatorTab: EmulatorTab = .devices
+    /// Claude menu: Sessions / Agents / Tokens & cost.
+    var claudeTab: ClaudeTab = .sessions
     /// Forces the live-activity state (debug menu, snapshots); otherwise it follows the emulator store.
     var bootingOverride: String?
     private(set) var peek = SampleData.peekPool
@@ -387,7 +386,7 @@ final class NotchModel {
         switch mainTab {
         case .clipboard: break
         case .calendar: calendar.cycleMode()
-        case .agents, .sessions: break
+        case .claude: setClaudeTab(next(claudeTab))
         case .notes: setNotesTab(next(notesTab))
         case .claudex: claudex.select(next(claudex.tab))
         case .emulator: setEmulatorTab(next(emulatorTab))
@@ -396,8 +395,13 @@ final class NotchModel {
 
     /// Agents › Show on board.
     func showOnBoard(_ transcriptID: String) {
-        setMainTab(.sessions)
+        setMainTab(.claude)
+        setClaudeTab(.sessions)
         sessions.focus(transcriptID)
+    }
+
+    func setClaudeTab(_ tab: ClaudeTab) {
+        claudeTab = tab
     }
 
     func setEmulatorTab(_ tab: EmulatorTab) {
@@ -613,13 +617,15 @@ final class NotchModel {
         if apply(.localIP) {
             if isEnabled(.localIP) { localIP.startMonitoring() } else { localIP.stopMonitoring() }
         }
-        if apply(.claudex), isEnabled(.claudex) {
-            Task { await claudex.refresh() }
-            claudeUsage.startIfActive()
-        }
+        if apply(.claudex), isEnabled(.claudex) { Task { await claudex.refresh() } }
         if apply(.calendar), !isEnabled(.calendar) { calendar.stop() }
-        if apply(.agents) {
-            if isEnabled(.agents) { agents.start() } else { agents.stop() }
+        if apply(.claude) {
+            if isEnabled(.claude) {
+                agents.start()
+                claudeUsage.startIfActive()
+            } else {
+                agents.stop()
+            }
         }
     }
 

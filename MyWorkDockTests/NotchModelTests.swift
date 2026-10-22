@@ -237,25 +237,36 @@ final class NotchModelTests: XCTestCase {
 
     func testFeatureRawValuesAreStable() {
         // Stored in UserDefaults as "disabledFeatures".
-        XCTAssertEqual(Feature.allCases.map(\.rawValue), ["clipboard", "calendar", "notes", "claudex", "emulator", "localIP", "agents", "sessions"])
+        XCTAssertEqual(Feature.allCases.map(\.rawValue), ["clipboard", "calendar", "notes", "claudex", "emulator", "localIP", "claude"])
     }
 
-    func testAgentsAndSessionsComeLastAndCanBeSwitchedOff() {
-        XCTAssertEqual(Array(model.enabledTabs.suffix(2)), [.agents, .sessions])
-        model.setEnabled(.agents, false)
-        model.setEnabled(.sessions, false)
+    func testClaudeComesLastAndCanBeSwitchedOff() {
+        XCTAssertEqual(model.enabledTabs.last, .claude)
+        XCTAssertEqual(MainTab.claude.label, "Claude")
+        model.setEnabled(.claude, false)
         XCTAssertEqual(model.enabledTabs, [.clipboard, .calendar, .notes, .claudex, .emulator])
     }
 
+    func testClaudeHoldsSessionsAgentsAndTokens() {
+        model.setMainTab(.claude)
+        XCTAssertEqual(model.claudeTab, .sessions)
+        for tab in [ClaudeTab.agents, .tokens, .sessions] {
+            model.cycleInnerTab()
+            XCTAssertEqual(model.claudeTab, tab)
+        }
+        XCTAssertEqual(model.mainTab, .claude)
+    }
+
     func testShowOnBoardOpensSessionsFocusedOnTheSession() {
+        model.setClaudeTab(.agents)
         model.showOnBoard("abc")
-        XCTAssertEqual(model.mainTab, .sessions)
+        XCTAssertEqual(model.mainTab, .claude)
+        XCTAssertEqual(model.claudeTab, .sessions)
         XCTAssertEqual(model.sessions.focusID, "abc")
     }
 
     func testDisablingTheCurrentMenuMovesToTheNextEnabledOne() {
-        model.setEnabled(.agents, false) // only the built-in menus
-        model.setEnabled(.sessions, false)
+        model.setEnabled(.claude, false) // only the built-in menus
         model.setMainTab(.notes)
         model.setEnabled(.clipboard, false)
         model.setEnabled(.notes, false)
@@ -273,7 +284,7 @@ final class NotchModelTests: XCTestCase {
     }
 
     func testCalendarSitsBetweenClipboardAndNotes() {
-        XCTAssertEqual(MainTab.allCases, [.clipboard, .calendar, .notes, .claudex, .emulator, .agents, .sessions])
+        XCTAssertEqual(MainTab.allCases, [.clipboard, .calendar, .notes, .claudex, .emulator, .claude])
         XCTAssertEqual(MainTab.calendar.label, "My Calendar")
         model.setMainTab(.clipboard)
         model.cycleMainTab()
@@ -302,8 +313,7 @@ final class NotchModelTests: XCTestCase {
     }
 
     func testCycleMainTabWrapsAndSkipsDisabledMenus() {
-        model.setEnabled(.agents, false)
-        model.setEnabled(.sessions, false)
+        model.setEnabled(.claude, false)
         model.setEnabled(.calendar, false)
         model.setMainTab(.clipboard)
         model.cycleMainTab()
@@ -356,7 +366,7 @@ final class NotchModelTests: XCTestCase {
         model.cycleInnerTab()
         XCTAssertEqual(model.notesTab, .todo)
         model.setMainTab(.claudex)
-        for tab in [ClaudexTab.pool, .play, .health, .tokens, .usage] {
+        for tab in [ClaudexTab.pool, .play, .health, .usage] {
             model.cycleInnerTab()
             XCTAssertEqual(model.claudex.tab, tab)
         }
@@ -371,19 +381,15 @@ final class NotchModelTests: XCTestCase {
         XCTAssertEqual(model.mainTab, .emulator) // inner cycling never leaves the main menu
     }
 
-    func testTokensAndCostStaysWhenClaudexIsMissing() {
+    func testTokensAndCostLivesUnderClaudeAndNeedsNoClaudex() {
         model.claudex.showSampleUnavailable()
-        model.setMainTab(.claudex)
-        XCTAssertTrue(model.isEnabled(.claudex))
-        XCTAssertEqual(model.claudex.activeTab, .tokens)
-        model.cycleInnerTab() // the other four tabs cannot show anything: the cycle has nowhere to go
-        XCTAssertEqual(model.claudex.activeTab, .tokens)
-        model.claudex.select(.pool)
-        XCTAssertEqual(model.claudex.activeTab, .tokens)
-        model.show(.claudex) // the hotkey still opens it
+        model.setMainTab(.claude)
+        model.setClaudeTab(.tokens)
+        XCTAssertTrue(model.isEnabled(.claude))
+        XCTAssertNotNil(model.claudeUsage.snapshot)
+        model.show(.claudex) // the hotkey still opens claudex, which shows why it is missing
         XCTAssertTrue(model.open)
         XCTAssertEqual(model.mainTab, .claudex)
-        XCTAssertNotNil(model.claudeUsage.snapshot)
     }
 
     func testCollapsingClosesTheDetailsSheet() throws {
@@ -443,8 +449,7 @@ final class NotchModelTests: XCTestCase {
         XCTAssertNotNil(model.activeSnippets)
         model.setEnabled(.clipboard, false)
         model.setEnabled(.calendar, false)
-        model.setEnabled(.agents, false)
-        model.setEnabled(.sessions, false)
+        model.setEnabled(.claude, false)
         model.setEnabled(.claudex, false)
         model.setEnabled(.emulator, false)
         model.setEnabled(.notes, false) // mainTab stays .notes: nothing else to move to

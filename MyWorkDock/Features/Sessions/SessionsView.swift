@@ -10,7 +10,7 @@ struct SessionsScreen: View {
     var body: some View {
         let store = model.sessions
         VStack(alignment: .leading, spacing: 10) {
-            SessionsToolbar(store: store).padding(.top, Geo.Chrome.subNavTop)
+            SessionsToolbar(store: store)
             if let m = store.message {
                 Text(m.text).font(Typo.ui(11.5)).foregroundStyle(m.error ? t.red : t.muted).padding(.horizontal, 4)
             }

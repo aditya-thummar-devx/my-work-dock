@@ -1,60 +1,50 @@
 import SwiftUI
 
-/// claudex: Usage / Pool / Playground / Health, wired to the CLI through `ClaudexStore`, and Tokens & cost, which reads Claude Code's
-/// own transcripts and works without the CLI.
+/// claudex: Usage / Pool / Playground / Health, wired to the CLI through `ClaudexStore`.
 struct ClaudexScreen: View {
     var model: NotchModel
 
     var body: some View {
         let store = model.claudex
-        content(store, model.claudeUsage)
+        content(store)
             .task { await store.refresh() }
     }
 
-    private func content(_ store: ClaudexStore, _ usage: ClaudeUsageStore) -> some View {
-        let onTokens = store.activeTab == .tokens
-        return VStack(spacing: 0) {
+    private func content(_ store: ClaudexStore) -> some View {
+        VStack(spacing: 0) {
             SubNavRow(items: tabs(store), selection: store.activeTab.rawValue, onSelect: { store.select(ClaudexTab(rawValue: $0) ?? .usage) }) {
-                if onTokens {
-                    FreshLabel { usage.freshLabel }
-                    PillButton(title: "Refresh", glyph: .refresh, iconSize: 13, action: usage.refreshNow)
-                } else {
-                    FreshLabel { store.freshLabel }
-                    PillButton(title: "Refresh", glyph: .refresh, iconSize: 13, action: store.refreshNow)
-                }
+                FreshLabel { store.freshLabel }
+                PillButton(title: "Refresh", glyph: .refresh, iconSize: 13, action: store.refreshNow)
             }
             .padding(.top, Geo.Chrome.subNavTop)
 
             if let why = store.unavailable {
                 ClaudexMissing(reason: why, loading: store.loading, onRetry: store.retry)
                     .padding(.top, 10)
-            } else if !onTokens {
+                Spacer(minLength: 0)
+            } else {
                 ClaudexToolbar(store: store)
                     .padding(.top, 10)
                     .zIndex(1) // the sort menu hangs below the toolbar, over the content
-            }
 
-            Group {
-                switch store.activeTab {
-                case .usage: UsageView(store: store)
-                case .pool: PoolView(store: store)
-                case .play: PlaygroundView(store: store)
-                case .health: HealthView(store: store)
-                case .tokens: TokensView(store: usage)
+                Group {
+                    switch store.activeTab {
+                    case .usage: UsageView(store: store)
+                    case .pool: PoolView(store: store)
+                    case .play: PlaygroundView(store: store)
+                    case .health: HealthView(store: store)
+                    }
                 }
+                .padding(.top, Geo.Chrome.contentTopClaudex)
+                .frame(maxHeight: .infinity, alignment: .top)
             }
-            .padding(.top, onTokens && store.unavailable == nil ? Geo.Chrome.contentTop : Geo.Chrome.contentTopClaudex)
-            .frame(maxHeight: .infinity, alignment: .top)
         }
         .overlay {
             if store.sortOpen { Color.clear.contentShape(Rectangle()).onTapGesture { store.sortOpen = false } }
         }
     }
 
-    /// claudex gives nothing: only Tokens & cost can show anything.
     private func tabs(_ store: ClaudexStore) -> [SubTabItem] {
-        let tokens = SubTabItem(ClaudexTab.tokens.rawValue, "Tokens & cost")
-        guard store.unavailable == nil else { return [tokens] }
         let bad = store.unrecognisedTabs
         func item(_ tab: ClaudexTab, _ label: String, count: Int? = nil) -> SubTabItem {
             var i = SubTabItem(tab.rawValue, label, count: count)
@@ -62,12 +52,12 @@ struct ClaudexScreen: View {
             return i
         }
         return [item(.usage, "Usage", count: store.usage.data?.count ?? 0), item(.pool, "Pool", count: store.members.data?.count ?? 0),
-                item(.play, "Playground"), item(.health, "Health"), tokens]
+                item(.play, "Playground"), item(.health, "Health")]
     }
 }
 
-/// claudex gave nothing (not installed, not runnable, timed out on the first read): the reason and a Retry. The four tabs that drive the CLI
-/// are gone until it answers; Tokens & cost does not need it.
+/// claudex gave nothing (not installed, not runnable, timed out on the first read): the reason and a Retry. The tabs stay empty until it
+/// answers.
 private struct ClaudexMissing: View {
     var reason: String
     var loading: Bool
@@ -92,7 +82,7 @@ private struct ClaudexMissing: View {
 }
 
 /// "just now" / "42s ago", ticking while the panel is open.
-private struct FreshLabel: View {
+struct FreshLabel: View {
     var text: () -> String
     @Environment(\.tokens) private var t
     @Environment(\.staticRender) private var staticRender
