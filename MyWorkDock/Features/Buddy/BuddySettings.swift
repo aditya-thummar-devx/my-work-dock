@@ -6,6 +6,8 @@ struct CustomBuddies {
     var library: CustomBuddyStore?
     var add: () -> Void = {}
     var remove: (String) -> Void = { _ in }
+    /// Picks the file for one state of a buddy.
+    var setFile: (BuddyState, String) -> Void = { _, _ in }
 }
 
 /// Settings › Appearance › Notch buddy (design/Buddy-Settings.dc.html): the switch, then style, emoji, motion and full-screen
@@ -118,7 +120,7 @@ struct BuddySettings: View {
                         Text(prefs.emoji.glyph).font(.system(size: Geo.Buddy.emoji))
                     case .custom:
                         if let entry = library.entry(prefs.custom) {
-                            BuddyStillView(asset: .custom(entry), tint: t.buddy)
+                            BuddyStillView(asset: .custom(entry), tint: t.buddy, fit: CGSize(width: Geo.Buddy.stylePreviewHeight, height: Geo.Buddy.stylePreviewHeight - 8))
                         } else {
                             Icon(.plus, size: 16).foregroundStyle(t.faint)
                         }
@@ -158,6 +160,7 @@ struct BuddySettings: View {
                     }
                     .buttonStyle(.plain)
                 }
+                ForEach(BuddyState.allCases) { stateRow($0, of: entry) }
             }
             if !library.rejection.isEmpty { rejection(library.rejection) }
             note(BuddyFileCheck.Limits.summary)
@@ -168,7 +171,7 @@ struct BuddySettings: View {
     private func customTile(_ entry: CustomBuddyStore.Entry) -> some View {
         let on = prefs.custom == entry.id
         return Button { change { $0.custom = entry.id } } label: {
-            BuddyStillView(asset: .custom(entry), tint: t.buddy)
+            BuddyStillView(asset: .custom(entry), tint: t.buddy, fit: CGSize(width: Geo.Buddy.emojiTile, height: Geo.Buddy.emojiTile))
                 .scaleEffect(0.75)
                 .frame(width: Geo.Buddy.emojiTile, height: Geo.Buddy.emojiTile)
                 .background(RoundedRectangle(cornerRadius: Geo.Buddy.emojiTileRadius).fill(on ? t.subOn : t.list))
@@ -180,6 +183,52 @@ struct BuddySettings: View {
         .help(entry.id)
         .accessibilityLabel(entry.id)
         .accessibilityAddTraits(on ? .isSelected : [])
+    }
+
+    /// One state of the chosen buddy: its file (idle always has one) and where it sits, in points from the ear's centre.
+    private func stateRow(_ state: BuddyState, of entry: CustomBuddyStore.Entry) -> some View {
+        let has = entry.files[state] != nil
+        return VStack(alignment: .leading, spacing: Geo.Buddy.States.rowGap) {
+            HStack(spacing: Geo.Menu.rowGap) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: Geo.Buddy.emojiTileRadius).fill(t.panel)
+                    if has {
+                        BuddyStillView(asset: .custom(entry, state), tint: t.buddy, fit: CGSize(width: Geo.Buddy.emojiTile - 6, height: Geo.Buddy.emojiTile - 6))
+                    } else {
+                        Text("None").font(Typo.ui(Geo.Appearance.noteFont)).foregroundStyle(t.faint)
+                    }
+                }
+                .frame(width: Geo.Buddy.emojiTile, height: Geo.Buddy.emojiTile)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(state.label).font(Typo.ui(Geo.Menu.font, .medium)).foregroundStyle(t.text)
+                    Text(has || state == .idle ? state.caption : "Skipped: no file.").font(Typo.ui(Geo.Appearance.noteFont)).foregroundStyle(t.faint)
+                }
+                Spacer(minLength: 0)
+                Button { customs.setFile(state, entry.id) } label: {
+                    Text(has ? "Replace" : "Add").font(Typo.ui(Geo.Appearance.noteFont, .semibold)).foregroundStyle(t.text2)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("\(has ? "Replace" : "Add") the \(state.label) file")
+                if has, state != .idle {
+                    Button { library.removeFile(state, of: entry.id) } label: {
+                        Text("Remove").font(Typo.ui(Geo.Appearance.noteFont, .semibold)).foregroundStyle(t.red)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Remove the \(state.label) file")
+                }
+            }
+            if has {
+                HStack(spacing: Geo.Menu.rowGap) {
+                    Text("Offset").font(Typo.ui(Geo.Appearance.noteFont)).foregroundStyle(t.faint)
+                    OffsetField(axis: "X", value: entry.offsets[state].x) { library.setOffset(state, of: entry.id, to: CGPoint(x: $0, y: entry.offsets[state].y)) }
+                    OffsetField(axis: "Y", value: entry.offsets[state].y) { library.setOffset(state, of: entry.id, to: CGPoint(x: entry.offsets[state].x, y: $0)) }
+                    Spacer(minLength: 0)
+                }
+            }
+        }
+        .padding(Geo.Menu.rowPadX)
+        .modifier(MenuCard())
+        .id("\(entry.id) \(state.rawValue)") // a new buddy's fields start from its own numbers
     }
 
     private func addTile(full: Bool) -> some View {
@@ -242,6 +291,42 @@ struct BuddySettings: View {
         .buttonStyle(.plain)
         .accessibilityLabel(emoji.name)
         .accessibilityAddTraits(on ? .isSelected : [])
+    }
+}
+
+/// One offset in points, typed in; applied as soon as it reads as a number, kept to `Geo.Buddy.States`' range.
+private struct OffsetField: View {
+    var axis: String
+    var value: CGFloat
+    var onChange: (CGFloat) -> Void
+    @State private var draft: String
+    @Environment(\.tokens) private var t
+
+    init(axis: String, value: CGFloat, onChange: @escaping (CGFloat) -> Void) {
+        self.axis = axis
+        self.value = value
+        self.onChange = onChange
+        _draft = State(initialValue: String(Int(value)))
+    }
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Text(axis).font(Typo.ui(Geo.Appearance.noteFont, .semibold)).foregroundStyle(t.text2)
+            DockTextField(text: $draft, placeholder: "0", font: Typo.mono(Geo.NewTag.font))
+                .frame(height: Geo.NewTag.inputHeight)
+                .padding(.horizontal, Geo.NewTag.fieldPad.leading)
+                .frame(width: 52, height: Geo.NewTag.fieldHeight)
+                .background(RoundedRectangle(cornerRadius: Geo.NewTag.fieldRadius).fill(t.inset))
+                .overlay(RoundedRectangle(cornerRadius: Geo.NewTag.fieldRadius).strokeBorder(t.border, lineWidth: 1))
+                .onSubmit { draft = String(Int(value)) } // shows what was kept after clamping
+                .accessibilityLabel("\(axis) offset in points")
+        }
+        .onChange(of: draft) {
+            let kept = String(draft.prefix(1).filter { $0 == "-" || $0.isNumber } + draft.dropFirst().filter(\.isNumber).prefix(3))
+            if kept != draft { draft = kept; return }
+            if let n = Int(draft) { onChange(CGFloat(n)) }
+        }
+        .onChange(of: value) { if Int(draft) != Int(value) { draft = String(Int(value)) } }
     }
 }
 

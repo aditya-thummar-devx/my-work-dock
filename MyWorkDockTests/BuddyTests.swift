@@ -219,16 +219,59 @@ final class BuddyTests: XCTestCase {
         XCTAssertNil(BuddyPrefs(defaults: freshDefaults()).custom)
     }
 
-    func testACustomBuddyIsFittedIntoTheSlotAndTheBundledOnesAreNot() throws {
+    func testACustomBuddyDrawsAtItsOwnSizeUpToTheCap() throws {
         let (library, downloads) = try scratch()
         let store = CustomBuddyStore(folder: library)
         store.add(from: try download("Square.json", in: downloads, canvas: (60, 60)))
-        store.add(from: try download("Wide.json", in: downloads, canvas: (56, 28))) // twice as wide as tall is the most it takes
+        store.add(from: try download("Wide.json", in: downloads, canvas: (300, 200)))
         store.add(from: try download("Same.json", in: downloads))
-        XCTAssertEqual(BuddyAsset.custom(try XCTUnwrap(store.entry("Square"))).size, CGSize(width: 28, height: 28)) // the slot is 36 x 28: height decides
-        XCTAssertEqual(BuddyAsset.custom(try XCTUnwrap(store.entry("Wide"))).size, CGSize(width: 36, height: 18)) // width decides
+        XCTAssertEqual(BuddyAsset.custom(try XCTUnwrap(store.entry("Square"))).size, CGSize(width: 60, height: 60)) // 1 unit = 1 pt
+        XCTAssertEqual(BuddyAsset.custom(try XCTUnwrap(store.entry("Wide"))).size, CGSize(width: 120, height: 80)) // shrunk to the cap
         XCTAssertEqual(BuddyAsset.custom(try XCTUnwrap(store.entry("Same"))).size, CGSize(width: 36, height: 28))
         XCTAssertEqual(BuddyAsset(.face, emoji: .wave).size, CGSize(width: 36, height: 28))
+    }
+
+    func testTheSetHasTheFilesTheBuddyHasAndTheBuiltInsOnlyIdle() throws {
+        let (library, downloads) = try scratch()
+        let store = CustomBuddyStore(folder: library)
+        store.add(from: try download("Momo.json", in: downloads))
+        store.setFile(.nap, of: "Momo", from: try download("nap.json", in: downloads, from: "buddy-pulse"))
+        store.setOffset(.nap, of: "Momo", to: CGPoint(x: 4, y: 20))
+        let set = BuddySet(BuddyPrefs(style: .custom, custom: "Momo"), library: store)
+        XCTAssertEqual(Set(set.assets.keys), [.idle, .nap])
+        XCTAssertEqual(set.assets[.nap]?.url?.lastPathComponent, "nap.json")
+        XCTAssertEqual(set.offsets.nap, CGPoint(x: 4, y: 20))
+        XCTAssertNotEqual(set.assets[.nap], set.idle, "each state is its own asset")
+        let face = BuddySet(BuddyPrefs(), library: store)
+        XCTAssertEqual(Set(face.assets.keys), [.idle])
+        XCTAssertEqual(face.idle, BuddyAsset(.face, emoji: .wave))
+    }
+
+    func testTheScheduleGlancesNapsOrStays() {
+        func next(glance: Bool = true, nap: Bool = true, bobbing: Bool = false, motion: BuddyMotion = .lively, toNap: Double = 600, gap: Double = 45) -> BuddyStep {
+            .next(glance: glance, nap: nap, bobbing: bobbing, motion: motion, toNap: toNap, gap: gap)
+        }
+        XCTAssertEqual(next(), .glance(after: 45))
+        XCTAssertEqual(next(motion: .calm), .glance(after: 90))
+        XCTAssertEqual(next(toNap: 30), .nap(after: 30), "no glance that would run into the nap")
+        XCTAssertEqual(next(toNap: -5), .nap(after: 0), "overdue: nap now")
+        XCTAssertEqual(next(nap: false, toNap: -5), .glance(after: 45), "no nap file: it keeps glancing")
+        XCTAssertEqual(next(glance: false), .nap(after: 600))
+        XCTAssertEqual(next(glance: false, nap: false), .stay, "a built-in buddy just loops")
+        XCTAssertEqual(next(bobbing: true), .nap(after: 600), "no glance while the hint bobs")
+        XCTAssertEqual(next(nap: false, bobbing: true), .stay)
+        XCTAssertEqual(next(motion: .still, toNap: -5), .stay, "Still shows the idle frame only")
+    }
+
+    func testHoveringOrOpeningRestartsTheNapClock() {
+        let start = model.lastActive
+        model.pointer(inside: true)
+        XCTAssertGreaterThan(model.lastActive, start)
+        let hovered = model.lastActive
+        model.pointer(inside: true) // still in: not a new hover
+        XCTAssertEqual(model.lastActive, hovered)
+        model.openPanel()
+        XCTAssertGreaterThan(model.lastActive, hovered)
     }
 
     func testTheAssetIsTheLibrarysFileOrTheFaceWhenItIsGone() throws {
@@ -236,7 +279,7 @@ final class BuddyTests: XCTestCase {
         let store = CustomBuddyStore(folder: library)
         store.add(from: try download("Round.json", in: downloads))
         let shown = BuddyAsset(BuddyPrefs(style: .custom, custom: "Round"), library: store)
-        XCTAssertEqual(shown.url?.lastPathComponent, "Round.json")
+        XCTAssertEqual(shown.url?.lastPathComponent, "idle.json")
         XCTAssertEqual(shown.calmSpeed, 0.45)
         XCTAssertNotNil(shown.animation)
         for gone in [BuddyPrefs(style: .custom, custom: "Gone"), BuddyPrefs(style: .custom, custom: nil)] {
@@ -256,7 +299,7 @@ final class BuddyTests: XCTestCase {
         XCTAssertFalse(m.picking)
         XCTAssertEqual(m.buddy.style, .custom)
         XCTAssertEqual(m.buddy.custom, "Wave")
-        XCTAssertEqual(m.buddyAsset.url?.lastPathComponent, "Wave.json")
+        XCTAssertEqual(m.buddyAsset.url?.deletingLastPathComponent().lastPathComponent, "Wave")
         XCTAssertEqual(m.customBuddies.rejection, [])
     }
 
@@ -320,7 +363,7 @@ final class BuddyTests: XCTestCase {
         XCTAssertEqual(BuddyFileCheck.Limits.summary, "Lottie .json · up to 256 KB · loops of 30 s or less · shapes and emoji")
         XCTAssertEqual(BuddyBrief.steps.count, 5)
         XCTAssertTrue(BuddyBrief.steps[0].contains("30 s"))
-        XCTAssertTrue(BuddyBrief.text.contains("30 seconds") && BuddyBrief.text.contains("36 × 28"))
+        XCTAssertTrue(BuddyBrief.text.contains("30 seconds") && BuddyBrief.text.contains("36 × 28") && BuddyBrief.text.contains("120 × 120"))
     }
 
     // MARK: Colour

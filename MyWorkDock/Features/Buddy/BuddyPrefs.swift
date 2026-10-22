@@ -80,3 +80,62 @@ extension BuddyPrefs {
         defaults.set(hideInFullScreen, forKey: Key.hideInFullScreen)
     }
 }
+
+/// What a custom buddy plays when. The built-in buddies only have the idle loop.
+enum BuddyState: String, CaseIterable, Identifiable, Codable {
+    /// Loops whenever the notch is idle.
+    case idle
+    /// Plays once every ~45 s, then back to idle.
+    case glance
+    /// After 10 min without a hover or an open panel; a hover wakes it.
+    case nap
+
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .idle: "Idle"
+        case .glance: "Every ~45 s"
+        case .nap: "After 10 min"
+        }
+    }
+    var caption: String {
+        switch self {
+        case .idle: "Loops while the notch is idle."
+        case .glance: "Plays once, then back to idle."
+        case .nap: "Loops after 10 minutes without a hover."
+        }
+    }
+    /// Its file in the buddy's folder.
+    var fileName: String { "\(rawValue).json" }
+}
+
+/// Where each state of a custom buddy sits: points from the centre of the ear, x to the right, y down. Kept in the buddy's folder.
+struct BuddyOffsets: Codable, Equatable {
+    var idle = CGPoint.zero
+    var glance = CGPoint.zero
+    var nap = CGPoint.zero
+
+    subscript(state: BuddyState) -> CGPoint {
+        get {
+            switch state {
+            case .idle: idle
+            case .glance: glance
+            case .nap: nap
+            }
+        }
+        set {
+            let p = Self.clamped(newValue)
+            switch state {
+            case .idle: idle = p
+            case .glance: glance = p
+            case .nap: nap = p
+            }
+        }
+    }
+
+    /// Whole points inside `Geo.Buddy.States.offsetX` / `offsetY`.
+    static func clamped(_ p: CGPoint) -> CGPoint {
+        let x = Geo.Buddy.States.offsetX, y = Geo.Buddy.States.offsetY
+        return CGPoint(x: min(max(p.x.rounded(), x.lowerBound), x.upperBound), y: min(max(p.y.rounded(), y.lowerBound), y.upperBound))
+    }
+}
