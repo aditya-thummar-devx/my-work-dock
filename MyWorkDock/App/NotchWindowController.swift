@@ -47,9 +47,14 @@ final class NotchWindowController {
     /// `model.showOnAllDisplays` as of the last `syncShells`.
     private var allShown = false
     private var monitors: [Any] = []
+    /// Tells the model which displays show no menu bar (a full-screen app) and whether the screen is awake, for the notch buddy.
+    private let screenWatcher: ScreenWatcher
+    /// Whether the buddy cares about that as of the last `modelChanged`: nothing is read while it does not.
+    private var watchingMenuBar = false
 
     init(model: NotchModel) {
         self.model = model
+        screenWatcher = ScreenWatcher(model: model)
 
         syncShells()
         modelChanged()
@@ -187,7 +192,10 @@ final class NotchWindowController {
         // 48 → 70 pt height change makes the shell flicker between peek and live under a resting pointer.
         // ponytail: width is not clamped; a peek narrower than the 520 pt live bar can still flicker at its edges.
         if model.mode == .live { g.height = Geo.peek.height }
-        model.pointer(inside: (model.hover ? stay : rect(g, s)).contains(p))
+        // A peek with no right ear is narrower than the idle shell was with the buddy's ear: while the pointer rests on that ear the
+        // peek stays, or it would close and open again under it.
+        let ear = rect(model.idleGeometry(notch: s.screen.idleNotch, on: s.id), s)
+        model.pointer(inside: model.hover ? stay.contains(p) || ear.contains(p) : rect(g, s).contains(p))
         updateMouse()
         s.panel.ignoresMouseEvents = !stay.contains(p)
     }
@@ -205,10 +213,16 @@ final class NotchWindowController {
                 s.panel.orderFrontRegardless()
             }
         }
+        // Last: reading the screen can change the model, which comes back here once.
+        let watch = model.buddy.on && model.buddy.hideInFullScreen
+        if watch != watchingMenuBar {
+            watchingMenuBar = watch
+            screenWatcher.refresh()
+        }
     }
 }
 
-private extension NSScreen {
+extension NSScreen {
     var displayID: DisplayID? { deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? DisplayID }
 }
 

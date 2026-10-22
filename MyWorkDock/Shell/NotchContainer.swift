@@ -46,6 +46,7 @@ struct NotchContainer: View {
                 .shadow(color: .black.opacity(shadowOpacity), radius: Geo.shadow.blur / 2, x: 0, y: Geo.shadow.y)
                 .overlay { calibrationOutline(g, mode) }
                 .frame(width: g.width, height: g.height)
+                .overlay(alignment: .topLeading) { buddyHint(g) }
 
             content(mode, g)
                 .animation(reduceMotion ? nil : .easeOut(duration: Geo.fadeOut), value: mode)
@@ -60,6 +61,7 @@ struct NotchContainer: View {
             if let check = model.checkForUpdates { Button("Check for Updates…", action: check) }
             Button("Quit MyWorkDock") { NSApp.terminate(nil) }
             #if DEBUG
+            Button("Debug: show buddy hint again", action: model.resetBuddyHint)
             Button(model.bootingOverride == nil ? "Debug: simulate boot" : "Debug: stop boot") {
                 model.bootingOverride = model.bootingOverride == nil ? SampleData.bootingSim : nil
             }
@@ -83,6 +85,16 @@ struct NotchContainer: View {
         #endif
     }
 
+    /// First launch: "I live in your notch. Hover me." under the buddy, outside the shell's clip (the panel window is much bigger
+    /// than the shell, and clicks outside the shell fall through it). Its arrow points at the buddy, centred in the ear.
+    @ViewBuilder private func buddyHint(_ g: ShellGeometry) -> some View {
+        if model.hintShown(on: screen.id) {
+            BuddyHint()
+                .offset(x: g.width - Geo.Buddy.ear / 2 - Geo.Buddy.Hint.arrowCentre, y: g.height + Geo.Buddy.Hint.gap)
+                .transition(Self.contentSwap)
+        }
+    }
+
     /// Incoming content brings its own delayed fade (`Entrance`); outgoing content fades out while the shell moves.
     private static let contentSwap = AnyTransition.asymmetric(insertion: .identity, removal: .opacity)
 
@@ -90,6 +102,11 @@ struct NotchContainer: View {
         switch mode {
         case .idle:
             Color.clear
+                .overlay(alignment: .trailing) {
+                    if model.buddyShown(on: screen.id) {
+                        BuddyView(prefs: model.buddy, bobbing: model.hintShown(on: screen.id), paused: !model.screenAwake)
+                    }
+                }
                 .contentShape(Rectangle())
                 .onTapGesture { model.openPanel() }
                 .accessibilityElement()

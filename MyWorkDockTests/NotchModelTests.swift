@@ -158,6 +158,7 @@ final class NotchModelTests: XCTestCase {
     }
 
     func testIdleIsTheHardwareNotchWhenOneExists() {
+        model.setBuddy(BuddyPrefs(on: false)) // the plain notch; with the buddy it grows by its ear (BuddyTests)
         XCTAssertEqual(model.geometry().width, Geo.idle.width)
         let g = model.geometry(notch: CGSize(width: 156, height: 28))
         XCTAssertEqual(g, Geo.hardwareNotchShell(CGSize(width: 156, height: 28)))
@@ -170,6 +171,7 @@ final class NotchModelTests: XCTestCase {
 
     /// The hardware notch is fixed in panel pixels, so width and corners scale with the notch width across display modes.
     func testIdleCornersKeepTheirPhysicalSizeAcrossDisplayModes() {
+        model.setBuddy(BuddyPrefs(on: false)) // the notch's own width, without the buddy's ear
         let narrow = model.geometry(notch: CGSize(width: 156, height: 28))
         let wide = model.geometry(notch: CGSize(width: 185, height: 32))
         XCTAssertEqual(narrow.radius / narrow.width, wide.radius / wide.width, accuracy: 1e-9)
@@ -189,7 +191,7 @@ final class NotchModelTests: XCTestCase {
         model.openPanel()
         XCTAssertEqual(model.mode(on: 1), .open)
         XCTAssertEqual(model.mode(on: 2), .idle)
-        XCTAssertEqual(model.geometry(on: 2).width, Geo.idle.width)
+        XCTAssertEqual(model.geometry(on: 2).width, Geo.idle.width + Geo.Buddy.ear) // the buddy is on by default
         XCTAssertEqual(model.geometry(on: 1).width, Geo.open.width)
     }
 
