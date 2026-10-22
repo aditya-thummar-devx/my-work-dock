@@ -82,6 +82,9 @@ final class NotesStore {
     var doneCount: Int { todos.filter(\.done).count }
     var leftCount: Int { todos.count - doneCount }
 
+    /// Hover: how many todos are left and done; nil when there are none at all.
+    var peekTodo: PeekTodo? { todos.isEmpty ? nil : PeekTodo(left: leftCount, done: doneCount) }
+
     /// Query as matched: trimmed and lower-cased.
     private var needle: String { query.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
 

@@ -47,6 +47,9 @@ struct EmulatorNavTrailing: View {
             let p = EmuPlatform(rawValue: id) ?? .ios
             if wireless { store.wplatform = p } else { store.platform = p }
         }
+        if wireless && store.wplatform == .android {
+            IconButton(glyph: .power, label: "Restart adb server", size: 32, action: store.restartAdbServer).help("Restart adb server")
+        }
         IconButton(glyph: .refresh, label: "Refresh", size: 32, action: store.refresh)
     }
 }
@@ -73,7 +76,7 @@ struct DevicesView: View {
                                                    : "No emulators found. Create one in Android Studio › Device Manager, and make sure adb is installed.")
         } else {
             DockScroll {
-                CardGrid(items: list) { d in
+                CardGrid(items: list, adaptive: true) { d in
                     DeviceCard(device: d, onPlay: { store.play(d) }, onStop: { store.stop(d) }, onCold: { store.play(d, cold: true) })
                 }
             }
@@ -93,10 +96,12 @@ struct WirelessView: View {
                 EmptyHint(text: store.wplatform == .ios ? "No paired iPhones. Follow the steps on the right."
                                                         : "No wireless devices yet. Pair one with the form on the right.")
             } else {
-                GroupedList(count: list.count, rowHeight: Geo.Row.wirelessHeight, scrolls: true) { i in
-                    // devicectl cannot connect or disconnect, so a connected iPhone has nothing to do.
-                    WirelessRow(device: list[i], canAct: !(store.wplatform == .ios && list[i].status == .connected),
-                                onAction: { store.wirelessAction(list[i]) })
+                DockScroll {
+                    CardGrid(items: list, adaptive: true, minWidth: Geo.CardMetrics.wirelessMinWidth) { d in
+                        // devicectl cannot connect or disconnect, so a connected iPhone has nothing to do.
+                        WirelessCard(device: d, canAct: !(store.wplatform == .ios && d.status == .connected),
+                                     onAction: { store.wirelessAction(d) })
+                    }
                 }
             }
             Group {

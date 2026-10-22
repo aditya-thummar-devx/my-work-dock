@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Updates · MyWorkDock</title>
+<meta name="description" content="How MyWorkDock updates itself and where to find the changelog.">
+<link rel="icon" href="assets/icon.png">
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/theme.js"></script>
+</head>
+<body>
+<header class="site-header"><div class="wrap">
+  <a class="brand" href="index.html"><img src="assets/icon.png" alt="">MyWorkDock</a>
+  <nav>
+    <a href="install.html">Install</a>
+    <a href="privacy-blocker.html">Privacy blocker</a>
+    <a href="usage.html">Usage</a>
+    <a href="features.html">Features</a>
+    <a href="updates.html" aria-current="page">Updates</a>
+    <a href="troubleshooting.html">Help</a>
+  </nav>
+  <button class="theme-toggle" type="button" aria-label="Toggle theme"></button>
+</div></header>
+
+<main><div class="wrap">
+  <h1>Updates and changelog</h1>
+  <p class="lead">MyWorkDock updates itself. You do not need to download anything again.</p>
+
+  <h2>How it works</h2>
+  <ol class="steps">
+    <li>Once an hour the app checks for a newer version.</li>
+    <li>If there is one, it downloads it quietly in the background.</li>
+    <li>When nothing would be interrupted, it installs the update and restarts itself. That means the panel is closed, no confirmation is showing, no Google sign-in is in progress, and no simulator is booting or claudex change is running.</li>
+  </ol>
+  <p>Updates are delivered with <a href="https://sparkle-project.org">Sparkle</a>, a widely used macOS updater. Every update is signed, and the app checks the signature before installing it. The update feed is a file attached to the latest <a href="https://github.com/aditya-thummar-devx/my-work-dock/releases">GitHub release</a>.</p>
+
+  <h2>Check now</h2>
+  <p>Any of these runs a check straight away and shows the result, including the release notes:</p>
+  <ul>
+    <li>Settings › Version › <strong>Check for updates</strong></li>
+    <li>The menu-bar icon › <strong>Check for Updates…</strong></li>
+    <li>Right-click the notch bar › <strong>Check for Updates…</strong></li>
+  </ul>
+  <p>Settings › Version also shows your current version and when it last updated.</p>
+
+  <h2>Changelog</h2>
+  <p>Release notes for every version are on the <a href="https://github.com/aditya-thummar-devx/my-work-dock/releases">Releases page</a>. Each release lists the changes since the previous one.</p>
+  <p><a class="btn" href="https://github.com/aditya-thummar-devx/my-work-dock/releases">View releases</a></p>
+
+  <h2>If an update does not arrive</h2>
+  <ul>
+    <li>Make sure the app is in <code>/Applications</code> and that you are online.</li>
+    <li>Leave the panel closed for a few minutes so the app counts as idle.</li>
+    <li>Run <strong>Check for updates</strong> from Settings › Version to see any error.</li>
+    <li>As a last resort, download the latest DMG and replace the app. Your data is kept: it lives outside the app (<a href="troubleshooting.html#data">details</a>).</li>
+  </ul>
+</div></main>
+
+<footer class="site-footer"><div class="wrap">
+  <a href="https://github.com/aditya-thummar-devx/my-work-dock">GitHub</a> ·
+  <a href="https://github.com/aditya-thummar-devx/my-work-dock/releases">Releases</a> ·
+  <a href="troubleshooting.html">Help</a>
+</div></footer>
+</body>
+</html>

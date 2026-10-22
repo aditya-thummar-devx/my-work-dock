@@ -1,20 +1,63 @@
+import AppKit
 import Foundation
 import Observation
 
-/// The two lists that share one store and one view: Notes › Commands and Notes › Prompts.
+/// The lists that share one store and one view: Notes › Commands, Notes › Prompts and Notes › Links.
 enum SnippetKind {
-    case commands, prompts
+    case commands, prompts, links
 
-    var noun: String { self == .commands ? "command" : "prompt" }
-    var glyph: String { self == .commands ? "$" : "✦" }
+    var noun: String {
+        switch self {
+        case .commands: "command"
+        case .prompts: "prompt"
+        case .links: "link"
+        }
+    }
+
+    var glyph: String {
+        switch self {
+        case .commands: "$"
+        case .prompts: "✦"
+        case .links: "↗"
+        }
+    }
+
     /// `commands.json` is the v1 file name, kept so saved commands survive the upgrade.
-    var file: String { self == .commands ? "commands.json" : "prompts.json" }
-    var placeholder: String { self == .commands ? "Paste or type a command, press Enter" : "Paste or write a prompt, press Enter" }
+    var file: String {
+        switch self {
+        case .commands: "commands.json"
+        case .prompts: "prompts.json"
+        case .links: "links.json"
+        }
+    }
+
+    var placeholder: String {
+        switch self {
+        case .commands: "Paste or type a command, press Enter"
+        case .prompts: "Paste or write a prompt, press Enter"
+        case .links: "Paste a link, press Enter"
+        }
+    }
+
     /// Sample content for snapshots and tests only; the real lists start empty.
-    var seed: [String] { self == .commands ? SampleData.commands : SampleData.prompts }
+    var seed: [String] {
+        switch self {
+        case .commands: SampleData.commands
+        case .prompts: SampleData.prompts
+        case .links: SampleData.links
+        }
+    }
+
     /// Shown instead of the list when nothing is saved.
     var emptyTitle: String { "No \(noun)s saved yet" }
-    var emptyHint: String { self == .commands ? "Type or paste a command above, then press Enter." : "Write a prompt above, then press Enter." }
+
+    var emptyHint: String {
+        switch self {
+        case .commands: "Type or paste a command above, then press Enter."
+        case .prompts: "Write a prompt above, then press Enter."
+        case .links: "Paste a link above, then press Enter."
+        }
+    }
 }
 
 struct SnippetItem: Identifiable, Codable, Equatable {
@@ -22,7 +65,8 @@ struct SnippetItem: Identifiable, Codable, Equatable {
     var text: String
 }
 
-/// Saved commands or prompts: add, inline edit, copy, delete with one-step undo (Prototype `cmds` / `prompts`).
+/// Saved commands, prompts or links: add, inline edit, copy, delete with one-step undo (Prototype `cmds` / `prompts`).
+/// Links also open in the default browser.
 @MainActor @Observable
 final class SnippetStore {
     let kind: SnippetKind
@@ -34,15 +78,27 @@ final class SnippetStore {
     private(set) var saveError: String?
     var editDraft = ""
     private(set) var copiedId: Int?
+    /// Toast telling the user an item is copied with a double-click.
+    private(set) var hintShown = false
     /// Last deleted item and where it was, for Undo. Cleared by the next add or undo.
     private(set) var deleted: (item: SnippetItem, index: Int)?
-    /// Sub-nav search (Prompts only in the UI); never saved.
+    /// Sub-nav search (Prompts and Links in the UI); never saved.
     var query = ""
     private(set) var searchOpen = false
 
     @ObservationIgnored private let url: URL?
     @ObservationIgnored var copyToClipboard: (String) -> Void = Clipboard.copy
+    /// Called after an item is copied; the shell closes the panel.
+    @ObservationIgnored var onCopied: () -> Void = {}
+    @ObservationIgnored var openURL: (URL) -> Void = { NSWorkspace.shared.open($0) }
     @ObservationIgnored private var copyTask: Task<Void, Never>?
+    /// Row clicked once and still waiting for its second click.
+    @ObservationIgnored private var tapId: Int?
+    @ObservationIgnored private var tapTask: Task<Void, Never>?
+    @ObservationIgnored var doubleClickInterval = NSEvent.doubleClickInterval
+    static let hintTime: TimeInterval = 1.8
+    /// Waits `seconds`; tests replace it so the sequence finishes at once.
+    @ObservationIgnored var pause: (TimeInterval) async -> Void = { try? await Task.sleep(for: .seconds($0)) }
 
     /// `url == nil` keeps everything in memory (snapshots, tests). Reads `url` if it exists, otherwise starts from `seed`.
     init(_ kind: SnippetKind, url: URL?, seed: [String]) {
@@ -84,8 +140,14 @@ final class SnippetStore {
         query = ""
     }
 
+    /// Trimmed text. A link is one line with no spaces, so a multi-line paste is joined up.
+    private func clean(_ raw: String) -> String {
+        let text = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        return kind == .links ? text.components(separatedBy: .whitespacesAndNewlines).joined() : text
+    }
+
     func add() {
-        let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
+        let text = clean(draft)
         guard !text.isEmpty else { return }
         items.insert(SnippetItem(id: (items.map(\.id).max() ?? 0) + 1, text: text), at: 0)
         draft = ""
@@ -101,7 +163,7 @@ final class SnippetStore {
 
     /// Empty text cancels, like the prototype.
     func saveEdit() {
-        let text = editDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        let text = clean(editDraft)
         if !text.isEmpty, let i = items.firstIndex(where: { $0.id == editId }) {
             items[i].text = text
             save()
@@ -117,6 +179,10 @@ final class SnippetStore {
         draft = ""
         deleted = nil
         copiedId = nil
+        tapTask?.cancel()
+        tapTask = nil
+        tapId = nil
+        hintShown = false
         closeSearch()
     }
 
@@ -130,6 +196,47 @@ final class SnippetStore {
             guard !Task.isCancelled else { return }
             self?.copiedId = nil
         }
+        onCopied()
+    }
+
+    /// Click on an item's text. A second click within the double-click interval copies it; if none comes, the hint toast
+    /// about the double-click shows. Returns the running sequence so tests can wait for it.
+    @discardableResult
+    func tap(_ id: Int) -> Task<Void, Never>? {
+        tapTask?.cancel()
+        tapTask = nil
+        if tapId == id {
+            tapId = nil
+            hintShown = false
+            copy(id)
+            return nil
+        }
+        tapId = id
+        let run = Task { [weak self] in
+            guard let self else { return }
+            await pause(doubleClickInterval)
+            guard !Task.isCancelled else { return }
+            tapId = nil
+            hintShown = true
+            await pause(Self.hintTime)
+            guard !Task.isCancelled else { return }
+            hintShown = false
+        }
+        tapTask = run
+        return run
+    }
+
+    /// A saved link as a URL: text with a scheme is used as written, anything else gets `https://`. nil when it is not a URL.
+    static func url(from text: String) -> URL? {
+        let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return nil }
+        return URL(string: text.contains("://") ? text : "https://" + text)
+    }
+
+    /// Opens a saved link in the default browser; text that is not a URL does nothing.
+    func open(_ id: Int) {
+        guard let item = items.first(where: { $0.id == id }), let url = Self.url(from: item.text) else { return }
+        openURL(url)
     }
 
     func delete(_ id: Int) {

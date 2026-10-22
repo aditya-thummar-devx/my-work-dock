@@ -50,6 +50,15 @@ final class SnippetStoreTests: XCTestCase {
         XCTAssertEqual(store.footer, "Copied to clipboard")
     }
 
+    func testCopyNotifiesOnCopied() {
+        let store = SnippetStore(.commands, url: nil, seed: ["a"])
+        var count = 0
+        store.copyToClipboard = { _ in }
+        store.onCopied = { count += 1 }
+        store.copy(1)
+        XCTAssertEqual(count, 1)
+    }
+
     func testPromptsUseTheirOwnNounsAndSeed() {
         let store = SnippetStore.sample(.prompts)
         XCTAssertEqual(store.items.count, 5)
@@ -133,6 +142,32 @@ final class SnippetStoreTests: XCTestCase {
         XCTAssertEqual(commands.footer, "0 saved commands")
     }
 
+    func testLinksAreSingleLineAndKeepTheirOwnFileAndTexts() {
+        let store = SnippetStore(.links, url: nil, seed: [])
+        store.draft = "  https://example.com/a\n  b  "
+        store.add()
+        XCTAssertEqual(store.items.map(\.text), ["https://example.com/ab"])
+        store.startEdit(1)
+        store.editDraft = "example.com/x y"
+        store.saveEdit()
+        XCTAssertEqual(store.items[0].text, "example.com/xy")
+        XCTAssertEqual(store.kind.file, "links.json")
+        XCTAssertEqual(store.kind.emptyTitle, "No links saved yet")
+        XCTAssertEqual(store.footer, "1 saved links")
+    }
+
+    func testOpenUsesTheSavedLinkAndAddsHttpsWhenThereIsNoScheme() {
+        let store = SnippetStore(.links, url: nil, seed: ["example.com/a", "obsidian://open?vault=x", "https://swift.org"])
+        var opened: [URL] = []
+        store.openURL = { opened.append($0) }
+        store.open(1)
+        store.open(2)
+        store.open(3)
+        store.open(99) // unknown id: nothing
+        XCTAssertEqual(opened.map(\.absoluteString), ["https://example.com/a", "obsidian://open?vault=x", "https://swift.org"])
+        XCTAssertNil(SnippetStore.url(from: "   "))
+    }
+
     func testSubTabSwitchResetClosesTheSearch() {
         let store = SnippetStore.sample(.prompts)
         store.openSearch()
@@ -140,5 +175,25 @@ final class SnippetStoreTests: XCTestCase {
         store.reset()
         XCTAssertFalse(store.searchOpen)
         XCTAssertEqual(store.query, "")
+    }
+
+    func testDoubleClickCopiesWithoutHintAndSingleClickShowsThenHidesTheHint() async {
+        let store = SnippetStore(.commands, url: nil, seed: ["a"])
+        var written = ""
+        store.copyToClipboard = { written = $0 }
+        store.pause = { _ in }
+
+        store.tap(1) // two clicks before the double-click interval ends
+        store.tap(1)
+        await Task.yield() // lets the cancelled first sequence finish
+        XCTAssertEqual(written, "a")
+        XCTAssertFalse(store.hintShown)
+
+        var seen: [(TimeInterval, Bool)] = []
+        store.pause = { d in seen.append((d, store.hintShown)) }
+        await store.tap(1)?.value // one click, no second one
+        XCTAssertEqual(seen.map(\.0), [store.doubleClickInterval, SnippetStore.hintTime])
+        XCTAssertEqual(seen.map(\.1), [false, true]) // hint is up while the second wait runs
+        XCTAssertFalse(store.hintShown) // and gone after it
     }
 }

@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Get past the privacy blocker · MyWorkDock</title>
+<meta name="description" content="How to open MyWorkDock when macOS says it cannot verify the app, and which permission prompts to expect.">
+<link rel="icon" href="assets/icon.png">
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/theme.js"></script>
+</head>
+<body>
+<header class="site-header"><div class="wrap">
+  <a class="brand" href="index.html"><img src="assets/icon.png" alt="">MyWorkDock</a>
+  <nav>
+    <a href="install.html">Install</a>
+    <a href="privacy-blocker.html" aria-current="page">Privacy blocker</a>
+    <a href="usage.html">Usage</a>
+    <a href="features.html">Features</a>
+    <a href="updates.html">Updates</a>
+    <a href="troubleshooting.html">Help</a>
+  </nav>
+  <button class="theme-toggle" type="button" aria-label="Toggle theme"></button>
+</div></header>
+
+<main><div class="wrap">
+  <h1>Get past the privacy blocker</h1>
+  <p class="lead">The first time you open MyWorkDock, macOS shows a warning and does not let you through. Here is why, and how to continue.</p>
+
+  <h2>Why it happens</h2>
+  <p>macOS Gatekeeper only opens apps that Apple has notarized. Notarizing needs a paid Apple Developer account, and MyWorkDock is a small independent app that is signed ad hoc instead. The app is not damaged and not flagged as malware: Apple simply has not reviewed it. The warning looks like one of these:</p>
+  <ul>
+    <li>“MyWorkDock” Not Opened: Apple could not verify “MyWorkDock” is free of malware…</li>
+    <li>“MyWorkDock” can’t be opened because Apple cannot check it for malicious software.</li>
+  </ul>
+  <p>You only need to approve it once.</p>
+
+  <h2>Option 1: Open Anyway (recommended)</h2>
+  <p>Works on macOS 15 Sequoia and later, and on macOS 14.</p>
+  <ol class="steps">
+    <li>Double-click <strong>MyWorkDock</strong> in Applications. When the warning appears, click <strong>Done</strong> or <strong>Cancel</strong>. <strong>Do not</strong> click <em>Move to Trash</em>.</li>
+    <li>Open <strong>System Settings › Privacy &amp; Security</strong> and scroll down to the <strong>Security</strong> section.</li>
+    <li>You will see “MyWorkDock was blocked to protect your Mac.” Click <strong>Open Anyway</strong>.</li>
+    <li>Enter your password or use Touch ID.</li>
+    <li>Click <strong>Open Anyway</strong> once more in the final confirmation. The app starts.</li>
+  </ol>
+  <div class="callout">
+    <strong>No “Open Anyway” button?</strong>
+    <p>It only appears for a while after a blocked launch. Double-click the app again, cancel the warning, and go back to Privacy &amp; Security.</p>
+  </div>
+
+  <h2>Option 2: right-click Open (macOS 14 only)</h2>
+  <p>On Sonoma you can <strong>right-click</strong> the app, choose <strong>Open</strong>, then <strong>Open</strong> again. Apple removed this shortcut in macOS 15, so on Sequoia and later use Option 1.</p>
+
+  <h2>Option 3: Terminal</h2>
+  <p>If you prefer one command, remove the quarantine flag that the browser put on the download:</p>
+<pre><code>xattr -dr com.apple.quarantine /Applications/MyWorkDock.app</code></pre>
+  <p>Then open the app normally. Only do this for an app you downloaded from this project’s <a href="https://github.com/aditya-thummar-devx/my-work-dock/releases">releases page</a>.</p>
+
+  <h2>Permission prompts you may see afterwards</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Prompt</th><th>When</th><th>What to choose</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Paste from Other Apps</strong> (macOS 15.4+)</td><td>Clipboard tab reads what you copy</td><td><strong>Allow</strong>. If you choose Don’t Allow, clipboard history stays empty. Change it later in System Settings › Privacy &amp; Security › Paste from Other Apps.</td></tr>
+      <tr><td><strong>Local Network</strong></td><td>Emulator › Wireless pairs an Android device over Wi-Fi</td><td><strong>Allow</strong>. Without it, wireless connect fails with “No route to host”. Grant it in Privacy &amp; Security › Local Network, then press <strong>Restart adb server</strong> in Emulator › Wireless.</td></tr>
+      <tr><td>Login Items notice</td><td>You turned on Open at login</td><td>Informational. Manage it in System Settings › General › Login Items.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h2>What MyWorkDock does not ask for</h2>
+  <p>No Accessibility, Input Monitoring, Screen Recording, Automation or Notifications permission. The global hotkeys use a macOS API that needs none of them. Everything you save (clips, todos, snippets) stays in files on your Mac, and the app has no analytics or tracking. Its only network activity of its own is the update check. See <a href="updates.html">Updates</a>.</p>
+
+  <div class="callout warn">
+    <strong>Blocked again after an update?</strong>
+    <p>Updates are installed by the app itself. If macOS ever blocks the app again afterwards, repeat Option 1.</p>
+  </div>
+
+  <h2>Next</h2>
+  <p><a class="btn" href="usage.html">Learn the basics →</a></p>
+</div></main>
+
+<footer class="site-footer"><div class="wrap">
+  <a href="https://github.com/aditya-thummar-devx/my-work-dock">GitHub</a> ·
+  <a href="https://github.com/aditya-thummar-devx/my-work-dock/releases">Releases</a> ·
+  <a href="troubleshooting.html">Help</a>
+</div></footer>
+</body>
+</html>

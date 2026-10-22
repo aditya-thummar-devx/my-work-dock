@@ -112,7 +112,15 @@ enum SnapshotRunner {
 
     /// Names match the reference PNGs in `screenshots/artboards` and `screenshots/prototype`.
     /// States whose content isn't built yet are not listed; `compare-all.sh` reports them as missing.
-    static let states: [State] = screenStates + Fragments.all + [
+    static let states: [State] = screenStates + Fragments.all + CalendarStates.all + [
+        State("settings-clipboard", .panel, content: .fragment(rect: CGRect(x: 260, y: 46, width: 480, height: 480),
+                                                               view: { AnyView(SettingsPopover(theme: .dark, tint: .lime, page: .clipboard, clipboardLimit: 500)) })) { $0.openPanel() },
+        // Settings › Menus: the popover keeps its natural height, so this shows whether every row still fits the panel.
+        State("settings-menus", .panel, content: .fragment(rect: CGRect(x: 260, y: 46, width: 480, height: 480),
+                                                           view: { AnyView(SettingsPopover(theme: .dark, tint: .lime, page: .menus)) })) { $0.openPanel() },
+        State("settings-version", .panel, content: .fragment(rect: CGRect(x: 260, y: 46, width: 480, height: 480),
+                                                             view: { AnyView(SettingsPopover(theme: .dark, tint: .lime, page: .version, version: "0.1.0 (1)",
+                                                                                             updatedAt: Date(timeIntervalSince1970: 1_790_000_000), onCheckForUpdates: {})) })) { $0.openPanel() },
         State("gallery-dark", .gallery, content: .gallery) { $0.setTheme(.dark) },
         State("gallery-light", .gallery, content: .gallery) { $0.setTheme(.light) },
         State("60-agents", .panel) { m in m.agents.loadSample(); m.setMainTab(.agents); m.openPanel() },
@@ -121,15 +129,59 @@ enum SnapshotRunner {
 
     private static let screenStates: [State] = [
         State("01-idle", .notch),
-        State("02-peek-pool", .notch) { $0.pointer(inside: true) },
-        State("31-peek-after-boot", .notch) { $0.pointer(inside: true) },
+        // The prototype's peek is claudex's; Settings › Peek has it off by default.
+        State("02-peek-pool", .notch) {
+            $0.setPeekEnabled(.claudex, true)
+            $0.pointer(inside: true)
+        },
+        State("31-peek-after-boot", .notch) {
+            $0.setPeekEnabled(.claudex, true)
+            $0.pointer(inside: true)
+        },
         State("32-peek-sso", .notch) {
+            $0.setPeekEnabled(.claudex, true)
             $0.setPeek(SampleData.peekSSO)
             $0.pointer(inside: true)
         },
         // The reference was captured part-way through the fake boot fill.
         State("30-live-activity", .notch, liveProgress: 0.326) { $0.bootingOverride = SampleData.bootingSim },
         State("03-notes-todo", .panel) { $0.openPanel() },
+        State("clipboard", .panel) {
+            $0.mainTab = .clipboard
+            $0.openPanel()
+        },
+        State("clipboard-tag-menu", .panel) {
+            $0.mainTab = .clipboard
+            $0.clipboard.openTagPicker(2)
+            $0.openPanel()
+        },
+        State("clipboard-tag-manage", .panel) {
+            $0.mainTab = .clipboard
+            $0.clipboard.openTagManage()
+            $0.openPanel()
+        },
+        State("clipboard-tag-form", .panel) {
+            $0.mainTab = .clipboard
+            $0.clipboard.openTagManage()
+            $0.clipboard.openTagForm(editing: "dev")
+            $0.openPanel()
+        },
+        State("clipboard-tag-filter", .panel) {
+            $0.mainTab = .clipboard
+            $0.clipboard.pickFilter("dev")
+            $0.openPanel()
+        },
+        State("clipboard-hint", .panel) {
+            $0.mainTab = .clipboard
+            $0.clipboard.showHint()
+            $0.openPanel()
+        },
+        State("clipboard-search", .panel) {
+            $0.mainTab = .clipboard
+            $0.clipboard.openSearch()
+            $0.clipboard.query = "a"
+            $0.openPanel()
+        },
         State("34-header-ip-refreshing", .chip) {
             $0.openPanel()
             $0.localIP.show(.busy, ip: "192.168.1.24")
@@ -209,6 +261,17 @@ enum SnapshotRunner {
             for item in $0.prompts.items { $0.prompts.delete(item.id) }
             $0.openPanel()
         },
+        // Notes › Links (no prototype shot): the list, and with the search open.
+        State("47-notes-links", .panel) {
+            prototypeNotes($0, .links)
+            $0.openPanel()
+        },
+        State("48-notes-links-search", .panel) {
+            prototypeNotes($0, .links)
+            $0.links.openSearch()
+            $0.links.query = "github"
+            $0.openPanel()
+        },
         State("37-settings-appearance-dark", .panel) {
             $0.setTheme(.dark)
             tunnelWithSettings($0)
@@ -281,9 +344,37 @@ enum SnapshotRunner {
             Feature.allCases.forEach { model.setEnabled($0, false) }
             model.openPanel()
         },
-        State("50-peek-claudex-off", .notch) {
-            $0.setEnabled(.claudex, false)
+        // No reference design: claudex off (the default) shows TODO and clip counts left of the notch, the IP on its right.
+        // A part with nothing to show is hidden and the rest keep their side.
+        State("50-peek-claudex-off", .notch) { $0.pointer(inside: true) },
+        State("51-peek-ip", .notch) {
+            $0.setPeekEnabled(.todo, false)
+            $0.setPeekEnabled(.clipboard, false)
             $0.pointer(inside: true)
+        },
+        State("55-peek-clipboard", .notch) {
+            $0.setPeekEnabled(.todo, false)
+            $0.setPeekEnabled(.localIP, false)
+            $0.pointer(inside: true)
+        },
+        State("56-peek-todo-clips", .notch) {
+            $0.setPeekEnabled(.localIP, false)
+            $0.pointer(inside: true)
+        },
+        State("57-peek-info-light", .notch) {
+            $0.setTheme(.light)
+            $0.pointer(inside: true)
+        },
+        State("52-peek-hint", .notch) {
+            for source in PeekSource.allCases where source != .claudex { $0.setPeekEnabled(source, false) }
+            $0.pointer(inside: true)
+        },
+        // No reference design: Settings › Peek, with claudex off (default) and on (the others wait, dimmed).
+        State.fragment("53-settings-peek-dark", rect: CGRect(x: 260, y: 46, width: 480, height: 300)) {
+            SettingsPopover(theme: .dark, tint: .lime, peekOn: [.clipboard, .localIP], page: .peek)
+        },
+        State.fragment("54-settings-peek-light-claudex", theme: .light, rect: CGRect(x: 260, y: 46, width: 480, height: 300)) {
+            SettingsPopover(theme: .light, tint: .lime, peekOn: [.claudex], page: .peek)
         },
         State("16-notes-prompts-multiline-input", .panel) {
             prototypeNotes($0, .prompts)
@@ -391,6 +482,42 @@ enum SnapshotRunner {
             $0.claudex.select(.health)
             $0.openPanel()
         },
+        // No reference design: Tokens & cost, from Claude Code's transcripts. It works with claudex missing (only that tab is left).
+        State("58-claudex-tokens", .panel) {
+            $0.mainTab = .claudex
+            $0.claudex.select(.tokens)
+            $0.openPanel()
+        },
+        State("59-claudex-tokens-partial", .panel) {
+            $0.mainTab = .claudex
+            $0.claudex.select(.tokens)
+            $0.claudeUsage.showSamplePartial()
+            $0.openPanel()
+        },
+        State("60-claudex-missing-tokens", .panel) {
+            $0.mainTab = .claudex
+            $0.claudex.showSampleUnavailable()
+            $0.openPanel()
+        },
+        State("61-claudex-tokens-empty", .panel) {
+            $0.mainTab = .claudex
+            $0.claudex.select(.tokens)
+            $0.claudeUsage.showSampleEmpty()
+            $0.openPanel()
+        },
+        State("62-claudex-tokens-loading", .panel) {
+            $0.mainTab = .claudex
+            $0.claudex.select(.tokens)
+            $0.claudeUsage.showSampleLoading()
+            $0.openPanel()
+        },
+        State("63-light-claudex-tokens", .panel) {
+            $0.setTheme(.light)
+            $0.mainTab = .claudex
+            $0.claudex.select(.tokens)
+            $0.claudeUsage.showSamplePartial()
+            $0.openPanel()
+        },
         State("02-notes-todo", .artboard) {
             $0.notes.pickTodoTag("bug")
             $0.notes.openSearch()
@@ -446,6 +573,7 @@ enum SnapshotRunner {
         let args = CommandLine.arguments
         guard let i = args.firstIndex(of: "--start"), i + 1 < args.count,
               let state = states.first(where: { $0.name == args[i + 1] }) else { return }
+        model.mainTab = .notes // the reference states were captured before the Clipboard menu became the first tab
         state.configure(model)
     }
 
@@ -473,6 +601,7 @@ enum SnapshotRunner {
         Typo.uiFamily = value(of: "--font") == "system" ? nil : "Geist"
 
         let model = NotchModel(sample: true)
+        model.mainTab = .notes // see applyStartState
         state.configure(model)
         let url = URL(fileURLWithPath: out)
         try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)

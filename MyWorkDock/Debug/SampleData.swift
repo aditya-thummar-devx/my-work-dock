@@ -50,6 +50,37 @@ enum SampleData {
                         week: Gauge(pct: w.percent, at: w.reset), updated: "live")
     }
 
+    // MARK: Tokens & cost (invented numbers, priced as Opus 4.8)
+
+    /// Dates and day labels of the sample are read in this calendar, so a snapshot looks the same wherever it is rendered.
+    static let calendar = Calendar.current
+
+    private static func date(_ month: Int, _ day: Int, _ hour: Int = 0, _ minute: Int = 0) -> Date {
+        calendar.date(from: DateComponents(year: 2026, month: month, day: day, hour: hour, minute: minute))!
+    }
+
+    private static func figures(_ t: TokenCounts) -> UsageFigures {
+        var f = UsageFigures()
+        f.add(t, model: "claude-opus-4-8")
+        return f
+    }
+
+    static let usageSnapshot = UsageSnapshot(
+        fiveHours: figures(TokenCounts(input: 1_840, cacheWrite5m: 310_000, cacheWrite1h: 1_450_000, cacheRead: 98_200_000, output: 612_000)),
+        windowSince: date(10, 13, 9, 41),
+        today: figures(TokenCounts(input: 2_960, cacheWrite5m: 520_000, cacheWrite1h: 2_900_000, cacheRead: 171_000_000, output: 1_030_000)),
+        month: figures(TokenCounts(input: 38_400, cacheWrite5m: 6_800_000, cacheWrite1h: 31_000_000, cacheRead: 1_940_000_000, output: 12_700_000)),
+        lastMonth: figures(TokenCounts(input: 61_000, cacheWrite5m: 9_400_000, cacheWrite1h: 47_000_000, cacheRead: 3_050_000_000, output: 21_300_000)),
+        monthStart: date(10, 1), lastMonthStart: date(9, 1), updatedAt: now)
+
+    /// The first month on a Mac: the first look was on 13 Oct, and Claude Code had already deleted the start of September's transcripts.
+    static let usageSnapshotPartial: UsageSnapshot = {
+        var s = usageSnapshot
+        s.lastMonth = figures(TokenCounts(input: 24_000, cacheWrite5m: 3_900_000, cacheWrite1h: 19_000_000, cacheRead: 1_230_000_000, output: 8_700_000))
+        s.lastMonthPartialFrom = date(9, 14)
+        return s
+    }()
+
     private static func member(_ name: String, _ plan: String, _ net: Double, _ s: (Int, String)?, _ w: (Int, String)?, marked: Bool = false) -> PoolMember {
         PoolMember(name: name, plan: plan, marked: marked, active: false, sharing: true,
                    session: s.map { Gauge(pct: $0.0, at: $0.1.isEmpty ? nil : $0.1) } ?? .none,
@@ -204,6 +235,13 @@ enum SampleData {
         "adb reverse tcp:8081 tcp:8081",
         "cd android && ./gradlew clean assembleRelease",
         "watchman watch-del-all && rm -rf node_modules && yarn",
+    ]
+
+    static let links = [
+        "https://github.com/aditya-thummar-devx/my-work-dock",
+        "https://reactnative.dev/docs/getting-started",
+        "https://developer.apple.com/app-store-connect/",
+        "https://linear.app/devxlabs/team/ENG/active",
     ]
 
     static let prompts = [

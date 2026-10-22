@@ -25,7 +25,8 @@ extension Geo {
         static let swatchCheck: CGFloat = 12
         static let ringWidth: CGFloat = 2
         static let noteFont: CGFloat = 11.5
-        static let menuRowHeight: CGFloat = 36
+        /// Five features + Show on all displays: at 36 the popover ran past the 480 pt panel.
+        static let menuRowHeight: CGFloat = 32
         static let switchSize = (width: CGFloat(34), height: CGFloat(20))
         static let switchKnob: CGFloat = 14
     }
@@ -46,36 +47,59 @@ extension Geo {
     }
 }
 
-/// Settings: Appearance (theme, tint) and Menus (which features are on). Applies everywhere.
+/// Settings: Appearance (theme, tint), Menus (which features are on) and Clipboard (history size). Applies everywhere.
 struct SettingsPopover: View {
-    enum Page: String { case appearance, menus }
+    enum Page: String { case appearance, menus, peek, clipboard, version }
 
     var theme: ThemeMode
     /// What macOS is in right now; only shown while `theme == .system`.
     var systemIsDark = true
     var tint: Tint
+    var panelSize = PanelSize.medium
     var disabled: Set<Feature> = []
+    var peekOn = PeekSource.defaultOn
     var allDisplays = false
+    var clipboardLimit = ClipboardStore.defaultLimit
+    var version = ""
+    var updatedAt: Date?
+    /// nil in debug builds (no updater): the Version page then says so instead of showing the button.
+    var onCheckForUpdates: (() -> Void)?
     var onTheme: (ThemeMode) -> Void = { _ in }
     var onTint: (Tint) -> Void = { _ in }
+    var onPanelSize: (PanelSize) -> Void = { _ in }
     var onFeature: (Feature, Bool) -> Void = { _, _ in }
+    var onPeek: (PeekSource, Bool) -> Void = { _, _ in }
     var onAllDisplays: (Bool) -> Void = { _ in }
+    var onClipboardLimit: (Int) -> Void = { _ in }
     var onClose: () -> Void = {}
     @State private var page: Page
     @Environment(\.tokens) private var t
 
-    init(theme: ThemeMode, systemIsDark: Bool = true, tint: Tint, disabled: Set<Feature> = [], allDisplays: Bool = false, page: Page = .appearance,
+    init(theme: ThemeMode, systemIsDark: Bool = true, tint: Tint, panelSize: PanelSize = .medium, disabled: Set<Feature> = [], peekOn: Set<PeekSource> = PeekSource.defaultOn, allDisplays: Bool = false, page: Page = .appearance,
+         clipboardLimit: Int = ClipboardStore.defaultLimit, version: String = "", updatedAt: Date? = nil,
+         onCheckForUpdates: (() -> Void)? = nil,
          onTheme: @escaping (ThemeMode) -> Void = { _ in }, onTint: @escaping (Tint) -> Void = { _ in },
-         onFeature: @escaping (Feature, Bool) -> Void = { _, _ in }, onAllDisplays: @escaping (Bool) -> Void = { _ in },
-         onClose: @escaping () -> Void = {}) {
+         onPanelSize: @escaping (PanelSize) -> Void = { _ in },
+         onFeature: @escaping (Feature, Bool) -> Void = { _, _ in }, onPeek: @escaping (PeekSource, Bool) -> Void = { _, _ in },
+         onAllDisplays: @escaping (Bool) -> Void = { _ in },
+         onClipboardLimit: @escaping (Int) -> Void = { _ in }, onClose: @escaping () -> Void = {}) {
         self.theme = theme
         self.systemIsDark = systemIsDark
         self.tint = tint
+        self.panelSize = panelSize
         self.disabled = disabled
+        self.peekOn = peekOn
         self.allDisplays = allDisplays
+        self.clipboardLimit = clipboardLimit
+        self.version = version
+        self.updatedAt = updatedAt
+        self.onCheckForUpdates = onCheckForUpdates
+        self.onClipboardLimit = onClipboardLimit
         self.onTheme = onTheme
         self.onTint = onTint
+        self.onPanelSize = onPanelSize
         self.onFeature = onFeature
+        self.onPeek = onPeek
         self.onAllDisplays = onAllDisplays
         self.onClose = onClose
         _page = State(initialValue: page)
@@ -84,7 +108,8 @@ struct SettingsPopover: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Geo.Chrome.popoverGap) {
             HStack {
-                SubTabs(items: [SubTabItem(Page.appearance.rawValue, "Appearance"), SubTabItem(Page.menus.rawValue, "Menus")],
+                SubTabs(items: [SubTabItem(Page.appearance.rawValue, "Appearance"), SubTabItem(Page.menus.rawValue, "Menus"),
+                                SubTabItem(Page.peek.rawValue, "Peek"), SubTabItem(Page.clipboard.rawValue, "Clipboard"), SubTabItem(Page.version.rawValue, "Version")],
                         selection: page.rawValue, activeFill: t.ctrl) { page = Page(rawValue: $0) ?? .appearance }
                 Spacer()
                 IconButton(glyph: .close, label: "Close settings", size: Geo.Appearance.closeSize,
@@ -92,9 +117,16 @@ struct SettingsPopover: View {
             }
             switch page {
             case .appearance:
-                AppearanceSection(theme: theme, systemIsDark: systemIsDark, tint: tint, onTheme: onTheme, onTint: onTint)
+                AppearanceSection(theme: theme, systemIsDark: systemIsDark, tint: tint, panelSize: panelSize,
+                                  onTheme: onTheme, onTint: onTint, onPanelSize: onPanelSize)
             case .menus:
                 MenusSection(disabled: disabled, allDisplays: allDisplays, onFeature: onFeature, onAllDisplays: onAllDisplays)
+            case .peek:
+                PeekSection(on: peekOn, disabled: disabled, onPeek: onPeek)
+            case .clipboard:
+                ClipboardSection(limit: clipboardLimit, onLimit: onClipboardLimit)
+            case .version:
+                VersionSection(version: version, updatedAt: updatedAt, onCheck: onCheckForUpdates)
             }
         }
         .padding(Geo.Chrome.popoverPadding + 1)
@@ -105,6 +137,95 @@ struct SettingsPopover: View {
                 .shadow(color: t.popShadow, radius: Geo.Chrome.popoverShadow.blur / 2, y: Geo.Chrome.popoverShadow.y)
         }
         .overlay(RoundedRectangle(cornerRadius: Geo.Chrome.popoverRadius).strokeBorder(t.border, lineWidth: 1))
+    }
+}
+
+/// Settings › Version: what is installed, when it arrived, and a manual update check (Sparkle shows its own window).
+private struct VersionSection: View {
+    var version: String
+    var updatedAt: Date?
+    var onCheck: (() -> Void)?
+    @Environment(\.tokens) private var t
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Geo.Chrome.popoverGap) {
+            Text("About").font(Typo.ui(Geo.Appearance.sectionFont, .semibold)).foregroundStyle(t.faint)
+            VStack(spacing: 0) {
+                row("Current version", version)
+                row("Last updated", updatedAt?.formatted(date: .abbreviated, time: .shortened) ?? "—")
+            }
+            .padding(.top, Geo.Appearance.pullUp)
+            if let onCheck {
+                DockButton(title: "Check for updates", glyph: .refresh, metrics: .save, tone: .tint, weight: .bold, action: onCheck)
+            }
+            Text(onCheck == nil ? "Update checks are off in debug builds."
+                                : "Updates are checked every hour, downloaded quietly and installed when the dock is idle.")
+                .font(Typo.ui(Geo.Appearance.noteFont))
+                .foregroundStyle(t.faint)
+                .lineSpacing(Typo.lineSpacing(size: Geo.Appearance.noteFont, lineHeight: 1.4))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func row(_ label: String, _ value: String) -> some View {
+        HStack {
+            Text(label).font(Typo.ui(Geo.Menu.font, .medium)).foregroundStyle(t.text)
+            Spacer(minLength: 0)
+            Text(value).font(Typo.mono(Geo.Menu.font)).foregroundStyle(t.text2)
+        }
+        .padding(.horizontal, Geo.Menu.rowPadX)
+        .frame(height: Geo.Appearance.menuRowHeight)
+    }
+}
+
+/// Settings › Clipboard: how many untagged clips the history keeps. Applied with Enter or Apply, never per keystroke:
+/// typing "500" must not pass through "5" and delete clips on the way.
+private struct ClipboardSection: View {
+    var limit: Int
+    var onLimit: (Int) -> Void
+    @State private var draft: String
+    @Environment(\.tokens) private var t
+
+    init(limit: Int, onLimit: @escaping (Int) -> Void) {
+        self.limit = limit
+        self.onLimit = onLimit
+        _draft = State(initialValue: String(limit))
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Geo.Chrome.popoverGap) {
+            Text("History").font(Typo.ui(Geo.Appearance.sectionFont, .semibold)).foregroundStyle(t.faint)
+            HStack(spacing: Geo.NewTag.gap) {
+                Text("Keep the last").font(Typo.ui(Geo.Menu.font, .medium)).foregroundStyle(t.text)
+                HStack {
+                    DockTextField(text: $draft, placeholder: "\(ClipboardStore.defaultLimit)", font: Typo.mono(Geo.NewTag.font))
+                        .frame(height: Geo.NewTag.inputHeight)
+                        .onSubmit(apply)
+                }
+                .padding(.horizontal, Geo.NewTag.fieldPad.leading)
+                .frame(width: 64, height: Geo.NewTag.fieldHeight)
+                .background(RoundedRectangle(cornerRadius: Geo.NewTag.fieldRadius).fill(t.inset))
+                .overlay(RoundedRectangle(cornerRadius: Geo.NewTag.fieldRadius).strokeBorder(t.border, lineWidth: 1))
+                Text("clips").font(Typo.ui(Geo.Menu.font, .medium)).foregroundStyle(t.text)
+                Spacer(minLength: 0)
+                DockButton(title: "Apply", glyph: nil, metrics: .save, tone: .tint, weight: .bold, action: apply)
+            }
+            .padding(.top, Geo.Appearance.pullUp)
+            Text("From 1 to \(ClipboardStore.maxLimit). The limit counts only clips with no tag; tagged and pinned clips are never removed, however many there are.")
+                .font(Typo.ui(Geo.Appearance.noteFont))
+                .foregroundStyle(t.faint)
+                .lineSpacing(Typo.lineSpacing(size: Geo.Appearance.noteFont, lineHeight: 1.4))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .onChange(of: draft) { draft = String(draft.filter(\.isNumber).prefix(4)) }
+        .onChange(of: limit) { draft = String(limit) }
+    }
+
+    /// Blank or non-numeric input goes back to the current limit.
+    private func apply() {
+        let n = ClipboardStore.clamp(Int(draft) ?? limit)
+        draft = String(n)
+        onLimit(n)
     }
 }
 
@@ -144,6 +265,50 @@ private struct MenusSection: View {
     }
 
     private func row(_ label: String, _ glyph: Glyph, on: Bool, toggle: @escaping () -> Void) -> some View {
+        SwitchRow(label: label, glyph: glyph, on: on, toggle: toggle)
+    }
+}
+
+/// Settings › Peek: what hover shows. claudex alone takes the whole hover (the rest go off and are locked); with claudex off
+/// the TODO and clipboard counts show on the left of the notch and the Local IP on its right. Today's events are a row under
+/// either, so claudex never locks them.
+private struct PeekSection: View {
+    var on: Set<PeekSource>
+    var disabled: Set<Feature>
+    var onPeek: (PeekSource, Bool) -> Void
+    @Environment(\.tokens) private var t
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Geo.Chrome.popoverGap) {
+            Text("Hover shows").font(Typo.ui(Geo.Appearance.sectionFont, .semibold)).foregroundStyle(t.faint)
+            VStack(spacing: 0) {
+                ForEach(PeekSource.allCases) { source in
+                    let isOn = on.contains(source)
+                    // The others wait while claudex is on; a menu that is off can still be switched off here, never on.
+                    let locked = (source != .claudex && !source.isRow && on.contains(.claudex)) || (disabled.contains(source.feature) && !isOn)
+                    SwitchRow(label: source.label, glyph: source.glyph, on: isOn, locked: locked) { onPeek(source, !isOn) }
+                }
+            }
+            .padding(.top, Geo.Appearance.pullUp)
+            Text("claudex takes the whole hover and switches the rest off; switching it off turns them back on. Otherwise TODO and Clipboard counts show left of the notch and the IP on its right. Today's events add a row under whichever is showing, once you are signed in to My Calendar. Anything with nothing to show is hidden, and each needs its menu on in Menus.")
+                .font(Typo.ui(Geo.Appearance.noteFont))
+                .foregroundStyle(t.faint)
+                .lineSpacing(Typo.lineSpacing(size: Geo.Appearance.noteFont, lineHeight: 1.4))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+/// A settings row with a switch. `locked` dims it and ignores clicks (its menu is off), keeping the stored choice.
+private struct SwitchRow: View {
+    var label: String
+    var glyph: Glyph
+    var on: Bool
+    var locked = false
+    var toggle: () -> Void
+    @Environment(\.tokens) private var t
+
+    var body: some View {
         Button(action: toggle) {
             HStack(spacing: Geo.Menu.rowGap) {
                 Icon(glyph, size: Geo.Appearance.themeIcon).foregroundStyle(on ? t.text : t.muted)
@@ -154,10 +319,12 @@ private struct MenusSection: View {
             .padding(.horizontal, Geo.Menu.rowPadX)
             .frame(height: Geo.Appearance.menuRowHeight)
             .contentShape(Rectangle())
+            .opacity(locked ? 0.45 : 1)
         }
         .buttonStyle(.plain)
+        .disabled(locked)
         .accessibilityLabel(label)
-        .accessibilityValue(on ? "On" : "Off")
+        .accessibilityValue(locked ? "Off, its menu is off" : on ? "On" : "Off")
     }
 }
 
@@ -186,8 +353,10 @@ private struct AppearanceSection: View {
     var theme: ThemeMode
     var systemIsDark = true
     var tint: Tint
+    var panelSize = PanelSize.medium
     var onTheme: (ThemeMode) -> Void = { _ in }
     var onTint: (Tint) -> Void = { _ in }
+    var onPanelSize: (PanelSize) -> Void = { _ in }
     @Environment(\.tokens) private var t
 
     var body: some View {
@@ -221,6 +390,13 @@ private struct AppearanceSection: View {
                 .foregroundStyle(t.faint)
                 .lineSpacing(Typo.lineSpacing(size: Geo.Appearance.noteFont, lineHeight: 1.4))
                 .fixedSize(horizontal: false, vertical: true)
+
+            HStack {
+                Text("Panel size").font(Typo.ui(Geo.Appearance.sectionFont, .semibold)).foregroundStyle(t.faint)
+                Spacer()
+                SubTabs(items: PanelSize.allCases.map { SubTabItem($0.rawValue, $0.label) },
+                        selection: panelSize.rawValue, activeFill: t.ctrl) { onPanelSize(PanelSize(rawValue: $0) ?? .medium) }
+            }
         }
     }
 
@@ -636,5 +812,26 @@ struct TagFormPopover: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+}
+
+/// Inverted pill so it reads on both themes.
+struct HintToast: View {
+    var text: String
+    @Environment(\.tokens) private var t
+
+    init(_ text: String) { self.text = text }
+
+    var body: some View {
+        HStack(spacing: 7) {
+            Icon(.copy, size: 12)
+            Text(text).font(Typo.ui(12.5, .semibold))
+        }
+        .foregroundStyle(t.panel)
+        .padding(.horizontal, 14)
+        .frame(height: 34)
+        .background(Capsule().fill(t.text))
+        .accessibilityElement(children: .combine)
+        .allowsHitTesting(false)
     }
 }

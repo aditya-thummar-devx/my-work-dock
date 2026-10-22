@@ -2,3 +2,5 @@ build/
 DerivedData/
 xcuserdata/
 .DS_Store
+Config/GoogleOAuth.xcconfig
+.claude/worktrees/

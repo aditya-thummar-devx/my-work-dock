@@ -119,6 +119,7 @@ final class NotesStoreTests: XCTestCase {
 
     func testMenusAreExclusiveAndSubTabSwitchResetsSearchAndMenus() {
         let model = NotchModel(sample: true)
+        model.setMainTab(.notes)
         let store = model.notes
         store.toggleTagMenu()
         store.toggleFilterMenu()
@@ -143,8 +144,13 @@ final class NotesStoreTests: XCTestCase {
         model.openSearch() // …and opens the Prompts search there
         XCTAssertTrue(model.prompts.searchOpen)
         XCTAssertFalse(store.searchOpen)
+        model.setNotesTab(.links)
+        XCTAssertFalse(model.prompts.searchOpen)
+        model.openSearch() // Links has its own search
+        XCTAssertTrue(model.links.searchOpen)
         model.setNotesTab(.todo)
         XCTAssertFalse(model.prompts.searchOpen) // a sub-tab switch resets it
+        XCTAssertFalse(model.links.searchOpen)
     }
 
     func testCleanTagMatchesThePrototype() {
@@ -567,6 +573,7 @@ final class NotesStoreTests: XCTestCase {
 
     func testNotchModelPendingUndoFollowsTheVisibleTab() {
         let model = NotchModel(sample: true)
+        model.setMainTab(.notes)
         XCTAssertNil(model.pendingUndo)
         model.notes.delete(1)
         XCTAssertNotNil(model.pendingUndo)
@@ -576,5 +583,20 @@ final class NotesStoreTests: XCTestCase {
         XCTAssertNotNil(model.pendingUndo) // commands' own undo
         model.setNotesTab(.todo)
         XCTAssertNil(model.pendingUndo)
+    }
+
+    // MARK: Hover
+
+    func testPeekTodoCountsWhatIsLeftAndDoneAndIsNilWithoutTodos() {
+        let store = NotesStore(url: nil, seed: [
+            TodoSample(id: 1, title: "Plain", tag: "", due: "Today"),
+            TodoSample(id: 2, title: "Done", tag: "", due: "Today", done: true),
+            TodoSample(id: 3, title: "Hot", tag: "", due: "Today", hot: true),
+        ])
+        XCTAssertEqual(store.peekTodo, PeekTodo(left: 2, done: 1))
+        store.toggle(1)
+        store.toggle(3)
+        XCTAssertEqual(store.peekTodo, PeekTodo(left: 0, done: 3)) // all done still shows its counts
+        XCTAssertNil(NotesStore(url: nil, seed: []).peekTodo)
     }
 }

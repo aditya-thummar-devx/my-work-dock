@@ -16,6 +16,21 @@ enum NotchMode: Equatable {
     }
 }
 
+/// Settings › Appearance › Panel size: how big the open panel is. The raw values are stored in UserDefaults.
+enum PanelSize: String, CaseIterable, Identifiable {
+    case medium, large
+
+    var id: String { rawValue }
+    var label: String { rawValue.capitalized }
+
+    /// Medium is the designed `Geo.open`; large is 75 % of the display (never smaller than medium, and medium when the display is unknown).
+    func size(on display: CGSize?) -> CGSize {
+        let medium = CGSize(width: Geo.open.width, height: Geo.open.height)
+        guard self == .large, let display else { return medium }
+        return CGSize(width: max(medium.width, (display.width * 0.75).rounded()), height: max(medium.height, (display.height * 0.75).rounded()))
+    }
+}
+
 enum Geo {
     // MARK: Shell silhouettes (width, height, bottom radius)
 
@@ -24,10 +39,31 @@ enum Geo {
     static let keepOutWidth: CGFloat = 200
     static let keepOutHeight: CGFloat = 32
 
-    /// Idle size on a screen with no hardware notch; with one, idle is the notch's own size (`NotchModel.notch`).
+    /// Idle size when no connected screen has a hardware notch; otherwise idle is a notch's own size (`ShellScreen.idleNotch`).
     static let idle = (width: CGFloat(190), height: CGFloat(32), radius: CGFloat(14))
-    /// Idle corners matching the physical notch (~4 pt top flare, ~8 pt bottom; Apple publishes no radii, tune by eye).
-    static let hardwareNotch = (shoulder: CGFloat(4), radius: CGFloat(8))
+    /// The physical notch in panel pixels, whatever the scaled display mode. Measured from a macro photo of a 14" M4 with a light
+    /// shell over a dark menu bar (the shell's overhang shows as a light rim around the black cutout):
+    /// - `reportedWidth`: what `auxiliaryTop*Area` reports at the default mode (185 pt at 2 px/pt). The API pads the cutout by ~3 px
+    ///   a side, so it is only used for pt per px (`notch.width / reportedWidth`), never as the drawn width.
+    /// - `width`: the real cutout, ~363 px.
+    /// - `shoulder`: the cutout's top flare, ~6.5 px. `radius`: its bottom corners, ~23 px (range 21-26, not a perfect circle).
+    /// Height needs no correction: the shell's `safeAreaInsets.top` matched the cutout bottom within ~1 px.
+    static let hardwareNotchPx = (reportedWidth: CGFloat(370), width: CGFloat(363), shoulder: CGFloat(6.5), radius: CGFloat(23))
+
+    /// Idle shell drawn exactly over a hardware notch whose API size is `notch` points: points per panel pixel is
+    /// `notch.width / reportedWidth`, so width and corners keep the same physical size in every display mode.
+    /// DEBUG: `defaults write <bundle id> notchWidthPx|notchShoulderPx|notchRadiusPx <px>` overrides the pixel values while calibrating.
+    static func hardwareNotchShell(_ notch: CGSize) -> ShellGeometry {
+        var px = (width: hardwareNotchPx.width, shoulder: hardwareNotchPx.shoulder, radius: hardwareNotchPx.radius)
+        #if DEBUG
+        let d = UserDefaults.standard
+        if d.object(forKey: "notchWidthPx") != nil { px.width = d.double(forKey: "notchWidthPx") }
+        if d.object(forKey: "notchShoulderPx") != nil { px.shoulder = d.double(forKey: "notchShoulderPx") }
+        if d.object(forKey: "notchRadiusPx") != nil { px.radius = d.double(forKey: "notchRadiusPx") }
+        #endif
+        let k = notch.width / hardwareNotchPx.reportedWidth
+        return ShellGeometry(width: px.width * k, height: notch.height, radius: px.radius * k, shoulder: px.shoulder * k)
+    }
     /// Peek width is not fixed: `keepOutWidth + leftEar + rightEar`, ears hug their content.
     static let peek = (height: CGFloat(48), radius: CGFloat(22))
     static let live = (width: CGFloat(520), height: CGFloat(70), radius: CGFloat(26))
@@ -94,7 +130,8 @@ enum Geo {
         static let footerGap: CGFloat = 12
 
         // Settings popover
-        static let popoverWidth: CGFloat = 300
+        /// Wide enough for the three settings tabs (Appearance, Menus, Clipboard) beside the close button.
+        static let popoverWidth: CGFloat = 480 // five sub-tabs + close button
         static let popoverTop: CGFloat = 46
         static let popoverRight: CGFloat = 20
         static let popoverPadding: CGFloat = 14
@@ -130,6 +167,11 @@ enum Geo {
         static let resetSize: CGFloat = 11.5
         /// SF Symbol stand-in for the ↻ glyph; sized to match the reference's small fallback-font glyph.
         static let resetIcon: CGFloat = 10
+        /// Glyph before a count (TODO, clips, pinned).
+        static let countIcon: CGFloat = 12
+        static let countSize: CGFloat = 13
+        static let countGap: CGFloat = 4
+        static let countPairGap: CGFloat = 9
     }
 
     // MARK: Live activity

@@ -1,7 +1,8 @@
 import Foundation
 import Observation
 
-enum ClaudexTab: String, CaseIterable { case usage, pool, play, health }
+/// `tokens` is Tokens & cost: it reads Claude Code's own transcripts and never needs the claudex CLI.
+enum ClaudexTab: String, CaseIterable { case usage, pool, play, health, tokens }
 
 /// One claudex read: what the parser made of it, and the raw text it came from, so a panel can fall back to
 /// plain text (with a ⚠) when the parser no longer recognises the output.
@@ -64,8 +65,14 @@ final class ClaudexStore {
     private(set) var me: (account: String, pool: String?)?
     private(set) var fetchedAt: Date?
     private(set) var loading = false
+    /// Why claudex gave nothing at all (not installed, not runnable, timed out on the first read); nil while it answers.
+    /// Set, the claudex menu shows only this and the app stops asking in the background until Retry.
+    private(set) var unavailable: String?
     /// The pool member a confirmed write is running for (until the refresh after it lands).
     private(set) var busyMember: String?
+
+    /// The tab on screen. While claudex gives nothing the other four cannot show anything, so only Tokens & cost is left.
+    var activeTab: ClaudexTab { unavailable == nil ? tab : .tokens }
 
     // Member details sheet
     private(set) var detailName: String?
@@ -145,7 +152,7 @@ final class ClaudexStore {
     /// "Switch to mine" (claudex-dash mine.js): which command, if any, puts you back on your own account here.
     var mineCommand: [String]? {
         guard let me else { return nil }
-        switch tab {
+        switch activeTab {
         case .pool:
             guard let pool = me.pool, members.recognised else { return nil }
             return members.data?.first { $0.marked }?.name == pool ? nil : ["pool", "use", pool]
@@ -168,24 +175,30 @@ final class ClaudexStore {
         return s
     }
 
-    var footer: String { message ?? Self.defaultFooter }
+    var footer: String { activeTab == .tokens ? ClaudeUsageStore.footer : message ?? Self.defaultFooter }
 
     /// Peek ears: pool on -> the pool member claudex has selected (▶, POOL); pool off -> the active account of the SSO
-    /// list (SSO). No reading shows "—" and "no reading".
-    var peekData: PeekData {
-        func bars(_ session: Gauge, _ week: Gauge) -> [PeekBar] {
-            // The week's reset shows as a date ("Oct 19"), the session's as claudex printed it.
-            let day = week.at.map { $0.split(separator: " ").prefix(2).joined(separator: " ") }
-            return [PeekBar(label: "5H", percent: session.pct, reset: session.at), PeekBar(label: "WEEK", percent: week.pct, reset: day)]
-        }
+    /// list (SSO). No reading shows "—" and "no reading". nil when claudex gave no account at all (missing, logged out, unreadable).
+    private var livePeek: PeekData? {
         if consuming == true, let m = members.data?.first(where: \.marked) {
-            return PeekData(name: m.name, isPool: true, bars: bars(m.session, m.week))
+            return PeekData(name: m.name, isPool: true, bars: Self.peekBars(m.session, m.week))
         }
         if let row = usage.data?.first(where: \.active) {
-            return PeekData(name: row.account, isPool: false, bars: bars(row.session, row.week))
+            return PeekData(name: row.account, isPool: false, bars: Self.peekBars(row.session, row.week))
         }
-        return PeekData(name: current.data?.account ?? "claudex", isPool: false, bars: bars(.none, .none))
+        return current.data.map { PeekData(name: $0.account, isPool: false, bars: Self.peekBars(.none, .none)) }
     }
+
+    var peekData: PeekData { livePeek ?? PeekData(name: "claudex", isPool: false, bars: Self.peekBars(.none, .none)) }
+
+    private static func peekBars(_ session: Gauge, _ week: Gauge) -> [PeekBar] {
+        // The week's reset shows as a date ("Oct 19"), the session's as claudex printed it.
+        let day = week.at.map { $0.split(separator: " ").prefix(2).joined(separator: " ") }
+        return [PeekBar(label: "5H", percent: session.pct, reset: session.at), PeekBar(label: "WEEK", percent: week.pct, reset: day)]
+    }
+
+    /// Hover has an account to show; false while claudex is missing or has not answered yet.
+    var hasPeek: Bool { livePeek != nil }
 
     var freshLabel: String {
         guard let fetchedAt else { return "not loaded" }
@@ -234,7 +247,7 @@ final class ClaudexStore {
     }
 
     func refresh(fresh: Bool = false) async {
-        guard live, !loading else { return }
+        guard live, !loading, fresh || unavailable == nil else { return }
         loading = true
         defer { loading = false }
         async let u = parsed(["usage"], fresh: fresh, ClaudexParsers.usage)
@@ -247,7 +260,17 @@ final class ClaudexStore {
         (usage, list, current, poolStatus, doctor, members, access) = await (u, l, c, ps, d, m, a)
         me = resolveMe()
         fetchedAt = now()
+        // Every read failed without a byte (stale cache counts as output): claudex is not there, not an output change.
+        let silent = [usage.raw, list.raw, current.raw, poolStatus.raw, doctor.raw, members.raw, access.raw].allSatisfy(\.isEmpty)
+        unavailable = silent ? usage.error ?? "claudex printed nothing." : nil
         onData?()
+    }
+
+    /// "Retry" on the unavailable screen: forget a remembered miss (claudex may be installed by now) and read again.
+    func retry() {
+        guard live else { return }
+        PathResolver.forget("claudex")
+        Task { await refresh(fresh: true) }
     }
 
     /// Refresh button: bust the cache and read everything again.
@@ -274,7 +297,7 @@ final class ClaudexStore {
     // MARK: Navigation
 
     func select(_ t: ClaudexTab) {
-        tab = t
+        tab = unavailable == nil ? t : .tokens
         sortOpen = false
         detailName = nil
         detailLoading = false
@@ -451,6 +474,12 @@ final class ClaudexStore {
         detailName = SampleData.memberDetail.name
         detail = Capture(data: SampleData.memberDetail, raw: SampleData.memberDetailRaw)
         detailAge = 60
+    }
+
+    /// Snapshot states only: claudex missing, so only Tokens & cost is left.
+    func showSampleUnavailable() {
+        unavailable = "claudex not found. Install it or add it to PATH."
+        tab = .tokens
     }
 
     func showSampleOutput() {

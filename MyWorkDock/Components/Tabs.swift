@@ -12,6 +12,13 @@ extension Geo {
         static let navGap: CGFloat = 6
     }
 
+    /// Five menus with "My Calendar" active would reach into the notch keep-out (the left side has 260 pt), so with more than
+    /// `fullCount` tabs the inactive icon tabs narrow; up to four tabs keep the designed width.
+    enum PillTab {
+        static let fullCount = 4
+        static let compactInactiveMinWidth: CGFloat = 30
+    }
+
     enum Segment {
         static let pad: CGFloat = 3
         static let gap: CGFloat = 2
@@ -43,6 +50,10 @@ struct PillTabs: View {
     private static let slide = Animation.timingCurve(
         Geo.shellCurve.x1, Geo.shellCurve.y1, Geo.shellCurve.x2, Geo.shellCurve.y2, duration: Geo.tabSwitch)
 
+    private var inactiveMinWidth: CGFloat {
+        items.count > Geo.PillTab.fullCount ? Geo.PillTab.compactInactiveMinWidth : Geo.Chrome.tabInactiveMinWidth
+    }
+
     var body: some View {
         HStack(spacing: Geo.Chrome.tabsGap) {
             ForEach(items) { item in
@@ -54,7 +65,7 @@ struct PillTabs: View {
                     }
                     .padding(.leading, on ? Geo.Chrome.tabActivePadding.leading : 0)
                     .padding(.trailing, on ? Geo.Chrome.tabActivePadding.trailing : 0)
-                    .frame(minWidth: Geo.Chrome.tabInactiveMinWidth, minHeight: Geo.Chrome.tabHeight)
+                    .frame(minWidth: inactiveMinWidth, minHeight: Geo.Chrome.tabHeight)
                     .foregroundStyle(on ? Tokens.onTint : t.muted)
                     .background {
                         if on { Capsule().fill(t.accent).matchedGeometryEffect(id: "pill", in: pill) }

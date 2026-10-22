@@ -4,6 +4,8 @@ import SwiftUI
 /// Notes is real (M3); the other tabs are empty until their milestones.
 struct OpenPanelView: View {
     var model: NotchModel
+    /// The shell's open size on this display (`Geo.open` unless Settings › Panel size says large).
+    var size = CGSize(width: Geo.open.width, height: Geo.open.height)
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -15,6 +17,8 @@ struct OpenPanelView: View {
                     MenusOffGuide(onOpenSettings: model.settings ? {} : model.toggleSettings).transition(.opacity)
                 } else {
                     switch model.mainTab {
+                    case .clipboard: ClipboardScreen(store: model.clipboard).transition(.opacity)
+                    case .calendar: CalendarScreen(store: model.calendar).transition(.opacity)
                     case .agents: AgentsScreen(model: model).transition(.opacity)
                     case .sessions: SessionsScreen(model: model).transition(.opacity)
                     case .notes: NotesScreen(model: model).transition(.opacity)
@@ -30,14 +34,17 @@ struct OpenPanelView: View {
         }
         .padding(.horizontal, Geo.Chrome.insetX)
         .padding(.bottom, Geo.Chrome.insetBottom)
-        .frame(width: Geo.open.width, height: Geo.open.height, alignment: .top)
+        .frame(width: size.width, height: size.height, alignment: .top)
         .overlay {
             if model.settings {
                 ZStack(alignment: .topTrailing) {
                     Color.clear.contentShape(Rectangle()).onTapGesture(perform: model.toggleSettings) // outside click closes, like the claudex sort menu
-                    SettingsPopover(theme: model.theme, systemIsDark: model.appearance.isDark, tint: model.tint, disabled: model.disabled,
-                                    allDisplays: model.showOnAllDisplays, onTheme: model.setTheme, onTint: model.setTint,
-                                    onFeature: model.setEnabled, onAllDisplays: model.setShowOnAllDisplays, onClose: model.toggleSettings)
+                    SettingsPopover(theme: model.theme, systemIsDark: model.appearance.isDark, tint: model.tint, panelSize: model.panelSize, disabled: model.disabled, peekOn: model.peekOn,
+                                    allDisplays: model.showOnAllDisplays, clipboardLimit: model.clipboard.limit,
+                                    version: model.version, updatedAt: model.updatedAt, onCheckForUpdates: model.checkForUpdates,
+                                    onTheme: model.setTheme, onTint: model.setTint, onPanelSize: model.setPanelSize,
+                                    onFeature: model.setEnabled, onPeek: model.setPeekEnabled, onAllDisplays: model.setShowOnAllDisplays,
+                                    onClipboardLimit: model.setClipboardLimit, onClose: model.toggleSettings)
                         .padding(.top, Geo.Chrome.popoverTop).padding(.trailing, Geo.Chrome.popoverRight)
                 }
                 .transition(.opacity)
@@ -45,6 +52,8 @@ struct OpenPanelView: View {
         }
         .animation(.easeOut(duration: Geo.popoverFade), value: model.settings)
         .overlay { DetailOverlay(store: model.claudex) }
+        .overlay { CalendarEventOverlay(store: model.calendar) }
+        .overlay { CommandRunOverlay(runner: model.runner) }
         .overlay { ConfirmOverlay(confirmer: model.confirmer) }
         .foregroundStyle(model.tokens.text)
     }
@@ -91,6 +100,8 @@ private struct Footer: View {
         if model.enabledTabs.isEmpty { return StatusMessage(text: "All menus are off") }
         func failed(_ why: String?) -> StatusMessage? { why.map { StatusMessage(text: "Could not save: \($0)", isError: true) } }
         switch model.mainTab {
+        case .clipboard: return failed(model.clipboard.saveError) ?? StatusMessage(text: model.clipboard.footer)
+        case .calendar: return model.calendar.footer
         case .agents: return StatusMessage(text: model.agents.footer)
         case .sessions: return StatusMessage(text: model.sessions.footer)
         case .notes:
@@ -99,6 +110,19 @@ private struct Footer: View {
         case .emulator: return model.emulator.footer(model.emulatorTab)
         case .claudex: return StatusMessage(text: model.claudex.footer)
         }
+    }
+
+    private func footerButton(_ title: String, _ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(Typo.ui(12, .semibold))
+                .foregroundStyle(t.text2)
+                .padding(.horizontal, Geo.Chrome.footerButtonPaddingX)
+                .frame(height: Geo.Chrome.footerButtonHeight)
+                .background(RoundedRectangle(cornerRadius: Geo.Chrome.footerButtonRadius).fill(t.ctrl))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     var body: some View {
@@ -114,16 +138,8 @@ private struct Footer: View {
                     Text("⌥Space").font(Typo.mono(12)).foregroundStyle(t.text2)
                     Text(" toggle")
                 }
-                Button(action: model.closePanel) {
-                    Text("Collapse")
-                        .font(Typo.ui(12, .semibold))
-                        .foregroundStyle(t.text2)
-                        .padding(.horizontal, Geo.Chrome.footerButtonPaddingX)
-                        .frame(height: Geo.Chrome.footerButtonHeight)
-                        .background(RoundedRectangle(cornerRadius: Geo.Chrome.footerButtonRadius).fill(t.ctrl))
-                        .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
+                footerButton("Help", model.openUsageGuide)
+                footerButton("Collapse", model.closePanel)
             }
         }
         .font(Typo.ui(12))
@@ -165,7 +181,7 @@ private struct ConfirmOverlay: View {
         if let r = confirmer.pending {
             ZStack(alignment: .bottom) {
                 Scrim().contentShape(Rectangle()).onTapGesture(perform: confirmer.cancel)
-                ConfirmSheet(title: r.title, command: r.command, note: r.note, confirmTitle: r.confirmTitle, danger: r.danger,
+                ConfirmSheet(title: r.title, command: r.command, note: r.note, confirmTitle: r.confirmTitle, danger: r.danger, commandLines: r.commandLines,
                              onCancel: confirmer.cancel, onConfirm: confirmer.confirm)
                     .padding(.horizontal, Geo.Sheet.insetX)
                     .padding(.bottom, Geo.Sheet.bottom)

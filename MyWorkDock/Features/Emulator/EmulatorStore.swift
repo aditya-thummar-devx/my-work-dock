@@ -399,6 +399,15 @@ final class EmulatorStore {
         }
     }
 
+    /// A server started before Local Network access was granted keeps failing with "No route to host" until restarted.
+    func restartAdbServer() {
+        let command = Self.display("adb", ["kill-server"]) + " && " + Self.display("adb", ["start-server"])
+        ask("Restart adb server?", command, note: "Drops every adb connection; wireless devices need Connect again.", ok: "Restart") { [self] in
+            _ = await shell("adb", ["kill-server"]) // fails when no server is running, which is fine
+            return await shell("adb", ["start-server"])
+        }
+    }
+
     func runTunnel() {
         guard !host.isEmpty, !device.isEmpty else { say("Enter both ports", error: true); return }
         guard let serial = target?.serial else { say("No Android device connected", error: true); return }

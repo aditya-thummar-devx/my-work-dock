@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Usage · MyWorkDock</title>
+<meta name="description" content="How to open, navigate and control MyWorkDock: hover, click, hotkeys and keyboard shortcuts.">
+<link rel="icon" href="assets/icon.png">
+<link rel="stylesheet" href="assets/style.css">
+<script src="assets/theme.js"></script>
+</head>
+<body>
+<header class="site-header"><div class="wrap">
+  <a class="brand" href="index.html"><img src="assets/icon.png" alt="">MyWorkDock</a>
+  <nav>
+    <a href="install.html">Install</a>
+    <a href="privacy-blocker.html">Privacy blocker</a>
+    <a href="usage.html" aria-current="page">Usage</a>
+    <a href="features.html">Features</a>
+    <a href="updates.html">Updates</a>
+    <a href="troubleshooting.html">Help</a>
+  </nav>
+  <button class="theme-toggle" type="button" aria-label="Toggle theme"></button>
+</div></header>
+
+<main><div class="wrap">
+  <h1>Usage</h1>
+  <p class="lead">MyWorkDock lives at the top of your screen, around the notch. It has no Dock icon and stays out of the way until you want it.</p>
+
+  <h2>The four states</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>State</th><th>What you see</th><th>How to get there</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Idle</strong></td><td>A black bar the exact size of the notch. On Macs without a notch (and on external displays) a small pill at top centre.</td><td>Default.</td></tr>
+      <tr><td><strong>Peek</strong></td><td>The bar widens to show your TODO and clipboard counts on the left and your local IP on the right. Switch claudex on in Settings › Peek to show your Claude usage rings instead. Switch Today’s events on there to add a row of your next calendar events under either. With nothing to show it says “Tap to see magic”.</td><td>Move the pointer onto it.</td></tr>
+      <tr><td><strong>Live</strong></td><td>A bar drops down with a progress line while an iOS simulator or Android emulator boots.</td><td>Starts by itself when a boot begins.</td></tr>
+      <tr><td><strong>Open</strong></td><td>The full panel with the five menus.</td><td>Click the bar, or use a hotkey.</td></tr>
+    </tbody>
+  </table></div>
+
+  <figure class="shot">
+    <img src="assets/shots/live-activity.png" alt="The live activity bar showing a simulator booting" width="1760" height="240">
+    <figcaption>Live activity while an iPhone simulator boots.</figcaption>
+  </figure>
+
+  <p>The panel closes by itself about a third of a second after the pointer leaves it. A panel you opened with a hotkey stays until the pointer has entered it at least once. Clicks outside the drawn shape pass straight through to the apps underneath.</p>
+
+  <h2>Closing, pinning and moving around</h2>
+  <ul>
+    <li><strong>Pin</strong> (the pin icon in the header) keeps the panel open when the pointer leaves.</li>
+    <li><strong>Collapse</strong> (bottom right) closes the panel and unpins it.</li>
+    <li><kbd>Esc</kbd> closes the panel. If you are editing, searching or looking at a confirmation, Esc cancels that first.</li>
+    <li>The sliders icon opens <strong>Settings</strong>. The header also shows your <strong>local IP</strong>; click it to copy.</li>
+  </ul>
+
+  <h2>Global hotkeys</h2>
+  <p>These work from any app. Each opens the panel straight on that tab.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Keys</th><th>Action</th></tr></thead>
+    <tbody>
+      <tr><td><kbd>⌥</kbd> <kbd>Space</kbd></td><td>Open or close the panel</td></tr>
+      <tr><td><kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>V</kbd></td><td>Clipboard</td></tr>
+      <tr><td><kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>M</kbd></td><td>My Calendar</td></tr>
+      <tr><td><kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>T</kbd></td><td>Notes › TODO</td></tr>
+      <tr><td><kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>C</kbd></td><td>Notes › Commands</td></tr>
+      <tr><td><kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>P</kbd></td><td>Notes › Prompts</td></tr>
+      <tr><td><kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>L</kbd></td><td>Notes › Links</td></tr>
+      <tr><td><kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>E</kbd></td><td>Emulator</td></tr>
+      <tr><td><kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>X</kbd></td><td>claudex</td></tr>
+    </tbody>
+  </table></div>
+  <p>A hotkey does nothing if its menu is switched off in Settings. If another app already uses the same combination, that one hotkey is skipped and the rest still work.</p>
+
+  <h2>Inside the panel</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Keys</th><th>Action</th></tr></thead>
+    <tbody>
+      <tr><td><kbd>Tab</kbd></td><td>Next menu (Clipboard, My Calendar, Notes, claudex, Emulator)</td></tr>
+      <tr><td><kbd>⇧</kbd> <kbd>Tab</kbd></td><td>Next sub-tab of the current menu (for example TODO → Commands → Prompts → Links, or Month → Week → Day in My Calendar)</td></tr>
+      <tr><td><kbd>⌘</kbd> <kbd>F</kbd></td><td>Search in Clipboard, TODO, Prompts and Links</td></tr>
+      <tr><td><kbd>Enter</kbd></td><td>Add an item, or save an inline edit</td></tr>
+      <tr><td><kbd>⇧</kbd> <kbd>Enter</kbd></td><td>New line while writing a prompt</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>Cancel an edit or search, close an event’s details, then close the panel</td></tr>
+    </tbody>
+  </table></div>
+  <p><kbd>Tab</kbd> and <kbd>⇧</kbd> <kbd>Tab</kbd> do not switch tabs while you are typing in a text field.</p>
+
+  <div class="callout">
+    <strong>Copy with a double-click.</strong>
+    <p>In Clipboard, Commands, Prompts and Links, a single click only shows a hint. Double-click an item to copy it, or use its <strong>Copy</strong> button.</p>
+  </div>
+
+  <div class="callout">
+    <strong>Run a saved command.</strong>
+    <p>In Notes › Commands, press the green <strong>Run</strong> button on a row, choose a folder, and confirm the command shown. Its output appears live in the panel, with a <strong>Stop</strong> button that ends the command and everything it started. Commands that look dangerous (for example <code>rm -rf</code> or <code>sudo</code>) show a lock instead: click it, confirm, and use Touch ID or your password to unlock that exact command until the app quits. It cannot read keyboard input, so use Stop for a command that waits for an answer.</p>
+  </div>
+
+  <h2>Menu-bar icon and right-click menu</h2>
+  <ul>
+    <li><strong>Menu-bar icon:</strong> Show or Hide MyWorkDock, Check for Updates…, Quit.</li>
+    <li><strong>Right-click the notch bar:</strong> Open at login, Check for Updates…, Quit.</li>
+  </ul>
+
+  <h2>Several displays</h2>
+  <p>By default one bar sits on your notch display (or the display under the pointer). Turn on <strong>Settings › Menus › Show on all displays</strong> to draw it on every display. Hover or click the one you want to use.</p>
+
+  <h2>Next</h2>
+  <p><a class="btn" href="features.html">Tour every feature →</a></p>
+</div></main>
+
+<footer class="site-footer"><div class="wrap">
+  <a href="https://github.com/aditya-thummar-devx/my-work-dock">GitHub</a> ·
+  <a href="https://github.com/aditya-thummar-devx/my-work-dock/releases">Releases</a> ·
+  <a href="troubleshooting.html">Help</a>
+</div></footer>
+</body>
+</html>

@@ -332,6 +332,21 @@ final class ClaudexStoreTests: XCTestCase {
         XCTAssertEqual(off.bars.map(\.percent), [32, 87])
     }
 
+    func testHasPeekNeedsAnAccountClaudexCanName() async {
+        let pool = await liveStore(poolOn: true), sso = await liveStore(poolOn: false)
+        XCTAssertTrue(pool.hasPeek)
+        XCTAssertTrue(sso.hasPeek)
+
+        // claudex is not installed: no account, so hover must not draw a made-up one.
+        let missing = ClaudexStore()
+        missing.findTool = { _ in nil }
+        missing.identityURL = URL(fileURLWithPath: "/nonexistent")
+        await missing.refresh(fresh: true)
+        XCTAssertFalse(missing.hasPeek)
+        XCTAssertEqual(missing.peekData.name, "claudex") // the fallback the peek no longer draws
+        XCTAssertEqual(missing.peekData.bars.map(\.percent), [nil, nil])
+    }
+
     func testHealthCountsAndLabels() {
         let s = store()
         XCTAssertEqual(s.healthCounts.ok, 12)
@@ -355,5 +370,49 @@ final class ClaudexStoreTests: XCTestCase {
         XCTAssertFalse(s.usage.recognised) // "Usage" is not a table: raw text stays available for the ⚠ fallback
         XCTAssertEqual(s.usage.raw, "Usage\n")
         XCTAssertEqual(s.unrecognisedTabs, [.usage, .pool, .health])
+    }
+
+    func testMissingClaudexMakesTheMenuUnavailableUntilARetryFindsIt() async {
+        let s = ClaudexStore()
+        var path: String?
+        var calls = 0
+        s.findTool = { _ in path }
+        s.runner = { _, _, _ in calls += 1; return ProcessResult(status: 0, out: "Usage\n", err: "") }
+        XCTAssertEqual(s.activeTab, .usage) // not known to be missing yet
+        await s.refresh()
+        XCTAssertEqual(s.unavailable, "claudex not found. Install it or add it to PATH.")
+        XCTAssertEqual(calls, 0)
+        XCTAssertEqual(s.activeTab, .tokens) // only Tokens & cost is left, and it does not need claudex
+        s.select(.pool)
+        XCTAssertEqual(s.activeTab, .tokens)
+        XCTAssertEqual(s.footer, ClaudeUsageStore.footer)
+
+        await s.refresh() // background callers (hover, panel open) stay quiet while it is missing
+        XCTAssertEqual(calls, 0)
+
+        path = "/bin/claudex" // installed since; Retry is a fresh refresh
+        await s.refresh(fresh: true)
+        XCTAssertNil(s.unavailable)
+        XCTAssertEqual(calls, 7)
+        XCTAssertEqual(s.activeTab, .tokens) // the tab you were on stays
+        s.select(.pool)
+        XCTAssertEqual(s.activeTab, .pool)
+        XCTAssertEqual(s.footer, ClaudexStore.defaultFooter)
+    }
+
+    func testOutputWeDoNotRecogniseIsNotUnavailable() async {
+        let s = ClaudexStore()
+        s.findTool = { _ in "/bin/claudex" }
+        s.runner = { _, _, _ in ProcessResult(status: 0, out: "Usage\n", err: "") }
+        await s.refresh(fresh: true)
+        XCTAssertNil(s.unavailable) // per-tab ⚠ handles this
+    }
+
+    func testClaudexThatCannotRunIsUnavailableWithTheReason() async {
+        let s = ClaudexStore()
+        s.findTool = { _ in "/bin/claudex" }
+        s.runner = { _, _, _ in .failed("/bin/claudex: Permission denied") }
+        await s.refresh(fresh: true)
+        XCTAssertEqual(s.unavailable, "/bin/claudex: Permission denied")
     }
 }

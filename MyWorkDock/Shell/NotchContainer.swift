@@ -15,6 +15,11 @@ extension EnvironmentValues {
 final class ShellScreen {
     var id: DisplayID?
     var notch: CGSize?
+    /// Another display's notch size, drawn at idle on a display with none so every display's idle shell looks alike.
+    var borrowedNotch: CGSize?
+    var idleNotch: CGSize? { notch ?? borrowedNotch }
+    /// The display's size in points; nil in snapshots.
+    var size: CGSize?
 }
 
 /// Draws the shell for the current mode: silhouette + shadow, mode content clipped to the body.
@@ -31,7 +36,7 @@ struct NotchContainer: View {
 
     var body: some View {
         let mode = model.mode(on: screen.id)
-        let g = model.geometry(notch: screen.notch, on: screen.id)
+        let g = model.geometry(notch: screen.idleNotch, on: screen.id, screen: screen.size)
         let t = model.tokens
         let shadowOpacity = mode == .idle ? 0 : (model.isLight ? Geo.shadow.lightOpenOpacity : Geo.shadow.opacity)
 
@@ -39,9 +44,10 @@ struct NotchContainer: View {
             NotchShape(bottomRadius: g.radius, shoulder: g.shoulder)
                 .fill(t.panel)
                 .shadow(color: .black.opacity(shadowOpacity), radius: Geo.shadow.blur / 2, x: 0, y: Geo.shadow.y)
+                .overlay { calibrationOutline(g, mode) }
                 .frame(width: g.width, height: g.height)
 
-            content(mode)
+            content(mode, g)
                 .animation(reduceMotion ? nil : .easeOut(duration: Geo.fadeOut), value: mode)
             .frame(width: g.width, height: g.height, alignment: .top)
             .clipShape(UnevenRoundedRectangle(bottomLeadingRadius: g.radius, bottomTrailingRadius: g.radius))
@@ -51,6 +57,7 @@ struct NotchContainer: View {
             Button(SMAppService.mainApp.status == .enabled ? "✓ Open at login" : "Open at login") {
                 if SMAppService.mainApp.status == .enabled { try? SMAppService.mainApp.unregister() } else { try? SMAppService.mainApp.register() }
             }
+            if let check = model.checkForUpdates { Button("Check for Updates…", action: check) }
             Button("Quit MyWorkDock") { NSApp.terminate(nil) }
             #if DEBUG
             Button(model.bootingOverride == nil ? "Debug: simulate boot" : "Debug: stop boot") {
@@ -66,10 +73,20 @@ struct NotchContainer: View {
         .environment(\.tokens, t)
     }
 
+    /// DEBUG calibration aid: `defaults write <bundle id> notchCalibrate -bool YES` strokes the idle silhouette in red so it can be
+    /// compared with the real cutout. Empty in release builds.
+    @ViewBuilder private func calibrationOutline(_ g: ShellGeometry, _ mode: NotchMode) -> some View {
+        #if DEBUG
+        if mode == .idle, UserDefaults.standard.bool(forKey: "notchCalibrate") {
+            NotchShape(bottomRadius: g.radius, shoulder: g.shoulder).stroke(.red, lineWidth: 0.5)
+        }
+        #endif
+    }
+
     /// Incoming content brings its own delayed fade (`Entrance`); outgoing content fades out while the shell moves.
     private static let contentSwap = AnyTransition.asymmetric(insertion: .identity, removal: .opacity)
 
-    @ViewBuilder private func content(_ mode: NotchMode) -> some View {
+    @ViewBuilder private func content(_ mode: NotchMode, _ g: ShellGeometry) -> some View {
         switch mode {
         case .idle:
             Color.clear
@@ -81,21 +98,37 @@ struct NotchContainer: View {
                 .accessibilityAction { model.openPanel() }
                 .transition(.identity)
         case .peek:
-            Group {
-                if model.peekHint {
-                    PeekHintView()
-                        .accessibilityElement()
-                        .accessibilityLabel("Tap to see magic")
-                } else {
-                    PeekView(data: model.peek, extents: model.peekExtents)
-                        .accessibilityElement()
-                        .accessibilityLabel("\(model.peek.name), \(model.peek.isPool ? "pool" : "single sign-on"). " + model.peek.bars.map { "\($0.label) \($0.percent.map { "\($0) percent" } ?? "no reading")" }.joined(separator: ", "))
+            VStack(spacing: 0) {
+                Group {
+                    switch model.peekContent {
+                    case .claudex:
+                        PeekView(data: model.peek, extents: model.peekExtents)
+                            .accessibilityElement()
+                            .accessibilityLabel("\(model.peek.name), \(model.peek.isPool ? "pool" : "single sign-on"). " + model.peek.bars.map { "\($0.label) \($0.percent.map { "\($0) percent" } ?? "no reading")" }.joined(separator: ", "))
+                    case .info(let info):
+                        PeekInfoView(info: info)
+                            .accessibilityElement()
+                            .accessibilityLabel(info.spoken)
+                    case .hint:
+                        PeekHintView()
+                            .accessibilityElement()
+                            .accessibilityLabel("Tap to see magic")
+                    }
+                }
+                .onTapGesture { model.openPanel() }
+                .accessibilityHint("Opens MyWorkDock")
+                .accessibilityAddTraits(.isButton)
+                .accessibilityAction { model.openPanel() }
+                // Under the ears, whatever they show: today's events. A click on an event opens it in My Calendar (scrolled to
+                // it, sheet open); a click anywhere else on the row opens My Calendar on today.
+                if let events = model.peekEvents {
+                    PeekEventsView(events: events, onEvent: model.showEvent)
+                        .onTapGesture { model.showToday() }
+                        .accessibilityElement(children: .contain)
+                        .accessibilityLabel("Today's events")
+                        .accessibilityAction(named: "Open My Calendar on today") { model.showToday() }
                 }
             }
-            .onTapGesture { model.openPanel() }
-            .accessibilityHint("Opens MyWorkDock")
-            .accessibilityAddTraits(.isButton)
-            .accessibilityAction { model.openPanel() }
             .modifier(Entrance(timing: Geo.fadePeekLive))
             .transition(Self.contentSwap)
         case .live:
@@ -105,7 +138,7 @@ struct NotchContainer: View {
                 .modifier(Entrance(timing: Geo.fadePeekLive))
                 .transition(Self.contentSwap)
         case .open:
-            OpenPanelView(model: model)
+            OpenPanelView(model: model, size: CGSize(width: g.width, height: g.height))
                 .accessibilityElement(children: .contain)
                 .accessibilityLabel("MyWorkDock panel")
                 .modifier(Entrance(timing: Geo.fadeOpen))

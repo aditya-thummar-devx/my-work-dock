@@ -156,7 +156,13 @@ struct ClaudeHookInstaller {
         guard FileManager.default.fileExists(atPath: configURL.path) else { return nil }
         try FileManager.default.createDirectory(at: backupDir, withIntermediateDirectories: true)
         let stamp = Int(Date().timeIntervalSince1970 * 1000)
-        let dest = backupDir.appendingPathComponent("claude-settings-\(stamp).json")
+        // Two writes inside the same millisecond (install then uninstall) must not collide.
+        var dest = backupDir.appendingPathComponent("claude-settings-\(stamp).json")
+        var n = 1
+        while FileManager.default.fileExists(atPath: dest.path) {
+            dest = backupDir.appendingPathComponent("claude-settings-\(stamp)-\(n).json")
+            n += 1
+        }
         try FileManager.default.copyItem(at: configURL, to: dest)
         return dest
     }

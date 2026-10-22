@@ -1,0 +1,51 @@
+# Manual OTA release: Actions tab > Release > Run workflow, then approve the run.
+# Same as scripts/release.sh on a Mac; the Sparkle key comes from the `release` environment secret.
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to publish, e.g. 0.1.13 (build number is the commit count on main)
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency: release
+
+jobs:
+  release:
+    # Only main: the environment is limited to main too, so the key is never handed to another branch.
+    if: github.ref == 'refs/heads/main'
+    runs-on: macos-26
+    environment: release
+    timeout-minutes: 30
+    steps:
+      - name: Check version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: '[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Version must look like 1.2.3" >&2; exit 1; }'
+
+      # Full history: the build number Sparkle compares is `git rev-list --count HEAD`, and notes need the previous tag.
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - run: sudo xcode-select -s /Applications/Xcode_26.6.app
+
+      # My Calendar's Google OAuth client (gitignored file, so the clean-tree check in release.sh still passes).
+      # Without the secrets the build still works; the tab then says sign-in is not configured.
+      - name: Google OAuth client
+        env:
+          GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.GOOGLE_OAUTH_CLIENT_ID }}
+          GOOGLE_OAUTH_CLIENT_SECRET: ${{ secrets.GOOGLE_OAUTH_CLIENT_SECRET }}
+        run: printf 'GOOGLE_CLIENT_ID = %s\nGOOGLE_CLIENT_SECRET = %s\n' "$GOOGLE_OAUTH_CLIENT_ID" "$GOOGLE_OAUTH_CLIENT_SECRET" > Config/GoogleOAuth.xcconfig
+
+      - name: Release
+        env:
+          VERSION: ${{ inputs.version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+        run: scripts/release.sh "$VERSION" --yes
