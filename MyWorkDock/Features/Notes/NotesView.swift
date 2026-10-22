@@ -32,7 +32,7 @@ struct NotesScreen: View {
 
             Group {
                 switch model.notesTab {
-                case .todo: TodoView(store: model.notes)
+                case .todo: TodoView(store: model.notes, bridge: model.todoBridge)
                 case .commands: SnippetScreen(store: model.commands, runner: model.runner, onRun: model.runCommand, onUnlock: model.unlockCommand, onFolder: model.changeCommandFolder)
                 case .prompts: SnippetScreen(store: model.prompts)
                 case .links: SnippetScreen(store: model.links)
@@ -179,9 +179,11 @@ struct TagFilterButton: View {
 
 struct TodoView: View {
     var store: NotesStore
+    var bridge: TodoBridge
 
     var body: some View {
         VStack(spacing: Geo.Surface.fieldGap) {
+            if bridge.showsBanner { ClaudeTodoBanner(bridge: bridge) }
             QuickAddBar(store: store)
             if store.visibleTodos.isEmpty {
                 EmptyState(message: "No todos match \(store.emptyWhat).", action: "Clear filters", onAction: store.clearFilters)
@@ -190,6 +192,34 @@ struct TodoView: View {
                 TodoList(store: store)
             }
         }
+    }
+}
+
+/// Connects Claude Code to the TODO list (registers `mwd-mcp`), or repairs a registration that points elsewhere.
+private struct ClaudeTodoBanner: View {
+    var bridge: TodoBridge
+    @Environment(\.tokens) private var t
+
+    var body: some View {
+        Card(radius: 14, border: t.accent.opacity(0.5), padding: EdgeInsets(top: 10, leading: 12, bottom: 10, trailing: 10)) {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 10) {
+                    Icon(.chat, size: 14)
+                    Text(bridge.status == .stale ? "Claude Code's todo connection needs an update." : "Add todos from Claude Code.")
+                        .font(Typo.ui(12.5)).foregroundStyle(t.text)
+                    Spacer(minLength: 0)
+                    if bridge.status == .notInstalled {
+                        DockButton(title: "Not now", glyph: nil, metrics: .card, tone: .secondaryQuiet, action: bridge.dismiss)
+                    }
+                    DockButton(title: bridge.status == .stale ? "Repair" : "Connect", glyph: nil, metrics: .card, tone: .tint,
+                               busy: bridge.installing) { Task { await bridge.connect() } }
+                }
+                if let err = bridge.error {
+                    Text(err).font(Typo.ui(12)).foregroundStyle(t.red).textSelection(.enabled)
+                }
+            }
+        }
+        .task { bridge.refresh() }
     }
 }
 

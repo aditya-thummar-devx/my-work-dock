@@ -38,6 +38,12 @@ targets:
         codeSign: false
         copy:
           destination: executables
+      # Claude Code's MCP server (Contents/MacOS/mwd-mcp); see Features/Notes/TodoBridge.swift.
+      - target: mwd-mcp
+        embed: true
+        codeSign: false
+        copy:
+          destination: executables
     # Sparkle OTA: appcast.xml is attached to every GitHub release; the public key verifies update signatures (private key lives in the login Keychain).
     # Custom keys can't go through INFOPLIST_KEY_*, so XcodeGen writes this partial plist and Xcode merges the generated keys into it.
     info:
@@ -80,6 +86,19 @@ targets:
     settings:
       base:
         PRODUCT_NAME: mwd-hook
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGN_STYLE: Manual
+        ENABLE_HARDENED_RUNTIME: YES
+
+  mwd-mcp:
+    type: tool
+    platform: macOS
+    sources:
+      - path: MWDMCP
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_NAME: mwd-mcp
         CODE_SIGN_IDENTITY: "-"
         CODE_SIGN_STYLE: Manual
         ENABLE_HARDENED_RUNTIME: YES
