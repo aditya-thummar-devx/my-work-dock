@@ -112,12 +112,16 @@ final class TerminalLauncherTests: XCTestCase {
         XCTAssertEqual(t.count, 1)
         XCTAssertEqual(t[0].exe, "/usr/bin/osascript")
         XCTAssertTrue(t[0].args[1].contains(#"do script "cd '/w' && claude --resume x""#))
-        for app in [OpenIn.iTerm2, .warp, .ghostty, .kitty, .alacritty, .wezTerm] {
+        for app in [OpenIn.iTerm2, .warp, .cmux, .ghostty, .kitty, .alacritty, .wezTerm] {
             let p = TerminalLauncher.plan(app, cwd: "/w", id: "x", command: cmd)
             XCTAssertTrue(p.last!.args[1].contains("tell application \"Terminal\""), "\(app) falls back")
         }
         XCTAssertEqual(TerminalLauncher.plan(.warp, cwd: "/w", id: "x", command: cmd)[0].args, ["warp://tab_config/mwd_resume_x"])
         XCTAssertEqual(TerminalLauncher.plan(.ghostty, cwd: "/w", id: "x", command: cmd)[0].args.last, cmd)
+        let c = TerminalLauncher.plan(.cmux, cwd: "/w", id: "x", command: cmd, cmux: "/A/cmux.app/Contents/Resources/bin/cmux")[0]
+        XCTAssertEqual(c.exe, "/A/cmux.app/Contents/Resources/bin/cmux")
+        XCTAssertEqual(c.args, ["new-workspace", "--name", "Claude x", "--cwd", "/w", "--command", "claude --resume x", "--focus", "true"])
+        XCTAssertEqual(TerminalLauncher.cmuxCLI(URL(fileURLWithPath: "/A/cmux.app")), "/A/cmux.app/Contents/Resources/bin/cmux")
     }
 
     func testWarpTabConfigRunsResumeInTheProjectAndCleansUp() throws {
@@ -141,6 +145,8 @@ final class TerminalLauncherTests: XCTestCase {
         XCTAssertEqual(apps.map(\.self), [.terminal, .warp])
         XCTAssertTrue(OpenIn.terminal.realPrompts)
         XCTAssertFalse(OpenIn.warp.realPrompts)
+        // cmux, and Warp's preview build, are found too.
+        XCTAssertEqual(TerminalLauncher.detect { ["com.cmuxterm.app", "dev.warp.Warp-Preview"].contains($0) }, [.terminal, .warp, .cmux])
     }
 }
 
