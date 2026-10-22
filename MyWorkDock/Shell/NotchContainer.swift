@@ -104,7 +104,7 @@ struct NotchContainer: View {
             Color.clear
                 .overlay(alignment: .trailing) {
                     if model.buddyShown(on: screen.id) {
-                        BuddyView(prefs: model.buddy, bobbing: model.hintShown(on: screen.id), paused: !model.screenAwake)
+                        BuddyView(prefs: model.buddy, asset: model.buddyAsset, bobbing: model.hintShown(on: screen.id), paused: !model.screenAwake)
                     }
                 }
                 .contentShape(Rectangle())

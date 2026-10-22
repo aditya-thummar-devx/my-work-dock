@@ -9,7 +9,7 @@ extension LottieColor {
     }
 }
 
-private enum BuddyLottieConfig {
+enum BuddyLottieConfig {
     static let srgb = CGColorSpace(name: CGColorSpace.sRGB)!
     /// The render server runs the animation: the app does nothing between frames (unlike SwiftUI, which wakes it for every one).
     static let live = LottieConfiguration(renderingEngine: .coreAnimation, colorSpace: srgb, reducedMotionOption: .standardMotion)
@@ -24,15 +24,6 @@ struct LottieBuddy: NSViewRepresentable {
     var tint: Color
     var speed = 1.0
     var loops = LottieLoopMode.loop
-
-    /// Lottie takes its main-thread engine instead when a file uses something the Core Animation engine cannot draw (and only logs
-    /// it); that would wake the app for every frame. True when this file is drawn by the render server.
-    @MainActor static func usesCoreAnimation(_ asset: BuddyAsset) -> Bool {
-        guard let animation = asset.animation, let layer = LottieAnimationView(animation: animation, configuration: BuddyLottieConfig.live).layer else { return false }
-        func types(_ l: CALayer) -> [String] { [String(describing: type(of: l))] + (l.sublayers ?? []).flatMap(types) }
-        let all = types(layer)
-        return all.contains("CoreAnimationLayer") && !all.contains("MainThreadAnimationLayer")
-    }
 
     func makeNSView(context: Context) -> Host { Host(size: asset.size) }
 
@@ -79,12 +70,13 @@ struct LottieBuddy: NSViewRepresentable {
             guard let animation = buddy.asset.animation else { return }
             let view = LottieAnimationView(animation: animation, configuration: BuddyLottieConfig.live)
             view.loopMode = buddy.loops
+            view.contentMode = .scaleAspectFit
             view.frame = bounds
             view.setValueProvider(ColorValueProvider(LottieColor(buddy.tint)), keypath: BuddyLottieConfig.tintKeypath)
             addSubview(view)
             view.play()
             animationView = view
-            size = animation.size
+            size = buddy.asset.size
             invalidateIntrinsicContentSize()
         }
     }
@@ -98,21 +90,25 @@ enum BuddyStill {
 
     static func image(_ asset: BuddyAsset, tint: Color) -> NSImage? {
         let c = NSColor(tint).usingColorSpace(.sRGB) ?? .black
-        let key = "\(asset.file) \(c.redComponent) \(c.greenComponent) \(c.blueComponent) \(c.alphaComponent)"
+        // A custom file can be replaced under the same name: its age is part of the key.
+        let age = asset.url.flatMap { try? $0.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate }?.timeIntervalSince1970 ?? 0
+        let key = "\(asset.file) \(age) \(c.redComponent) \(c.greenComponent) \(c.blueComponent) \(c.alphaComponent)"
         if let image = images[key] { return image }
         guard let animation = asset.animation else { return nil }
+        let size = asset.size
         let view = LottieAnimationView(animation: animation, configuration: BuddyLottieConfig.still)
-        view.frame = CGRect(origin: .zero, size: animation.size)
+        view.contentMode = .scaleAspectFit
+        view.frame = CGRect(origin: .zero, size: size)
         view.setValueProvider(ColorValueProvider(LottieColor(tint)), keypath: BuddyLottieConfig.tintKeypath)
         view.currentProgress = 0
         view.layoutSubtreeIfNeeded()
         let scale = 3 // sharp on a 2x display and on a 3x one
-        guard let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(animation.size.width) * scale, pixelsHigh: Int(animation.size.height) * scale,
+        guard let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(size.width.rounded()) * scale, pixelsHigh: Int(size.height.rounded()) * scale,
                                          bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB,
                                          bytesPerRow: 0, bitsPerPixel: 0) else { return nil }
-        rep.size = animation.size
+        rep.size = size
         view.cacheDisplay(in: view.bounds, to: rep)
-        let image = NSImage(size: animation.size)
+        let image = NSImage(size: size)
         image.addRepresentation(rep)
         images[key] = image
         return image

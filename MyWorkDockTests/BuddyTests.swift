@@ -42,7 +42,7 @@ final class BuddyTests: XCTestCase {
 
     func testRawValuesAreStable() {
         // Stored in UserDefaults.
-        XCTAssertEqual(BuddyStyle.allCases.map(\.rawValue), ["face", "pulse", "emoji"])
+        XCTAssertEqual(BuddyStyle.allCases.map(\.rawValue), ["face", "pulse", "emoji", "custom"])
         XCTAssertEqual(BuddyMotion.allCases.map(\.rawValue), ["lively", "calm", "still"])
         XCTAssertEqual(BuddyEmoji.allCases.map(\.rawValue), ["wave", "sparkle", "robot", "cat", "eyes"])
         XCTAssertEqual(BuddyEmoji.allCases.map(\.glyph), ["👋", "✨", "🤖", "🐱", "👀"])
@@ -187,6 +187,142 @@ final class BuddyTests: XCTestCase {
         XCTAssertTrue(model.hintShown(on: 2))
     }
 
+    // MARK: Custom buddies
+
+    private func settle() async { for _ in 0..<20 { await Task.yield() } }
+
+    /// A folder for the library and a place the user's files are picked from; both are gone after the test.
+    private func scratch() throws -> (library: URL, downloads: URL) {
+        let root = FileManager.default.temporaryDirectory.appending(path: "buddy-custom-\(UUID().uuidString)")
+        let downloads = root.appending(path: "Downloads")
+        try FileManager.default.createDirectory(at: downloads, withIntermediateDirectories: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: root) }
+        return (root.appending(path: "Buddies"), downloads)
+    }
+
+    /// A bundled file (the face, unless said) saved as `name`, optionally with another canvas.
+    private func download(_ name: String, in folder: URL, from builtIn: String = "buddy-face", canvas: (w: Double, h: Double)? = nil) throws -> URL {
+        var json = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(contentsOf: XCTUnwrap(Bundle.main.url(forResource: builtIn, withExtension: "json")))) as? [String: Any])
+        if let canvas { json["w"] = canvas.w; json["h"] = canvas.h }
+        let url = folder.appending(path: name)
+        try JSONSerialization.data(withJSONObject: json).write(to: url)
+        return url
+    }
+
+    func testTheCustomChoiceIsRemembered() {
+        let d = freshDefaults()
+        let prefs = BuddyPrefs(style: .custom, custom: "Round")
+        prefs.save(to: d)
+        XCTAssertEqual(BuddyPrefs(defaults: d), prefs)
+        BuddyPrefs(style: .custom, custom: nil).save(to: d)
+        XCTAssertNil(BuddyPrefs(defaults: d).custom)
+        XCTAssertNil(BuddyPrefs(defaults: freshDefaults()).custom)
+    }
+
+    func testACustomBuddyIsFittedIntoTheSlotAndTheBundledOnesAreNot() throws {
+        let (library, downloads) = try scratch()
+        let store = CustomBuddyStore(folder: library)
+        store.add(from: try download("Square.json", in: downloads, canvas: (60, 60)))
+        store.add(from: try download("Wide.json", in: downloads, canvas: (56, 28))) // twice as wide as tall is the most it takes
+        store.add(from: try download("Same.json", in: downloads))
+        XCTAssertEqual(BuddyAsset.custom(try XCTUnwrap(store.entry("Square"))).size, CGSize(width: 28, height: 28)) // the slot is 36 x 28: height decides
+        XCTAssertEqual(BuddyAsset.custom(try XCTUnwrap(store.entry("Wide"))).size, CGSize(width: 36, height: 18)) // width decides
+        XCTAssertEqual(BuddyAsset.custom(try XCTUnwrap(store.entry("Same"))).size, CGSize(width: 36, height: 28))
+        XCTAssertEqual(BuddyAsset(.face, emoji: .wave).size, CGSize(width: 36, height: 28))
+    }
+
+    func testTheAssetIsTheLibrarysFileOrTheFaceWhenItIsGone() throws {
+        let (library, downloads) = try scratch()
+        let store = CustomBuddyStore(folder: library)
+        store.add(from: try download("Round.json", in: downloads))
+        let shown = BuddyAsset(BuddyPrefs(style: .custom, custom: "Round"), library: store)
+        XCTAssertEqual(shown.url?.lastPathComponent, "Round.json")
+        XCTAssertEqual(shown.calmSpeed, 0.45)
+        XCTAssertNotNil(shown.animation)
+        for gone in [BuddyPrefs(style: .custom, custom: "Gone"), BuddyPrefs(style: .custom, custom: nil)] {
+            XCTAssertEqual(BuddyAsset(gone, library: store), BuddyAsset(.face, emoji: .wave), "the face, not nothing")
+        }
+        XCTAssertEqual(BuddyAsset(BuddyPrefs(style: .pulse, custom: "Round"), library: store).file, "buddy-pulse") // only the Custom style looks
+    }
+
+    func testPickingAFileChecksKeepsAndShowsIt() async throws {
+        let (library, downloads) = try scratch()
+        let m = NotchModel(sample: true, customBuddies: CustomBuddyStore(folder: library))
+        let picked = try download("Wave.json", in: downloads, from: "buddy-emoji-wave")
+        m.pickBuddyFile = { picked }
+        m.addCustomBuddy()
+        XCTAssertTrue(m.picking) // the panel must stay while the picker is up
+        await settle()
+        XCTAssertFalse(m.picking)
+        XCTAssertEqual(m.buddy.style, .custom)
+        XCTAssertEqual(m.buddy.custom, "Wave")
+        XCTAssertEqual(m.buddyAsset.url?.lastPathComponent, "Wave.json")
+        XCTAssertEqual(m.customBuddies.rejection, [])
+    }
+
+    func testCancellingOrAFileTurnedDownChangesNothing() async throws {
+        let (library, downloads) = try scratch()
+        let m = NotchModel(sample: true, customBuddies: CustomBuddyStore(folder: library))
+        m.pickBuddyFile = { nil }
+        m.addCustomBuddy()
+        await settle()
+        XCTAssertEqual(m.buddy, BuddyPrefs())
+        XCTAssertEqual(m.customBuddies.rejection, [])
+        let junk = downloads.appending(path: "junk.json")
+        try Data("[]".utf8).write(to: junk)
+        m.pickBuddyFile = { junk }
+        m.addCustomBuddy()
+        await settle()
+        XCTAssertEqual(m.buddy, BuddyPrefs())
+        XCTAssertEqual(m.customBuddies.rejection, ["Not a Lottie animation."])
+        XCTAssertFalse(m.picking)
+    }
+
+    func testThePanelStaysOpenWhileTheFilePickerIsUp() async {
+        var asks = 0
+        var finish: CheckedContinuation<URL?, Never>?
+        model.pickBuddyFile = { asks += 1; return await withCheckedContinuation { finish = $0 } }
+        model.pointer(inside: true)
+        model.addCustomBuddy()
+        model.addCustomBuddy() // a second ask while it is up does nothing
+        await settle()
+        model.pointer(inside: false) // the picker took the pointer away
+        jobs.flush()
+        XCTAssertEqual(model.mode, .peek)
+        XCTAssertEqual(asks, 1)
+        finish?.resume(returning: nil)
+        await settle()
+        XCTAssertFalse(model.picking)
+    }
+
+    func testRemovingTheShownBuddyHandsOverToTheNewestThenToTheFace() async throws {
+        let (library, downloads) = try scratch()
+        let m = NotchModel(sample: true, customBuddies: CustomBuddyStore(folder: library))
+        for name in ["a", "b", "c"] {
+            let file = try download("\(name).json", in: downloads)
+            m.pickBuddyFile = { file }
+            m.addCustomBuddy()
+            await settle()
+        }
+        XCTAssertEqual(m.buddy.custom, "c")
+        m.removeCustomBuddy("a") // not the one shown
+        XCTAssertEqual(m.buddy.custom, "c")
+        m.removeCustomBuddy("c")
+        XCTAssertEqual(m.buddy.style, .custom)
+        XCTAssertEqual(m.buddy.custom, "b")
+        m.removeCustomBuddy("b")
+        XCTAssertEqual(m.buddy.style, .face)
+        XCTAssertEqual(m.buddy.custom, nil)
+        XCTAssertEqual(m.buddyAsset, BuddyAsset(.face, emoji: .wave))
+    }
+
+    func testTheTextsSayWhatTheCheckEnforces() {
+        XCTAssertEqual(BuddyFileCheck.Limits.summary, "Lottie .json · up to 256 KB · loops of 30 s or less · shapes and emoji")
+        XCTAssertEqual(BuddyBrief.steps.count, 5)
+        XCTAssertTrue(BuddyBrief.steps[0].contains("30 s"))
+        XCTAssertTrue(BuddyBrief.text.contains("30 seconds") && BuddyBrief.text.contains("36 × 28"))
+    }
+
     // MARK: Colour
 
     /// WCAG relative luminance, from the colour's sRGB components.
@@ -234,7 +370,7 @@ final class BuddyTests: XCTestCase {
     }
 
     private var everyAsset: [BuddyAsset] {
-        BuddyStyle.allCases.flatMap { style in
+        BuddyStyle.allCases.filter { $0 != .custom }.flatMap { style in
             style == .emoji ? BuddyEmoji.allCases.map { BuddyAsset(style, emoji: $0) } : [BuddyAsset(style, emoji: .wave)]
         } + [BuddyAsset.hello]
     }
@@ -271,13 +407,6 @@ final class BuddyTests: XCTestCase {
         let shut = try XCTUnwrap(keys.first { abs(($0["t"] as? Double ?? 0) - 115.2) < 0.01 })
         XCTAssertEqual(shut["s"] as? [Double], [100, 15])
         XCTAssertEqual(keys.count, 22) // seven blinks of three stops, and the last open eye
-    }
-
-    func testEveryFileDrawsOnTheRenderServer() {
-        // Lottie quietly takes the main thread's engine for a file the Core Animation engine cannot draw: that would cost CPU all day.
-        for asset in everyAsset {
-            XCTAssertTrue(LottieBuddy.usesCoreAnimation(asset), asset.file)
-        }
     }
 
     func testTheStillFaceIsTheTintWithBlackEyes() throws {

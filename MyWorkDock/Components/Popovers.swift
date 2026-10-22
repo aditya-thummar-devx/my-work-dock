@@ -93,6 +93,7 @@ struct SettingsScreen: View {
     var peekOn = PeekSource.defaultOn
     var allDisplays = false
     var buddy = BuddyPrefs()
+    var customBuddies = CustomBuddies()
     var clipboardLimit = ClipboardStore.defaultLimit
     var version = ""
     var updatedAt: Date?
@@ -110,7 +111,7 @@ struct SettingsScreen: View {
     @State private var page: Page
     @Environment(\.tokens) private var t
 
-    init(theme: ThemeMode, systemIsDark: Bool = true, tint: Tint, panelSize: PanelSize = .medium, disabled: Set<Feature> = [], disabledSubs: Set<SubMenu> = [], peekOn: Set<PeekSource> = PeekSource.defaultOn, allDisplays: Bool = false, buddy: BuddyPrefs = BuddyPrefs(), page: Page = .appearance,
+    init(theme: ThemeMode, systemIsDark: Bool = true, tint: Tint, panelSize: PanelSize = .medium, disabled: Set<Feature> = [], disabledSubs: Set<SubMenu> = [], peekOn: Set<PeekSource> = PeekSource.defaultOn, allDisplays: Bool = false, buddy: BuddyPrefs = BuddyPrefs(), customBuddies: CustomBuddies = CustomBuddies(), page: Page = .appearance,
          clipboardLimit: Int = ClipboardStore.defaultLimit, version: String = "", updatedAt: Date? = nil,
          onCheckForUpdates: (() -> Void)? = nil,
          onTheme: @escaping (ThemeMode) -> Void = { _ in }, onTint: @escaping (Tint) -> Void = { _ in },
@@ -129,6 +130,7 @@ struct SettingsScreen: View {
         self.peekOn = peekOn
         self.allDisplays = allDisplays
         self.buddy = buddy
+        self.customBuddies = customBuddies
         self.clipboardLimit = clipboardLimit
         self.version = version
         self.updatedAt = updatedAt
@@ -170,7 +172,7 @@ struct SettingsScreen: View {
     @ViewBuilder private var section: some View {
         switch page {
         case .appearance:
-            AppearanceSection(theme: theme, systemIsDark: systemIsDark, tint: tint, panelSize: panelSize, buddy: buddy,
+            AppearanceSection(theme: theme, systemIsDark: systemIsDark, tint: tint, panelSize: panelSize, buddy: buddy, customBuddies: customBuddies,
                               onTheme: onTheme, onTint: onTint, onPanelSize: onPanelSize, onBuddy: onBuddy)
         case .menus:
             MenusSection(disabled: disabled, disabledSubs: disabledSubs, allDisplays: allDisplays,
@@ -481,6 +483,7 @@ private struct AppearanceSection: View {
     var tint: Tint
     var panelSize = PanelSize.medium
     var buddy = BuddyPrefs()
+    var customBuddies = CustomBuddies()
     var onTheme: (ThemeMode) -> Void = { _ in }
     var onTint: (Tint) -> Void = { _ in }
     var onPanelSize: (PanelSize) -> Void = { _ in }
@@ -526,7 +529,7 @@ private struct AppearanceSection: View {
                         selection: panelSize.rawValue) { onPanelSize(PanelSize(rawValue: $0) ?? .medium) }
             }
 
-            BuddySettings(prefs: buddy, onChange: onBuddy)
+            BuddySettings(prefs: buddy, customs: customBuddies, onChange: onBuddy)
                 .padding(.top, Geo.Chrome.popoverGap)
         }
     }

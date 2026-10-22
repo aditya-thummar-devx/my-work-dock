@@ -1,12 +1,25 @@
 import SwiftUI
 
+/// What Settings needs of the custom buddies: the library, and the two things the user can do to it.
+struct CustomBuddies {
+    /// nil where nothing is saved (previews, snapshots that do not show the library).
+    var library: CustomBuddyStore?
+    var add: () -> Void = {}
+    var remove: (String) -> Void = { _ in }
+}
+
 /// Settings › Appearance › Notch buddy (design/Buddy-Settings.dc.html): the switch, then style, emoji, motion and full-screen
 /// choices, all dimmed and locked while the buddy is off. Every change applies at once, the notch is the preview.
 struct BuddySettings: View {
     var prefs: BuddyPrefs
+    var customs = CustomBuddies()
     var onChange: (BuddyPrefs) -> Void = { _ in }
     @Environment(\.tokens) private var t
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// The brief is on the clipboard (the button says so for a moment).
+    @State private var copied = false
+
+    private var library: CustomBuddyStore { customs.library ?? .sample() }
 
     private func change(_ edit: (inout BuddyPrefs) -> Void) {
         var next = prefs
@@ -29,6 +42,7 @@ struct BuddySettings: View {
                         ForEach(BuddyEmoji.allCases) { emojiTile($0) }
                     }
                 }
+                if prefs.style == .custom { customSection }
                 HStack {
                     Text("Motion").font(Typo.ui(Geo.Appearance.sectionFont, .semibold)).foregroundStyle(t.faint)
                     Spacer()
@@ -102,6 +116,12 @@ struct BuddySettings: View {
                             .background(Circle().fill(t.text.opacity(0.12)).padding(-3))
                     case .emoji:
                         Text(prefs.emoji.glyph).font(.system(size: Geo.Buddy.emoji))
+                    case .custom:
+                        if let entry = library.entry(prefs.custom) {
+                            BuddyStillView(asset: .custom(entry), tint: t.buddy)
+                        } else {
+                            Icon(.plus, size: 16).foregroundStyle(t.faint)
+                        }
                     }
                 }
                 .frame(height: Geo.Buddy.stylePreviewHeight)
@@ -117,6 +137,97 @@ struct BuddySettings: View {
         .buttonStyle(.plain)
         .accessibilityLabel(style.label)
         .accessibilityAddTraits(on ? .isSelected : [])
+    }
+
+    // MARK: Custom buddies
+
+    /// The buddies the user added, a + to add one, what a file has to be, and how to make one.
+    private var customSection: some View {
+        VStack(alignment: .leading, spacing: Geo.Chrome.popoverGap) {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: Geo.Buddy.emojiTile), spacing: Geo.Appearance.themeGap)], alignment: .leading,
+                      spacing: Geo.Appearance.themeGap) {
+                ForEach(library.entries) { customTile($0) }
+                addTile(full: library.entries.count >= BuddyFileCheck.Limits.library)
+            }
+            if let entry = library.entry(prefs.custom) {
+                HStack {
+                    Text(entry.id).font(Typo.ui(Geo.Appearance.tintNameFont, .semibold)).foregroundStyle(t.text2).lineLimit(1)
+                    Spacer()
+                    Button { customs.remove(entry.id) } label: {
+                        Text("Remove").font(Typo.ui(Geo.Appearance.noteFont, .semibold)).foregroundStyle(t.red)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            if !library.rejection.isEmpty { rejection(library.rejection) }
+            note(BuddyFileCheck.Limits.summary)
+            howTo
+        }
+    }
+
+    private func customTile(_ entry: CustomBuddyStore.Entry) -> some View {
+        let on = prefs.custom == entry.id
+        return Button { change { $0.custom = entry.id } } label: {
+            BuddyStillView(asset: .custom(entry), tint: t.buddy)
+                .scaleEffect(0.75)
+                .frame(width: Geo.Buddy.emojiTile, height: Geo.Buddy.emojiTile)
+                .background(RoundedRectangle(cornerRadius: Geo.Buddy.emojiTileRadius).fill(on ? t.subOn : t.list))
+                .overlay { if on { RoundedRectangle(cornerRadius: Geo.Buddy.emojiTileRadius).strokeBorder(t.ink, lineWidth: Geo.Appearance.selectedBorder) } }
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .contextMenu { Button("Remove \(entry.id)") { customs.remove(entry.id) } }
+        .help(entry.id)
+        .accessibilityLabel(entry.id)
+        .accessibilityAddTraits(on ? .isSelected : [])
+    }
+
+    private func addTile(full: Bool) -> some View {
+        Button(action: customs.add) {
+            Icon(.plus, size: 16)
+                .foregroundStyle(t.muted)
+                .frame(width: Geo.Buddy.emojiTile, height: Geo.Buddy.emojiTile)
+                .overlay(RoundedRectangle(cornerRadius: Geo.Buddy.emojiTileRadius).strokeBorder(t.border, style: StrokeStyle(lineWidth: 1, dash: [3, 3])))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(full)
+        .opacity(full ? Geo.Buddy.dimmed : 1)
+        .help(full ? "The library is full (\(BuddyFileCheck.Limits.library)). Remove a buddy first." : "Add a Lottie file")
+        .accessibilityLabel("Add a custom buddy")
+    }
+
+    /// Why the last file was turned down, the first few reasons.
+    private func rejection(_ reasons: [String]) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text("That file can't be used:").fontWeight(.semibold)
+            ForEach(Array(reasons.prefix(3).enumerated()), id: \.offset) { _, reason in Text("• \(reason)") }
+            if reasons.count > 3 { Text("…and \(reasons.count - 3) more") }
+        }
+        .font(Typo.ui(Geo.Appearance.noteFont))
+        .foregroundStyle(t.red)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private var howTo: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("How to make one").font(Typo.ui(Geo.Appearance.sectionFont, .semibold)).foregroundStyle(t.faint)
+            ForEach(Array(BuddyBrief.steps.enumerated()), id: \.offset) { n, step in
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    Text("\(n + 1).").font(Typo.mono(Geo.Appearance.noteFont)).foregroundStyle(t.faint)
+                    Text(step).font(Typo.ui(Geo.Appearance.noteFont)).foregroundStyle(t.text2).fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            PillButton(title: copied ? "Copied" : "Copy design brief", glyph: copied ? .check : .copy, iconSize: 13) {
+                Clipboard.copy(BuddyBrief.text)
+                copied = true
+                Task {
+                    try? await Task.sleep(for: .seconds(1.6))
+                    copied = false
+                }
+            }
+            .padding(.top, 2)
+        }
     }
 
     private func emojiTile(_ emoji: BuddyEmoji) -> some View {
