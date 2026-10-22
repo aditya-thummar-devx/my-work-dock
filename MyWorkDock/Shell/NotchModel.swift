@@ -114,6 +114,8 @@ final class NotchModel {
     var emulatorTab: EmulatorTab = .devices
     /// Claude menu: Sessions / Agents / Tokens & cost.
     var claudeTab: ClaudeTab = .sessions
+    /// Claude › Refresh is running.
+    private(set) var claudeRefreshing = false
     /// Forces the live-activity state (debug menu, snapshots); otherwise it follows the emulator store.
     var bootingOverride: String?
     private(set) var peek = SampleData.peekPool
@@ -402,6 +404,18 @@ final class NotchModel {
 
     func setClaudeTab(_ tab: ClaudeTab) {
         claudeTab = tab
+    }
+
+    /// Claude › Refresh: sessions, the agents' hook setup and Tokens & cost, all at once.
+    func refreshClaude() async {
+        guard !claudeRefreshing else { return }
+        claudeRefreshing = true
+        defer { claudeRefreshing = false }
+        async let board: Void = sessions.refresh()
+        async let hooks: Void = agents.refreshHooks()
+        async let usage: Void = claudeUsage.refresh()
+        _ = await (board, hooks, usage)
+        sessions.ensureTitles(agents.sessions.map(\.transcriptID))
     }
 
     func setEmulatorTab(_ tab: EmulatorTab) {

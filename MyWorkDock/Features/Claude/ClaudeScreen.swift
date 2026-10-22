@@ -11,10 +11,12 @@ struct ClaudeScreen: View {
         let usage = model.claudeUsage
         VStack(spacing: 0) {
             SubNavRow(items: tabs, selection: model.claudeTab.rawValue, onSelect: { model.setClaudeTab(ClaudeTab(rawValue: $0) ?? .sessions) }) {
-                if model.claudeTab == .tokens {
-                    FreshLabel { usage.freshLabel }
-                    PillButton(title: "Refresh", glyph: .refresh, iconSize: 13, action: usage.refreshNow)
+                if model.claudeTab == .tokens { FreshLabel { usage.freshLabel } }
+                PillButton(title: "Refresh", glyph: .refresh, iconSize: 13,
+                           busy: model.claudeRefreshing || model.sessions.loading || usage.loading) {
+                    Task { await model.refreshClaude() }
                 }
+                .help("Reload sessions, the agents' setup and Tokens & cost")
             }
             .padding(.top, Geo.Chrome.subNavTop)
 
