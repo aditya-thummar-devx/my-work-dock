@@ -134,6 +134,12 @@ enum SnapshotRunner {
         State("gallery-light", .gallery, content: .gallery) { $0.setTheme(.light) },
         State("60-agents", .panel) { m in m.agents.loadSample(); m.setMainTab(.claude); m.setClaudeTab(.agents); m.openPanel() },
         State("61-sessions", .panel) { m in m.sessions.loadSample(); m.setMainTab(.claude); m.setClaudeTab(.sessions); m.openPanel() },
+        State("66-claude-agents-loading", .panel) { m in m.setMainTab(.claude); m.setClaudeTab(.agents); m.openPanel() },
+        State("67-claude-agents-empty", .panel) { m in m.agents.showSampleEmpty(); m.setMainTab(.claude); m.setClaudeTab(.agents); m.openPanel() },
+        State("68-claude-sessions-loading", .panel) { m in m.setMainTab(.claude); m.setClaudeTab(.sessions); m.openPanel() },
+        State("69-claude-sessions-empty", .panel) { m in
+            m.sessions.setTranscriptsForTesting([]); m.setMainTab(.claude); m.setClaudeTab(.sessions); m.openPanel()
+        },
     ]
 
     private static let screenStates: [State] = [

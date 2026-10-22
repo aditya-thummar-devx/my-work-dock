@@ -48,6 +48,8 @@ final class SessionsStore {
     private(set) var groups: [SessionGroup] = []
     private(set) var assignments: [String: String] = [:]
     private(set) var loading = false
+    /// False until the first look at the transcripts has finished: the board shows a loading state until then.
+    private(set) var loaded = false
     private(set) var message: (text: String, error: Bool)?
     /// Real titles for live sessions (session id → title), filled for the Agents tab.
     private(set) var titles: [String: String] = [:]
@@ -80,6 +82,7 @@ final class SessionsStore {
         defer { loading = false }
         transcripts = await reader.scan()
         installedTerminals = TerminalLauncher.detect()
+        loaded = true
     }
 
     /// Looks up titles for live sessions the board hasn't loaded yet.
@@ -93,7 +96,10 @@ final class SessionsStore {
     }
 
     #if DEBUG
-    func setTranscriptsForTesting(_ t: [Transcript]) { transcripts = t }
+    func setTranscriptsForTesting(_ t: [Transcript]) {
+        transcripts = t
+        loaded = true
+    }
 
     /// Snapshots: a board with two groups.
     func loadSample() {
@@ -115,6 +121,7 @@ final class SessionsStore {
         }
         installedTerminals = [.terminal, .warp]
         message = nil
+        loaded = true
     }
     #endif
 
@@ -204,6 +211,7 @@ final class SessionsStore {
     }
 
     var footer: String {
+        guard loaded else { return "Reading Claude Code sessions…" }
         let n = visible.count
         return "\(n) session\(n == 1 ? "" : "s") · \(groups.count) group\(groups.count == 1 ? "" : "s")"
     }

@@ -4,52 +4,66 @@ import SwiftUI
 struct AgentsScreen: View {
     var model: NotchModel
     @Environment(\.tokens) private var t
+    @Environment(\.staticRender) private var staticRender
 
     var body: some View {
         let store = model.agents
-        VStack(alignment: .leading, spacing: 12) {
-            SetupBanner(store: store)
-            HStack(alignment: .top, spacing: 14) {
-                VStack(alignment: .leading, spacing: 8) {
-                    SectionLabel(text: "Waiting for you", count: store.pending.count)
-                    if store.pending.isEmpty {
-                        EmptyHint(text: "Nothing to approve. Claude's permission prompts and questions show up here.")
-                    } else {
-                        DockScroll {
-                            VStack(spacing: 10) {
-                                ForEach(store.pending) { p in
-                                    switch p.kind {
-                                    case .permission(let tool, let input):
-                                        ApprovalCardView(request: p, tool: tool, input: input) { store.decide(p.id, $0) }
-                                    case .question(let qs):
-                                        QuestionCardView(request: p, questions: qs) { store.decide(p.id, $0) }
+        Group {
+            if !store.checked {
+                ClaudePlaceholder(glyph: .chat, title: "Connecting to Claude Code", message: "Checking the Claude hooks on this Mac.", loading: true)
+            } else {
+                VStack(alignment: .leading, spacing: 12) {
+                    SetupBanner(store: store)
+                    HStack(alignment: .top, spacing: 16) {
+                        VStack(alignment: .leading, spacing: 10) {
+                            SectionLabel(text: "Waiting for you", count: store.pending.count)
+                            if store.pending.isEmpty {
+                                ClaudePlaceholder(glyph: .check, title: "Nothing to approve",
+                                                  message: "Claude's permission prompts and questions show up here.")
+                            } else {
+                                DockScroll {
+                                    VStack(spacing: 10) {
+                                        ForEach(store.pending) { p in
+                                            switch p.kind {
+                                            case .permission(let tool, let input):
+                                                ApprovalCardView(request: p, tool: tool, input: input) { store.decide(p.id, $0) }
+                                            case .question(let qs):
+                                                QuestionCardView(request: p, questions: qs) { store.decide(p.id, $0) }
+                                            }
+                                        }
                                     }
                                 }
                             }
                         }
-                    }
-                }
-                .frame(width: 330)
-                VStack(alignment: .leading, spacing: 8) {
-                    SectionLabel(text: "Live sessions", count: store.sessions.count)
-                    if store.sessions.isEmpty {
-                        EmptyHint(text: "No active agents. Start Claude Code and it appears here.")
-                    } else {
-                        DockScroll {
-                            VStack(spacing: 8) {
-                                ForEach(store.sessions) { s in
-                                    SessionRowView(store: store, session: s, title: model.sessions.title(for: s.transcriptID),
-                                                   onShowOnBoard: { model.showOnBoard(s.transcriptID) })
+                        .frame(width: 330)
+                        .frame(maxHeight: .infinity, alignment: .top)
+                        VStack(alignment: .leading, spacing: 10) {
+                            SectionLabel(text: "Live sessions", count: store.sessions.count)
+                            if store.sessions.isEmpty {
+                                ClaudePlaceholder(glyph: .terminal, title: "No live sessions",
+                                                  message: "Start Claude Code in a terminal and it shows up here, ready to message.")
+                            } else {
+                                DockScroll {
+                                    VStack(spacing: 8) {
+                                        ForEach(store.sessions) { s in
+                                            SessionRowView(store: store, session: s, title: model.sessions.title(for: s.transcriptID),
+                                                           onShowOnBoard: { model.showOnBoard(s.transcriptID) })
+                                        }
+                                    }
                                 }
                             }
                         }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                     }
+                    .frame(maxHeight: .infinity, alignment: .top)
                 }
-                .frame(maxWidth: .infinity)
             }
-            .frame(maxHeight: .infinity, alignment: .top)
         }
-        .task { store.refreshHooks() }
+        .padding(.bottom, 4)
+        .task {
+            guard !staticRender else { return } // snapshots keep the state they were given
+            await store.refreshHooks()
+        }
     }
 }
 
@@ -63,6 +77,7 @@ private struct SectionLabel: View {
             Text(text).font(Typo.ui(12, .semibold)).foregroundStyle(t.text2)
             if count > 0 { CountBadge(count: count, on: text == "Waiting for you") }
         }
+        .frame(height: 20) // both columns' labels line up, with or without a badge
         .padding(.horizontal, 4)
     }
 }
