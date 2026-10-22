@@ -17,7 +17,8 @@ struct NotesScreen: View {
             SubNavRow(items: [SubTabItem("todo", "TODO", count: model.notes.leftCount),
                               SubTabItem("commands", "Commands", count: model.commands.items.count),
                               SubTabItem("prompts", "Prompts", count: model.prompts.items.count),
-                              SubTabItem("links", "Links", count: model.links.items.count)],
+                              SubTabItem("links", "Links", count: model.links.items.count)]
+                          .filter { model.enabledNotesTabs.map(\.rawValue).contains($0.id) },
                       selection: model.notesTab.rawValue,
                       onSelect: { model.setNotesTab(NotesTab(rawValue: $0) ?? .todo) }) {
                 switch model.notesTab {

@@ -122,6 +122,11 @@ enum SnapshotRunner {
         // Settings › Menus: the screen is as tall as the panel's content area, so this shows whether every row still fits.
         State("settings-menus", .panel, content: .fragment(rect: settingsRect,
                                                            view: { AnyView(SettingsScreen(theme: .dark, tint: .lime, page: .menus).onPanel()) })) { $0.toggleSettings(); $0.openPanel() },
+        // Some sub-tabs off: Notes keeps only TODO (its switch is locked), and Emulator is off so its tabs are not listed.
+        State("settings-menus-subs", .panel, content: .fragment(rect: settingsRect,
+                                                                view: { AnyView(SettingsScreen(theme: .dark, tint: .lime, disabled: [.emulator],
+                                                                                               disabledSubs: [.notesCommands, .notesPrompts, .notesLinks, .claudexHealth],
+                                                                                               page: .menus).onPanel()) })) { $0.toggleSettings(); $0.openPanel() },
         State("settings-version", .panel, content: .fragment(rect: settingsRect,
                                                              view: { AnyView(SettingsScreen(theme: .dark, tint: .lime, page: .version, version: "0.1.0 (1)",
                                                                                             updatedAt: Date(timeIntervalSince1970: 1_790_000_000), onCheckForUpdates: {}).onPanel()) })) { $0.toggleSettings(); $0.openPanel() },

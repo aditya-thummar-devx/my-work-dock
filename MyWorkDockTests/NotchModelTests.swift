@@ -502,6 +502,116 @@ final class NotchModelTests: XCTestCase {
         XCTAssertEqual(model.mode, .live)
     }
 
+    // MARK: Settings › Menus › sub-tabs
+
+    func testSubMenuRawValuesAreStableAndEveryTabHasOne() {
+        // Stored in UserDefaults as "disabledSubMenus".
+        XCTAssertEqual(SubMenu.allCases.map(\.rawValue), ["notesTodo", "notesCommands", "notesPrompts", "notesLinks",
+                                                          "emulatorDevices", "emulatorWireless", "emulatorTunnel",
+                                                          "claudexUsage", "claudexPool", "claudexPlay", "claudexHealth", "claudexTokens"])
+        XCTAssertEqual(NotesTab.allCases.map { SubMenu($0).parent }, Array(repeating: .notes, count: NotesTab.allCases.count))
+        XCTAssertEqual(EmulatorTab.allCases.map { SubMenu($0).parent }, Array(repeating: .emulator, count: EmulatorTab.allCases.count))
+        XCTAssertEqual(ClaudexTab.allCases.map { SubMenu($0).parent }, Array(repeating: .claudex, count: ClaudexTab.allCases.count))
+        XCTAssertEqual(SubMenu.allCases.count, NotesTab.allCases.count + EmulatorTab.allCases.count + ClaudexTab.allCases.count)
+    }
+
+    func testEverySubTabIsOnByDefault() {
+        XCTAssertTrue(model.disabledSubs.isEmpty)
+        XCTAssertEqual(model.enabledNotesTabs, NotesTab.allCases)
+        XCTAssertEqual(model.enabledEmulatorTabs, EmulatorTab.allCases)
+        XCTAssertEqual(model.claudex.visibleTabs, ClaudexTab.allCases)
+    }
+
+    func testSwitchingOffTheTabOnScreenMovesToTheFirstOneLeft() {
+        model.setMainTab(.notes)
+        model.setEnabled(SubMenu.notesTodo, false)
+        XCTAssertEqual(model.notesTab, .commands)
+        XCTAssertEqual(model.enabledNotesTabs, [.commands, .prompts, .links])
+        model.setEnabled(SubMenu.notesLinks, false) // not the one on screen: it stays
+        XCTAssertEqual(model.notesTab, .commands)
+        model.setEnabled(SubMenu.emulatorDevices, false)
+        XCTAssertEqual(model.emulatorTab, .wireless)
+        model.claudex.select(.pool)
+        model.setEnabled(SubMenu.claudexPool, false)
+        XCTAssertEqual(model.claudex.activeTab, .usage)
+        XCTAssertFalse(model.claudex.visibleTabs.contains(.pool))
+    }
+
+    func testTheLastSubTabCannotBeSwitchedOff() {
+        for sub in [SubMenu.notesCommands, .notesPrompts, .notesLinks] { model.setEnabled(sub, false) }
+        model.setEnabled(SubMenu.notesTodo, false)
+        XCTAssertTrue(model.isEnabled(SubMenu.notesTodo))
+        XCTAssertEqual(model.enabledNotesTabs, [.todo])
+        model.setEnabled(SubMenu.notesLinks, true) // another one back on frees it
+        model.setEnabled(SubMenu.notesTodo, false)
+        XCTAssertEqual(model.enabledNotesTabs, [.links])
+    }
+
+    func testShiftTabSkipsSwitchedOffSubTabs() {
+        model.setEnabled(SubMenu.notesCommands, false)
+        model.setEnabled(SubMenu.notesLinks, false)
+        model.setMainTab(.notes)
+        model.cycleInnerTab()
+        XCTAssertEqual(model.notesTab, .prompts)
+        model.cycleInnerTab()
+        XCTAssertEqual(model.notesTab, .todo)
+        model.setEnabled(SubMenu.notesPrompts, false)
+        model.cycleInnerTab() // TODO is all that is left: nothing to cycle to, and no reset of its draft
+        XCTAssertEqual(model.notesTab, .todo)
+
+        model.setEnabled(SubMenu.claudexPlay, false)
+        model.setMainTab(.claudex)
+        model.claudex.select(.pool)
+        model.cycleInnerTab()
+        XCTAssertEqual(model.claudex.activeTab, .health)
+        model.setEnabled(SubMenu.emulatorWireless, false)
+        model.setMainTab(.emulator)
+        model.cycleInnerTab()
+        XCTAssertEqual(model.emulatorTab, .tunnel)
+    }
+
+    func testAHotkeyForASwitchedOffNotesTabLeavesNotesWhereItWas() {
+        model.setEnabled(SubMenu.notesTodo, false) // Notes is on Commands now
+        model.show(.notes, notes: .todo)
+        XCTAssertEqual(model.mainTab, .notes)
+        XCTAssertEqual(model.notesTab, .commands)
+        XCTAssertTrue(model.open)
+        model.show(.notes, notes: .links)
+        XCTAssertEqual(model.notesTab, .links)
+    }
+
+    func testSubTabChoicesStayWhileTheirMenuIsOff() {
+        model.setEnabled(SubMenu.notesLinks, false)
+        model.setEnabled(.notes, false)
+        XCTAssertEqual(model.disabledSubs, [.notesLinks])
+        model.setEnabled(.notes, true)
+        XCTAssertEqual(model.enabledNotesTabs, [.todo, .commands, .prompts])
+    }
+
+    func testTheTodoCountNeedsNotesTodo() {
+        model.pointer(inside: true)
+        model.setEnabled(SubMenu.notesTodo, false)
+        assertInfo(clips: Self.clips, ip: Self.ip)
+        model.setEnabled(SubMenu.notesTodo, true)
+        assertInfo(todo: Self.todo, clips: Self.clips, ip: Self.ip)
+    }
+
+    func testClaudexWithTokensAndCostOffShowsOnlyWhyWhenTheCLIIsMissing() {
+        model.setEnabled(SubMenu.claudexTokens, false)
+        XCTAssertEqual(model.claudex.visibleTabs, [.usage, .pool, .play, .health])
+        model.claudex.showSampleUnavailable()
+        XCTAssertEqual(model.claudex.visibleTabs, [])
+        model.setEnabled(SubMenu.claudexTokens, true)
+        XCTAssertEqual(model.claudex.visibleTabs, [.tokens])
+    }
+
+    func testMenuColumnsBreakWhereTheyComeOutMostEven() {
+        XCTAssertEqual(MenuColumns.split([1, 1, 1, 1, 1, 1, 1, 1]), 4) // no sub-tabs: four and four
+        XCTAssertEqual(MenuColumns.split([1, 1, 5, 6, 4, 1, 1, 1]), 3) // a tie takes the earlier break
+        XCTAssertEqual(MenuColumns.split([9, 1, 1]), 1) // the first menu always stays left
+        XCTAssertEqual(MenuColumns.split([1]), 1)
+    }
+
     // MARK: Settings › Peek
 
     func testPeekSourceRawValuesAreStable() {

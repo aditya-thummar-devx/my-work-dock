@@ -25,6 +25,14 @@ extension Geo {
         /// The menu switches sit in two columns, so the list plus Show on all displays fit the settings screen (371 pt tall on the medium panel).
         static let menuRowHeight: CGFloat = 32
         static let menuColumnGap: CGFloat = 16
+        /// A menu's sub-tab switches sit under it, a little smaller and pushed in past its icon.
+        static let subRowHeight: CGFloat = 28
+        static let subIndent: CGFloat = 33
+        static let subFont: CGFloat = 12
+        /// Each menu is a card holding its own switch and its tabs, so the grouping reads at a glance.
+        static let cardRadius: CGFloat = 12
+        static let cardPadY: CGFloat = 4
+        static let cardGap: CGFloat = 8
         static let switchSize = (width: CGFloat(34), height: CGFloat(20))
         static let switchKnob: CGFloat = 14
     }
@@ -81,6 +89,7 @@ struct SettingsScreen: View {
     var tint: Tint
     var panelSize = PanelSize.medium
     var disabled: Set<Feature> = []
+    var disabledSubs: Set<SubMenu> = []
     var peekOn = PeekSource.defaultOn
     var allDisplays = false
     var clipboardLimit = ClipboardStore.defaultLimit
@@ -92,18 +101,20 @@ struct SettingsScreen: View {
     var onTint: (Tint) -> Void = { _ in }
     var onPanelSize: (PanelSize) -> Void = { _ in }
     var onFeature: (Feature, Bool) -> Void = { _, _ in }
+    var onSub: (SubMenu, Bool) -> Void = { _, _ in }
     var onPeek: (PeekSource, Bool) -> Void = { _, _ in }
     var onAllDisplays: (Bool) -> Void = { _ in }
     var onClipboardLimit: (Int) -> Void = { _ in }
     @State private var page: Page
     @Environment(\.tokens) private var t
 
-    init(theme: ThemeMode, systemIsDark: Bool = true, tint: Tint, panelSize: PanelSize = .medium, disabled: Set<Feature> = [], peekOn: Set<PeekSource> = PeekSource.defaultOn, allDisplays: Bool = false, page: Page = .appearance,
+    init(theme: ThemeMode, systemIsDark: Bool = true, tint: Tint, panelSize: PanelSize = .medium, disabled: Set<Feature> = [], disabledSubs: Set<SubMenu> = [], peekOn: Set<PeekSource> = PeekSource.defaultOn, allDisplays: Bool = false, page: Page = .appearance,
          clipboardLimit: Int = ClipboardStore.defaultLimit, version: String = "", updatedAt: Date? = nil,
          onCheckForUpdates: (() -> Void)? = nil,
          onTheme: @escaping (ThemeMode) -> Void = { _ in }, onTint: @escaping (Tint) -> Void = { _ in },
          onPanelSize: @escaping (PanelSize) -> Void = { _ in },
-         onFeature: @escaping (Feature, Bool) -> Void = { _, _ in }, onPeek: @escaping (PeekSource, Bool) -> Void = { _, _ in },
+         onFeature: @escaping (Feature, Bool) -> Void = { _, _ in }, onSub: @escaping (SubMenu, Bool) -> Void = { _, _ in },
+         onPeek: @escaping (PeekSource, Bool) -> Void = { _, _ in },
          onAllDisplays: @escaping (Bool) -> Void = { _ in },
          onClipboardLimit: @escaping (Int) -> Void = { _ in }) {
         self.theme = theme
@@ -111,6 +122,7 @@ struct SettingsScreen: View {
         self.tint = tint
         self.panelSize = panelSize
         self.disabled = disabled
+        self.disabledSubs = disabledSubs
         self.peekOn = peekOn
         self.allDisplays = allDisplays
         self.clipboardLimit = clipboardLimit
@@ -122,6 +134,7 @@ struct SettingsScreen: View {
         self.onTint = onTint
         self.onPanelSize = onPanelSize
         self.onFeature = onFeature
+        self.onSub = onSub
         self.onPeek = onPeek
         self.onAllDisplays = onAllDisplays
         _page = State(initialValue: page)
@@ -155,9 +168,10 @@ struct SettingsScreen: View {
             AppearanceSection(theme: theme, systemIsDark: systemIsDark, tint: tint, panelSize: panelSize,
                               onTheme: onTheme, onTint: onTint, onPanelSize: onPanelSize)
         case .menus:
-            MenusSection(disabled: disabled, allDisplays: allDisplays, onFeature: onFeature, onAllDisplays: onAllDisplays)
+            MenusSection(disabled: disabled, disabledSubs: disabledSubs, allDisplays: allDisplays,
+                         onFeature: onFeature, onSub: onSub, onAllDisplays: onAllDisplays)
         case .peek:
-            PeekSection(on: peekOn, disabled: disabled, onPeek: onPeek)
+            PeekSection(on: peekOn, disabled: disabled, disabledSubs: disabledSubs, onPeek: onPeek)
         case .clipboard:
             ClipboardSection(limit: clipboardLimit, onLimit: onClipboardLimit)
         case .version:
@@ -276,33 +290,51 @@ private struct ClipboardSection: View {
     }
 }
 
-/// Settings › Menus: one switch per feature. Off hides it and stops its background work.
+/// Where the two Menus columns break. A menu's card (itself and its sub-tab switches) stays whole, so the break goes between
+/// cards, at the point that leaves the columns closest in height. The first card always stays on the left.
+enum MenuColumns {
+    /// `heights`: how tall each menu's card is. Returns how many cards go in the left column.
+    static func split(_ heights: [Int]) -> Int {
+        let rows = heights
+        let total = rows.reduce(0, +)
+        var left = 0, best = rows.count, gap = Int.max
+        for (i, n) in rows.enumerated().dropLast() {
+            left += n
+            if abs(total - 2 * left) < gap { gap = abs(total - 2 * left); best = i + 1 }
+        }
+        return best
+    }
+}
+
+/// Settings › Menus: one switch per feature, and under a menu that is on one per sub-tab. Off hides it and stops its background
+/// work; a sub-tab that is off is hidden in its menu.
 private struct MenusSection: View {
     var disabled: Set<Feature>
+    var disabledSubs: Set<SubMenu>
     var allDisplays: Bool
     var onFeature: (Feature, Bool) -> Void
+    var onSub: (SubMenu, Bool) -> Void
     var onAllDisplays: (Bool) -> Void
     @Environment(\.tokens) private var t
 
     var body: some View {
         VStack(alignment: .leading, spacing: Geo.Chrome.popoverGap) {
             Text("Menus").font(Typo.ui(Geo.Appearance.sectionFont, .semibold)).foregroundStyle(t.faint)
-            // Two columns, filled top to bottom: eight switches in one column outgrow the settings screen.
+            // Two columns of cards, filled top to bottom: the switches in one column outgrow the settings screen.
             let features = Array(Feature.allCases)
-            let half = (features.count + 1) / 2
+            let split = MenuColumns.split(features.map(cardHeight))
             HStack(alignment: .top, spacing: Geo.Appearance.menuColumnGap) {
-                VStack(spacing: 0) { ForEach(features.prefix(half)) { row($0) } }.frame(maxWidth: .infinity)
-                VStack(spacing: 0) { ForEach(features.dropFirst(half)) { row($0) } }.frame(maxWidth: .infinity)
+                VStack(spacing: Geo.Appearance.cardGap) { ForEach(features.prefix(split)) { group($0) } }.frame(maxWidth: .infinity)
+                VStack(spacing: Geo.Appearance.cardGap) { ForEach(features.dropFirst(split)) { group($0) } }.frame(maxWidth: .infinity)
             }
-            .padding(.top, Geo.Appearance.pullUp)
-            Text("A menu that is switched off is hidden and stops everything it runs in the background.")
+            Text("A menu that is switched off is hidden and stops everything it runs in the background. Under a menu that is on, switch off the tabs you do not use; one always stays.")
                 .font(Typo.ui(Geo.Appearance.noteFont))
                 .foregroundStyle(t.faint)
                 .lineSpacing(Typo.lineSpacing(size: Geo.Appearance.noteFont, lineHeight: 1.4))
                 .fixedSize(horizontal: false, vertical: true)
             Text("Displays").font(Typo.ui(Geo.Appearance.sectionFont, .semibold)).foregroundStyle(t.faint)
             row("Show on all displays", .monitor, on: allDisplays) { onAllDisplays(!allDisplays) }
-                .padding(.top, Geo.Appearance.pullUp)
+                .modifier(MenuCard())
             Text("Also draws the notch on every other display. Hover or click one to use it there.")
                 .font(Typo.ui(Geo.Appearance.noteFont))
                 .foregroundStyle(t.faint)
@@ -311,12 +343,45 @@ private struct MenusSection: View {
         }
     }
 
-    private func row(_ feature: Feature) -> some View {
-        row(feature.label, feature.glyph, on: !disabled.contains(feature)) { onFeature(feature, disabled.contains(feature)) }
+    /// A menu's sub-tab switches; none while the menu is off (their choices stay for when it is back on).
+    private func subs(of feature: Feature) -> [SubMenu] {
+        disabled.contains(feature) ? [] : SubMenu.allCases.filter { $0.parent == feature }
+    }
+
+    /// A card's height in points, with the gap under it: what the column break balances.
+    private func cardHeight(_ feature: Feature) -> Int {
+        Int(Geo.Appearance.menuRowHeight + CGFloat(subs(of: feature).count) * Geo.Appearance.subRowHeight + 2 * Geo.Appearance.cardPadY + Geo.Appearance.cardGap)
+    }
+
+    private func group(_ feature: Feature) -> some View {
+        let children = subs(of: feature)
+        return VStack(spacing: 0) {
+            row(feature.label, feature.glyph, on: !disabled.contains(feature)) { onFeature(feature, disabled.contains(feature)) }
+            if !children.isEmpty { Rectangle().fill(t.line).frame(height: 1).padding(.horizontal, Geo.Menu.rowPadX) }
+            ForEach(children) { sub in
+                let isOn = !disabledSubs.contains(sub)
+                // The last one showing cannot go off: a menu with no tab is just a hidden menu.
+                let last = isOn && children.allSatisfy { $0 == sub || disabledSubs.contains($0) }
+                SwitchRow(label: sub.label, glyph: nil, on: isOn, locked: last, nested: true) { onSub(sub, !isOn) }
+            }
+        }
+        .modifier(MenuCard())
     }
 
     private func row(_ label: String, _ glyph: Glyph, on: Bool, toggle: @escaping () -> Void) -> some View {
         SwitchRow(label: label, glyph: glyph, on: on, toggle: toggle)
+    }
+}
+
+/// The card around one menu's switches (and around Show on all displays).
+private struct MenuCard: ViewModifier {
+    @Environment(\.tokens) private var t
+
+    func body(content: Content) -> some View {
+        content
+            .padding(.vertical, Geo.Appearance.cardPadY)
+            .background(RoundedRectangle(cornerRadius: Geo.Appearance.cardRadius).fill(t.card))
+            .overlay(RoundedRectangle(cornerRadius: Geo.Appearance.cardRadius).strokeBorder(t.border, lineWidth: 1))
     }
 }
 
@@ -326,6 +391,7 @@ private struct MenusSection: View {
 private struct PeekSection: View {
     var on: Set<PeekSource>
     var disabled: Set<Feature>
+    var disabledSubs: Set<SubMenu>
     var onPeek: (PeekSource, Bool) -> Void
     @Environment(\.tokens) private var t
 
@@ -335,13 +401,14 @@ private struct PeekSection: View {
             VStack(spacing: 0) {
                 ForEach(PeekSource.allCases) { source in
                     let isOn = on.contains(source)
-                    // The others wait while claudex is on; a menu that is off can still be switched off here, never on.
-                    let locked = (source != .claudex && !source.isRow && on.contains(.claudex)) || (disabled.contains(source.feature) && !isOn)
+                    // The others wait while claudex is on; a menu (or sub-tab) that is off can still be switched off here, never on.
+                    let off = disabled.contains(source.feature) || (source.subMenu.map(disabledSubs.contains) ?? false)
+                    let locked = (source != .claudex && !source.isRow && on.contains(.claudex)) || (off && !isOn)
                     SwitchRow(label: source.label, glyph: source.glyph, on: isOn, locked: locked) { onPeek(source, !isOn) }
                 }
             }
             .padding(.top, Geo.Appearance.pullUp)
-            Text("claudex takes the whole hover and switches the rest off; switching it off turns them back on. Otherwise TODO and Clipboard counts show left of the notch and the IP on its right. Today's events add a row under whichever is showing, once you are signed in to My Calendar. Anything with nothing to show is hidden, and each needs its menu on in Menus.")
+            Text("claudex takes the whole hover and switches the rest off; switching it off turns them back on. Otherwise TODO and Clipboard counts show left of the notch and the IP on its right. Today's events add a row under whichever is showing, once you are signed in to My Calendar. Anything with nothing to show is hidden, and each needs its menu (and, for the TODO count, its TODO tab) on in Menus.")
                 .font(Typo.ui(Geo.Appearance.noteFont))
                 .foregroundStyle(t.faint)
                 .lineSpacing(Typo.lineSpacing(size: Geo.Appearance.noteFont, lineHeight: 1.4))
@@ -353,29 +420,32 @@ private struct PeekSection: View {
 /// A settings row with a switch. `locked` dims it and ignores clicks (its menu is off), keeping the stored choice.
 private struct SwitchRow: View {
     var label: String
-    var glyph: Glyph
+    var glyph: Glyph?
     var on: Bool
     var locked = false
+    /// A sub-tab switch under its menu: no icon, smaller, pushed in.
+    var nested = false
     var toggle: () -> Void
     @Environment(\.tokens) private var t
 
     var body: some View {
         Button(action: toggle) {
             HStack(spacing: Geo.Menu.rowGap) {
-                Icon(glyph, size: Geo.Appearance.themeIcon).foregroundStyle(on ? t.text : t.muted)
-                Text(label).font(Typo.ui(Geo.Menu.font, .medium)).foregroundStyle(on ? t.text : t.text2)
+                if let glyph { Icon(glyph, size: Geo.Appearance.themeIcon).foregroundStyle(on ? t.text : t.muted) }
+                Text(label).font(Typo.ui(nested ? Geo.Appearance.subFont : Geo.Menu.font, nested ? .regular : .medium)).foregroundStyle(on ? t.text : t.text2)
                 Spacer(minLength: 0)
                 SwitchPill(on: on)
             }
+            .padding(.leading, nested ? Geo.Appearance.subIndent : 0)
             .padding(.horizontal, Geo.Menu.rowPadX)
-            .frame(height: Geo.Appearance.menuRowHeight)
+            .frame(height: nested ? Geo.Appearance.subRowHeight : Geo.Appearance.menuRowHeight)
             .contentShape(Rectangle())
             .opacity(locked ? 0.45 : 1)
         }
         .buttonStyle(.plain)
         .disabled(locked)
         .accessibilityLabel(label)
-        .accessibilityValue(locked ? "Off, its menu is off" : on ? "On" : "Off")
+        .accessibilityValue(locked ? (on ? "On, the last one showing" : "Off, its menu is off") : on ? "On" : "Off")
     }
 }
 
