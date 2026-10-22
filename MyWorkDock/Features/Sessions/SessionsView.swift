@@ -46,28 +46,6 @@ struct SessionsScreen: View {
     }
 }
 
-/// Refresh, turning while a look at the transcripts runs.
-private struct RefreshButton: View {
-    var loading: Bool
-    var action: () -> Void
-    @Environment(\.tokens) private var t
-
-    var body: some View {
-        Button(action: action) {
-            Group {
-                if loading { Spinner(size: 13) } else { Icon(.refresh, size: 13) }
-            }
-            .foregroundStyle(t.text2)
-            .frame(width: 28, height: 28)
-            .background(Circle().fill(t.ctrl))
-            .contentShape(Circle())
-        }
-        .buttonStyle(.plain)
-        .disabled(loading)
-        .accessibilityLabel(loading ? "Refreshing" : "Refresh")
-    }
-}
-
 private struct SessionsToolbar: View {
     @Bindable var store: SessionsStore
     @Environment(\.tokens) private var t
@@ -98,7 +76,6 @@ private struct SessionsToolbar: View {
                     Button("\(app.name)\(app.realPrompts ? "" : " — messages as notes")") { store.setOpenIn(app) }
                 }
             }
-            RefreshButton(loading: store.loading) { Task { await store.refresh() } }
         }
     }
 

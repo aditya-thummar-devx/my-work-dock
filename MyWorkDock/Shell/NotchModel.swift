@@ -151,6 +151,8 @@ final class NotchModel {
     var notesTab: NotesTab = .todo
     /// Claude's sub-tab; it stays where it was when you leave the menu and come back.
     var claudeTab: ClaudeTab = .agents
+    /// Claude › Refresh is running.
+    private(set) var claudeRefreshing = false
     let clipboard: ClipboardStore
     let notes: NotesStore
     /// Claude Code adds todos through it (`mwd-mcp`); runs while Notes › TODO is on.
@@ -628,6 +630,18 @@ final class NotchModel {
               enabledClaudeTabs.contains(.agents) else { return }
         claudeTab = .agents
         changed()
+    }
+
+    /// Claude › Refresh: sessions, the agents' hook setup and Tokens & cost, all at once.
+    func refreshClaude() async {
+        guard !claudeRefreshing else { return }
+        claudeRefreshing = true
+        defer { claudeRefreshing = false }
+        async let board: Void = sessions.refresh()
+        async let hooks: Void = agents.refreshHooks()
+        async let usage: Void = claudeUsage.refresh()
+        _ = await (board, hooks, usage)
+        sessions.ensureTitles(agents.sessions.map(\.transcriptID))
     }
 
     func setEmulatorTab(_ tab: EmulatorTab) {
