@@ -108,7 +108,8 @@ struct CalendarMonthView: View {
     var body: some View {
         let days = store.visibleDays
         let events = store.visibleEvents
-        let rows = max(1, days.count / 7)
+        // Not max(1, …): while Month is switching to Day this body can still run with the one-day range, and a forced row would index past it.
+        let rows = days.count / 7
         VStack(spacing: 0) {
             HStack(spacing: 0) {
                 ForEach(days.prefix(7), id: \.self) { day in
@@ -122,7 +123,7 @@ struct CalendarMonthView: View {
             .frame(height: Geo.Cal.weekdayHeight)
             .overlay(alignment: .bottom) { Rectangle().fill(t.line).frame(height: 1) }
             GeometryReader { geo in
-                let rowHeight = geo.size.height / CGFloat(rows)
+                let rowHeight = geo.size.height / CGFloat(max(1, rows))
                 VStack(spacing: 0) {
                     ForEach(0..<rows, id: \.self) { row in
                         HStack(spacing: 0) {
