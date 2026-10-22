@@ -29,8 +29,15 @@ targets:
     platform: macOS
     sources:
       - path: MyWorkDock
+      - path: Shared
     dependencies:
       - package: Sparkle
+      # The agent hook ships inside the app (Contents/MacOS/mwd-hook); see Features/Agents.
+      - target: mwd-hook
+        embed: true
+        codeSign: false
+        copy:
+          destination: executables
     # Sparkle OTA: appcast.xml is attached to every GitHub release; the public key verifies update signatures (private key lives in the login Keychain).
     # Custom keys can't go through INFOPLIST_KEY_*, so XcodeGen writes this partial plist and Xcode merges the generated keys into it.
     info:
@@ -63,6 +70,19 @@ targets:
         Release:
           # Xcode adds the debugger entitlement (get-task-allow) to ad-hoc builds; Debug needs it to attach, shipped builds don't.
           CODE_SIGN_INJECT_BASE_ENTITLEMENTS: NO
+
+  mwd-hook:
+    type: tool
+    platform: macOS
+    sources:
+      - path: MWDHook
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_NAME: mwd-hook
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGN_STYLE: Manual
+        ENABLE_HARDENED_RUNTIME: YES
 
   MyWorkDockTests:
     type: bundle.unit-test

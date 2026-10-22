@@ -123,6 +123,8 @@ enum SnapshotRunner {
                                                                                              updatedAt: Date(timeIntervalSince1970: 1_790_000_000), onCheckForUpdates: {})) })) { $0.openPanel() },
         State("gallery-dark", .gallery, content: .gallery) { $0.setTheme(.dark) },
         State("gallery-light", .gallery, content: .gallery) { $0.setTheme(.light) },
+        State("60-agents", .panel) { m in m.agents.loadSample(); m.setMainTab(.agents); m.openPanel() },
+        State("61-sessions", .panel) { m in m.sessions.loadSample(); m.setMainTab(.sessions); m.openPanel() },
     ]
 
     private static let screenStates: [State] = [

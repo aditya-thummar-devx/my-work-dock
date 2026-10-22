@@ -19,6 +19,8 @@ struct OpenPanelView: View {
                     switch model.mainTab {
                     case .clipboard: ClipboardScreen(store: model.clipboard).transition(.opacity)
                     case .calendar: CalendarScreen(store: model.calendar).transition(.opacity)
+                    case .agents: AgentsScreen(model: model).transition(.opacity)
+                    case .sessions: SessionsScreen(model: model).transition(.opacity)
                     case .notes: NotesScreen(model: model).transition(.opacity)
                     case .emulator: EmulatorScreen(model: model).transition(.opacity)
                     case .claudex: ClaudexScreen(model: model).transition(.opacity)
@@ -100,6 +102,8 @@ private struct Footer: View {
         switch model.mainTab {
         case .clipboard: return failed(model.clipboard.saveError) ?? StatusMessage(text: model.clipboard.footer)
         case .calendar: return model.calendar.footer
+        case .agents: return StatusMessage(text: model.agents.footer)
+        case .sessions: return StatusMessage(text: model.sessions.footer)
         case .notes:
             if let snippets = model.activeSnippets { return failed(snippets.saveError) ?? StatusMessage(text: snippets.footer) }
             return failed(model.notes.saveError) ?? StatusMessage(text: model.notes.footer)
