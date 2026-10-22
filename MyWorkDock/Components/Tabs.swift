@@ -104,8 +104,6 @@ struct SubTabItem: Identifiable {
 struct SubTabs: View {
     var items: [SubTabItem]
     var selection: String
-    /// Pill colour of the active tab; the popover passes `ctrl`, since `subOn` is the same white as the light popover.
-    var activeFill: Color?
     var onSelect: (String) -> Void = { _ in }
     @Environment(\.tokens) private var t
 
@@ -125,7 +123,7 @@ struct SubTabs: View {
                     .padding(.leading, Geo.SubTab.pad.leading)
                     .padding(.trailing, Geo.SubTab.pad.trailing)
                     .frame(height: Geo.SubTab.height)
-                    .background(Capsule().fill(on ? activeFill ?? t.subOn : .clear))
+                    .background(Capsule().fill(on ? t.subOn : .clear))
                     .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)

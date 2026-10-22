@@ -13,8 +13,16 @@ struct OpenPanelView: View {
             TopRow(model: model)
             // ZStack so outgoing and incoming screens overlap during the crossfade instead of sharing the VStack's height.
             ZStack(alignment: .top) {
-                if model.enabledTabs.isEmpty {
-                    MenusOffGuide(onOpenSettings: model.settings ? {} : model.toggleSettings).transition(.opacity)
+                if model.settings {
+                    SettingsScreen(theme: model.theme, systemIsDark: model.appearance.isDark, tint: model.tint, panelSize: model.panelSize, disabled: model.disabled, peekOn: model.peekOn,
+                                   allDisplays: model.showOnAllDisplays, clipboardLimit: model.clipboard.limit,
+                                   version: model.version, updatedAt: model.updatedAt, onCheckForUpdates: model.checkForUpdates,
+                                   onTheme: model.setTheme, onTint: model.setTint, onPanelSize: model.setPanelSize,
+                                   onFeature: model.setEnabled, onPeek: model.setPeekEnabled, onAllDisplays: model.setShowOnAllDisplays,
+                                   onClipboardLimit: model.setClipboardLimit)
+                        .transition(.opacity)
+                } else if model.enabledTabs.isEmpty {
+                    MenusOffGuide(onOpenSettings: model.toggleSettings).transition(.opacity)
                 } else {
                     switch model.mainTab {
                     case .clipboard: ClipboardScreen(store: model.clipboard).transition(.opacity)
@@ -29,28 +37,13 @@ struct OpenPanelView: View {
             }
             .frame(maxHeight: .infinity, alignment: .top)
             .animation(reduceMotion ? nil : .easeOut(duration: Geo.tabContentFade), value: model.mainTab)
+            .animation(reduceMotion ? nil : .easeOut(duration: Geo.tabContentFade), value: model.settings)
             Footer(model: model)
                 .padding(.top, Geo.Chrome.footerTop)
         }
         .padding(.horizontal, Geo.Chrome.insetX)
         .padding(.bottom, Geo.Chrome.insetBottom)
         .frame(width: size.width, height: size.height, alignment: .top)
-        .overlay {
-            if model.settings {
-                ZStack(alignment: .topTrailing) {
-                    Color.clear.contentShape(Rectangle()).onTapGesture(perform: model.toggleSettings) // outside click closes, like the claudex sort menu
-                    SettingsPopover(theme: model.theme, systemIsDark: model.appearance.isDark, tint: model.tint, panelSize: model.panelSize, disabled: model.disabled, peekOn: model.peekOn,
-                                    allDisplays: model.showOnAllDisplays, clipboardLimit: model.clipboard.limit,
-                                    version: model.version, updatedAt: model.updatedAt, onCheckForUpdates: model.checkForUpdates,
-                                    onTheme: model.setTheme, onTint: model.setTint, onPanelSize: model.setPanelSize,
-                                    onFeature: model.setEnabled, onPeek: model.setPeekEnabled, onAllDisplays: model.setShowOnAllDisplays,
-                                    onClipboardLimit: model.setClipboardLimit, onClose: model.toggleSettings)
-                        .padding(.top, Geo.Chrome.popoverTop).padding(.trailing, Geo.Chrome.popoverRight)
-                }
-                .transition(.opacity)
-            }
-        }
-        .animation(.easeOut(duration: Geo.popoverFade), value: model.settings)
         .overlay { DetailOverlay(store: model.claudex) }
         .overlay { CalendarEventOverlay(store: model.calendar) }
         .overlay { CommandRunOverlay(runner: model.runner) }
@@ -67,7 +60,7 @@ private struct TopRow: View {
         HStack(spacing: 0) {
             if !model.enabledTabs.isEmpty {
                 PillTabs(items: model.enabledTabs.map { PillTabItem(id: $0.rawValue, label: $0.label, glyph: $0.glyph) },
-                         selection: model.mainTab.rawValue) { id in
+                         selection: model.settings ? "" : model.mainTab.rawValue) { id in
                     model.setMainTab(MainTab(rawValue: id) ?? .notes)
                 }
             }
@@ -82,7 +75,7 @@ private struct TopRow: View {
                            fg: model.pinned ? Tokens.onTint : t.text2,
                            action: model.togglePin)
                     .accessibilityAddTraits(model.pinned ? .isSelected : [])
-                IconButton(glyph: .sliders, label: "Settings",
+                IconButton(glyph: .gear, label: "Settings",
                            fill: model.settings ? t.text : t.ctrl,
                            fg: model.settings ? t.panel : t.text2,
                            action: model.toggleSettings)
@@ -97,6 +90,7 @@ private struct Footer: View {
     @Environment(\.tokens) private var t
 
     private var footerText: StatusMessage {
+        if model.settings { return StatusMessage(text: "Settings") }
         if model.enabledTabs.isEmpty { return StatusMessage(text: "All menus are off") }
         func failed(_ why: String?) -> StatusMessage? { why.map { StatusMessage(text: "Could not save: \($0)", isError: true) } }
         switch model.mainTab {
@@ -156,14 +150,14 @@ private struct MenusOffGuide: View {
 
     var body: some View {
         VStack(spacing: 10) {
-            Icon(.sliders, size: 26).foregroundStyle(t.muted)
+            Icon(.gear, size: 26).foregroundStyle(t.muted)
             Text("All menus are off").font(Typo.display(18)).tracking(-0.4)
-            Text("Open Settings with the sliders button at the top right, choose Menus, and switch one on.")
+            Text("Open Settings with the gear button at the top right, choose Menus, and switch one on.")
                 .font(Typo.ui(13))
                 .foregroundStyle(t.text2)
                 .multilineTextAlignment(.center)
                 .frame(maxWidth: 320)
-            DockButton(title: "Open settings", glyph: .sliders,
+            DockButton(title: "Open settings", glyph: .gear,
                        metrics: ButtonMetrics(height: Geo.Chrome.footerButtonHeight, radius: Geo.Chrome.footerButtonRadius, padLeading: Geo.Chrome.footerButtonPaddingX, padTrailing: Geo.Chrome.footerButtonPaddingX, font: 12),
                        tone: .tint, weight: .bold, action: onOpenSettings)
                 .padding(.top, 4)

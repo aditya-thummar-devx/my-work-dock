@@ -45,7 +45,7 @@ struct Gallery: View {
                 IconButton(glyph: .refresh, label: "Refresh", size: 32)
                 IconButton(glyph: .pin, label: "Pin")
                 IconButton(glyph: .pin, label: "Pinned", fill: t.accent, fg: Tokens.onTint)
-                IconButton(glyph: .sliders, label: "Settings", fill: t.text, fg: t.panel)
+                IconButton(glyph: .gear, label: "Settings", fill: t.text, fg: t.panel)
                 IconButton(glyph: .close, label: "Close", size: 28, iconSize: 11, stroke: 2.8)
                 PillButton(title: "Refresh", glyph: .refresh, iconSize: 13)
             }
@@ -179,9 +179,9 @@ struct Gallery: View {
             ConfirmSheet(title: "Remove studio?", command: "claudex remove studio --force",
                          note: "Permanently deletes the saved token. Cannot be undone.", confirmTitle: "Remove", danger: true)
         }
-        section("Popover · Menu") {
+        section("Settings screen · Menu popover") {
             HStack(alignment: .top, spacing: 16) {
-                SettingsPopover(theme: t.isDark ? .dark : .light, tint: t.tint)
+                SettingsScreen(theme: t.isDark ? .dark : .light, tint: t.tint).frame(width: 500, height: 371) // what the gallery leaves beside the menu
                 MenuPopover(options: Array(SampleData.sortOptions.prefix(4)), selected: 1)
             }
         }

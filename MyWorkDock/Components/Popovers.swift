@@ -2,11 +2,8 @@ import SwiftUI
 
 extension Geo {
     enum Appearance {
-        static let width = Geo.Chrome.popoverWidth
         static let titleFont: CGFloat = 18
         static let titleTracking: CGFloat = -0.4
-        static let closeSize: CGFloat = 28
-        static let closeIcon: CGFloat = 11
         static let sectionFont: CGFloat = 11.5
         static let tintNameFont: CGFloat = 12
         static let pullUp: CGFloat = -4 // `margin-top: -4px` on the theme / tint grids
@@ -25,10 +22,22 @@ extension Geo {
         static let swatchCheck: CGFloat = 12
         static let ringWidth: CGFloat = 2
         static let noteFont: CGFloat = 11.5
-        /// Five features + Show on all displays: at 36 the popover ran past the 480 pt panel.
+        /// The menu switches sit in two columns, so the list plus Show on all displays fit the settings screen (371 pt tall on the medium panel).
         static let menuRowHeight: CGFloat = 32
+        static let menuColumnGap: CGFloat = 16
         static let switchSize = (width: CGFloat(34), height: CGFloat(20))
         static let switchKnob: CGFloat = 14
+    }
+
+    /// Settings screen: section list on the left, the chosen section on the right.
+    enum Settings {
+        static let navWidth: CGFloat = 170
+        /// Space after the list's pills, before the divider.
+        static let navGapRight: CGFloat = 14
+        /// Space after the divider, before the section.
+        static let contentGapLeft: CGFloat = 24
+        /// Keeps rows from spreading across a large panel.
+        static let contentMaxWidth: CGFloat = 520
     }
 
     enum Menu {
@@ -47,9 +56,24 @@ extension Geo {
     }
 }
 
-/// Settings: Appearance (theme, tint), Menus (which features are on) and Clipboard (history size). Applies everywhere.
-struct SettingsPopover: View {
-    enum Page: String { case appearance, menus, peek, clipboard, version }
+/// Settings screen, drawn in the panel's content area like the menus: the sections on the left, the chosen one on the right.
+/// Appearance (theme, tint, panel size), Menus (which features are on), Peek, Clipboard (history size) and Version. Applies everywhere.
+struct SettingsScreen: View {
+    enum Page: String, CaseIterable, Identifiable {
+        case appearance, menus, peek, clipboard, version
+
+        var id: String { rawValue }
+        var label: String { rawValue.capitalized }
+        var glyph: Glyph {
+            switch self {
+            case .appearance: .sun
+            case .menus: .sliders
+            case .peek: .eye
+            case .clipboard: .clipboard
+            case .version: .info
+            }
+        }
+    }
 
     var theme: ThemeMode
     /// What macOS is in right now; only shown while `theme == .system`.
@@ -71,7 +95,6 @@ struct SettingsPopover: View {
     var onPeek: (PeekSource, Bool) -> Void = { _, _ in }
     var onAllDisplays: (Bool) -> Void = { _ in }
     var onClipboardLimit: (Int) -> Void = { _ in }
-    var onClose: () -> Void = {}
     @State private var page: Page
     @Environment(\.tokens) private var t
 
@@ -82,7 +105,7 @@ struct SettingsPopover: View {
          onPanelSize: @escaping (PanelSize) -> Void = { _ in },
          onFeature: @escaping (Feature, Bool) -> Void = { _, _ in }, onPeek: @escaping (PeekSource, Bool) -> Void = { _, _ in },
          onAllDisplays: @escaping (Bool) -> Void = { _ in },
-         onClipboardLimit: @escaping (Int) -> Void = { _ in }, onClose: @escaping () -> Void = {}) {
+         onClipboardLimit: @escaping (Int) -> Void = { _ in }) {
         self.theme = theme
         self.systemIsDark = systemIsDark
         self.tint = tint
@@ -101,42 +124,66 @@ struct SettingsPopover: View {
         self.onFeature = onFeature
         self.onPeek = onPeek
         self.onAllDisplays = onAllDisplays
-        self.onClose = onClose
         _page = State(initialValue: page)
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: Geo.Chrome.popoverGap) {
-            HStack {
-                SubTabs(items: [SubTabItem(Page.appearance.rawValue, "Appearance"), SubTabItem(Page.menus.rawValue, "Menus"),
-                                SubTabItem(Page.peek.rawValue, "Peek"), SubTabItem(Page.clipboard.rawValue, "Clipboard"), SubTabItem(Page.version.rawValue, "Version")],
-                        selection: page.rawValue, activeFill: t.ctrl) { page = Page(rawValue: $0) ?? .appearance }
-                Spacer()
-                IconButton(glyph: .close, label: "Close settings", size: Geo.Appearance.closeSize,
-                           iconSize: Geo.Appearance.closeIcon, stroke: 2.8, action: onClose)
+        HStack(alignment: .top, spacing: 0) {
+            VStack(alignment: .leading, spacing: Geo.SubTab.spacing) {
+                ForEach(Page.allCases) { navRow($0) }
             }
-            switch page {
-            case .appearance:
-                AppearanceSection(theme: theme, systemIsDark: systemIsDark, tint: tint, panelSize: panelSize,
-                                  onTheme: onTheme, onTint: onTint, onPanelSize: onPanelSize)
-            case .menus:
-                MenusSection(disabled: disabled, allDisplays: allDisplays, onFeature: onFeature, onAllDisplays: onAllDisplays)
-            case .peek:
-                PeekSection(on: peekOn, disabled: disabled, onPeek: onPeek)
-            case .clipboard:
-                ClipboardSection(limit: clipboardLimit, onLimit: onClipboardLimit)
-            case .version:
-                VersionSection(version: version, updatedAt: updatedAt, onCheck: onCheckForUpdates)
+            .padding(.trailing, Geo.Settings.navGapRight)
+            .frame(width: Geo.Settings.navWidth, alignment: .topLeading)
+
+            Rectangle().fill(t.line).frame(width: 1)
+
+            // Scrolls if a section ever outgrows the content area (the medium panel leaves 371 pt).
+            DockScroll {
+                section
+                    .frame(maxWidth: Geo.Settings.contentMaxWidth, alignment: .leading)
+                    .padding(.leading, Geo.Settings.contentGapLeft)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
-        .padding(Geo.Chrome.popoverPadding + 1)
-        .frame(width: Geo.Appearance.width)
-        .background {
-            // Shadow on the shape only: on the container every child would cast its own.
-            RoundedRectangle(cornerRadius: Geo.Chrome.popoverRadius).fill(t.pop)
-                .shadow(color: t.popShadow, radius: Geo.Chrome.popoverShadow.blur / 2, y: Geo.Chrome.popoverShadow.y)
+        .padding(.top, Geo.Chrome.subNavTop)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+
+    @ViewBuilder private var section: some View {
+        switch page {
+        case .appearance:
+            AppearanceSection(theme: theme, systemIsDark: systemIsDark, tint: tint, panelSize: panelSize,
+                              onTheme: onTheme, onTint: onTint, onPanelSize: onPanelSize)
+        case .menus:
+            MenusSection(disabled: disabled, allDisplays: allDisplays, onFeature: onFeature, onAllDisplays: onAllDisplays)
+        case .peek:
+            PeekSection(on: peekOn, disabled: disabled, onPeek: onPeek)
+        case .clipboard:
+            ClipboardSection(limit: clipboardLimit, onLimit: onClipboardLimit)
+        case .version:
+            VersionSection(version: version, updatedAt: updatedAt, onCheck: onCheckForUpdates)
         }
-        .overlay(RoundedRectangle(cornerRadius: Geo.Chrome.popoverRadius).strokeBorder(t.border, lineWidth: 1))
+    }
+
+    /// Same pill as the sub-tabs, stacked.
+    private func navRow(_ p: Page) -> some View {
+        let on = p == page
+        return Button { page = p } label: {
+            HStack(spacing: Geo.SubTab.gap) {
+                Icon(p.glyph, size: Geo.SubTab.icon)
+                Text(p.label)
+                Spacer(minLength: 0)
+            }
+            .font(Typo.ui(Geo.SubTab.font, .semibold))
+            .foregroundStyle(on ? t.text : t.muted)
+            .padding(.leading, Geo.SubTab.pad.leading)
+            .padding(.trailing, Geo.SubTab.pad.trailing)
+            .frame(height: Geo.SubTab.height)
+            .background(Capsule().fill(on ? t.subOn : .clear))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(on ? .isSelected : [])
     }
 }
 
@@ -240,8 +287,12 @@ private struct MenusSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Geo.Chrome.popoverGap) {
             Text("Menus").font(Typo.ui(Geo.Appearance.sectionFont, .semibold)).foregroundStyle(t.faint)
-            VStack(spacing: 0) {
-                ForEach(Feature.allCases) { row($0) }
+            // Two columns, filled top to bottom: eight switches in one column outgrow the settings screen.
+            let features = Array(Feature.allCases)
+            let half = (features.count + 1) / 2
+            HStack(alignment: .top, spacing: Geo.Appearance.menuColumnGap) {
+                VStack(spacing: 0) { ForEach(features.prefix(half)) { row($0) } }.frame(maxWidth: .infinity)
+                VStack(spacing: 0) { ForEach(features.dropFirst(half)) { row($0) } }.frame(maxWidth: .infinity)
             }
             .padding(.top, Geo.Appearance.pullUp)
             Text("A menu that is switched off is hidden and stops everything it runs in the background.")
@@ -395,7 +446,7 @@ private struct AppearanceSection: View {
                 Text("Panel size").font(Typo.ui(Geo.Appearance.sectionFont, .semibold)).foregroundStyle(t.faint)
                 Spacer()
                 SubTabs(items: PanelSize.allCases.map { SubTabItem($0.rawValue, $0.label) },
-                        selection: panelSize.rawValue, activeFill: t.ctrl) { onPanelSize(PanelSize(rawValue: $0) ?? .medium) }
+                        selection: panelSize.rawValue) { onPanelSize(PanelSize(rawValue: $0) ?? .medium) }
             }
         }
     }

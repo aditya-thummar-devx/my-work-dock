@@ -56,8 +56,8 @@ enum CalendarStates {
         peek("calendar-peek-events-claudex", claudex: true),
         peek("calendar-peek-events-empty", at: CalendarSample.date(21, 20, 0)),
         // claudex on takes the other peek sources off and locks them, but not today's events.
-        .fragment("calendar-settings-peek", rect: CGRect(x: 260, y: 46, width: 480, height: 380)) {
-            SettingsPopover(theme: .dark, tint: .lime, peekOn: [.claudex, .events], page: .peek)
+        .fragment("calendar-settings-peek", settings: true, rect: SnapshotRunner.settingsRect) {
+            SettingsScreen(theme: .dark, tint: .lime, peekOn: [.claudex, .events], page: .peek).onPanel()
         },
         grid("calendar-week", .week),
         // What an event clicked in the peek scrolls the grid to: an hour above it (Gym starts at 18:30).

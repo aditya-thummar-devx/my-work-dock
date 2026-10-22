@@ -361,6 +361,7 @@ final class NotchModel {
     /// Prototype `mainTabs.pick`: leaving a tab drops any open inline edit.
     func setMainTab(_ tab: MainTab) {
         mainTab = tab
+        settings = false // the settings screen takes the content area, so picking a menu leaves it
         claudex.closeDetail()
         clipboard.closeMenus()
         calendar.closeMenus()
@@ -379,7 +380,7 @@ final class NotchModel {
 
     /// Shift+Tab: next sub-tab of the visible main menu, wrapping.
     func cycleInnerTab() {
-        guard isEnabled(mainTab.feature) else { return }
+        guard !settings, isEnabled(mainTab.feature) else { return }
         func next<T: CaseIterable & Equatable>(_ v: T) -> T {
             let all = Array(T.allCases)
             return all[((all.firstIndex(of: v) ?? 0) + 1) % all.count]
@@ -544,6 +545,7 @@ final class NotchModel {
     /// ⌘⇧V / ⌘⇧D / ⌘⇧C / ⌘⇧P / ⌘⇧L / ⌘⇧E / ⌘⇧X: opens the panel on `tab` (and Notes sub-tab `sub`). No-op if that menu is switched off.
     func show(_ tab: MainTab, notes sub: NotesTab? = nil) {
         guard isEnabled(tab.feature) else { return }
+        settings = false
         if mainTab != tab { setMainTab(tab) }
         if let sub, notesTab != sub { setNotesTab(sub) } // guarded: setNotesTab drops drafts and search
         if open { changed() } else { openPanel() }
@@ -594,7 +596,11 @@ final class NotchModel {
         guard on != isEnabled(feature) else { return }
         if on { disabled.remove(feature) } else { disabled.insert(feature) }
         defaults?.set(disabled.map(\.rawValue).sorted(), forKey: "disabledFeatures")
-        if !enabledTabs.contains(mainTab), let first = enabledTabs.first { setMainTab(first) }
+        if !enabledTabs.contains(mainTab), let first = enabledTabs.first {
+            let inSettings = settings // switched off from the settings screen: stay there
+            setMainTab(first)
+            settings = inSettings
+        }
         applyServices(only: feature)
         changed()
     }
