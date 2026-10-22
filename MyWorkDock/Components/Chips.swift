@@ -105,18 +105,21 @@ struct FolderChip: View {
 
     var body: some View {
         Button(action: action) {
-            Text(URL(fileURLWithPath: path).lastPathComponent)
-                .font(Typo.ui(Geo.Chip.healthFont, .semibold))
-                .foregroundStyle(t.text2)
-                .lineLimit(1)
-                .truncationMode(.middle)
-                .frame(maxWidth: 96) // a long name truncates; a short one is not stretched (fixedSize below)
-                .fixedSize(horizontal: true, vertical: false)
-                .padding(.horizontal, Geo.Chip.healthPadX)
-                .frame(height: Geo.Chip.healthHeight)
-                .background(Capsule().fill(t.ctrl))
-                .contentShape(Capsule())
-                .opacity(enabled ? 1 : 0.5)
+            HStack(spacing: 5) {
+                Icon(.folder, size: 12)
+                Text(URL(fileURLWithPath: path).lastPathComponent)
+                    .font(Typo.ui(Geo.Chip.healthFont, .semibold))
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                    .frame(maxWidth: 84) // a long name truncates; a short one is not stretched (fixedSize below)
+                    .fixedSize(horizontal: true, vertical: false)
+            }
+            .foregroundStyle(t.text2)
+            .padding(.horizontal, Geo.Chip.healthPadX)
+            .frame(height: Geo.Chip.healthHeight)
+            .background(Capsule().fill(t.ctrl))
+            .contentShape(Capsule())
+            .opacity(enabled ? 1 : 0.5)
         }
         .buttonStyle(.plain)
         .disabled(!enabled)
