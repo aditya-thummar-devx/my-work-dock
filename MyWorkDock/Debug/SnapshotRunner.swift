@@ -525,6 +525,14 @@ enum SnapshotRunner {
             $0.claudeUsage.showSamplePartial()
             $0.openPanel()
         },
+        // Commands that have been run once: the folder chip before Run (short name, long name truncated; the blocked one shows its lock).
+        State("64-notes-commands-folders", .panel) {
+            prototypeNotes($0, .commands)
+            $0.commands.setFolder(1, "/Users/me/Projects/mobile-app")
+            $0.commands.setFolder(2, "/Users/me/Projects/client-work/mobile-app-android-release-build")
+            $0.commands.setFolder(6, "/Users/me/Projects/mobile-app")
+            $0.openPanel()
+        },
         State("02-notes-todo", .artboard) {
             $0.notes.pickTodoTag("bug")
             $0.notes.openSearch()

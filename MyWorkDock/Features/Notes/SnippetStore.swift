@@ -63,6 +63,8 @@ enum SnippetKind {
 struct SnippetItem: Identifiable, Codable, Equatable {
     var id: Int
     var text: String
+    /// Commands only: where Run executes it, chosen on its first run. nil until then, and absent from older files.
+    var folder: String?
 }
 
 /// Saved commands, prompts or links: add, inline edit, copy, delete with one-step undo (Prototype `cmds` / `prompts`).
@@ -251,6 +253,20 @@ final class SnippetStore {
         items.insert(d.item, at: min(d.index, items.count))
         deleted = nil
         save()
+    }
+
+    /// Remembers where a command runs.
+    func setFolder(_ id: Int, _ path: String) {
+        guard let i = items.firstIndex(where: { $0.id == id }) else { return }
+        items[i].folder = path
+        save()
+    }
+
+    /// The saved folder, only while it still exists as a directory; nil means the next Run asks again.
+    func folder(_ id: Int) -> URL? {
+        guard let path = items.first(where: { $0.id == id })?.folder else { return nil }
+        var isDir: ObjCBool = false
+        return FileManager.default.fileExists(atPath: path, isDirectory: &isDir) && isDir.boolValue ? URL(fileURLWithPath: path, isDirectory: true) : nil
     }
 
     /// Snapshot states only.

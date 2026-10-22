@@ -217,7 +217,7 @@ final class RunCommandModelTests: XCTestCase {
 
     func testBlockedCommandNeverAsksForAFolder() async {
         var asked = false
-        model.pickFolder = { asked = true; return nil }
+        model.pickFolder = { _ in asked = true; return nil }
         model.runCommand(add("rm -rf x"))
         await settle()
         XCTAssertFalse(asked)
@@ -225,7 +225,7 @@ final class RunCommandModelTests: XCTestCase {
     }
 
     func testCancellingThePickerRunsNothing() async {
-        model.pickFolder = { nil }
+        model.pickFolder = { _ in nil }
         model.runCommand(add("ls"))
         await settle()
         XCTAssertNil(model.confirmer.pending)
@@ -235,7 +235,7 @@ final class RunCommandModelTests: XCTestCase {
 
     func testPickerThenConfirmThenRun() async {
         let folder = URL(fileURLWithPath: "/tmp/it's here")
-        model.pickFolder = { folder }
+        model.pickFolder = { _ in folder }
         model.runCommand(add("npm run dev"))
         await settle()
         let request = try! XCTUnwrap(model.confirmer.pending)
@@ -249,12 +249,81 @@ final class RunCommandModelTests: XCTestCase {
     }
 
     func testCancellingTheConfirmRunsNothing() async {
-        model.pickFolder = { URL(fileURLWithPath: "/tmp") }
+        model.pickFolder = { _ in URL(fileURLWithPath: "/tmp") }
         model.runCommand(add("ls"))
         await settle()
         model.confirmer.cancel()
         await settle()
         XCTAssertTrue(launched.isEmpty)
+    }
+
+    func testFirstRunSavesTheFolderAndLaterRunsDoNotAsk() async {
+        var asks = 0
+        model.pickFolder = { _ in asks += 1; return URL(fileURLWithPath: "/tmp") }
+        let id = add("ls")
+        model.runCommand(id)
+        await settle()
+        XCTAssertEqual(model.commands.items[0].folder, "/tmp")
+        model.confirmer.cancel()
+        model.runCommand(id)
+        await settle()
+        XCTAssertEqual(asks, 1)
+        XCTAssertEqual(model.confirmer.pending?.command, "cd '/tmp' && ls")
+        model.confirmer.confirm()
+        await settle()
+        XCTAssertEqual(launched, ["ls"])
+    }
+
+    func testCancellingTheFirstPickSavesNothing() async {
+        model.pickFolder = { _ in nil }
+        model.runCommand(add("ls"))
+        await settle()
+        XCTAssertNil(model.commands.items[0].folder)
+    }
+
+    func testAMissingSavedFolderAsksAgain() async {
+        var asks = 0
+        model.pickFolder = { _ in asks += 1; return URL(fileURLWithPath: "/tmp") }
+        let id = add("ls")
+        model.commands.setFolder(id, "/tmp/mwd-no-such-folder")
+        model.runCommand(id)
+        await settle()
+        XCTAssertEqual(asks, 1)
+        XCTAssertEqual(model.commands.items[0].folder, "/tmp")
+    }
+
+    func testChangingTheFolderOpensAtTheOldOneSavesAndRunsNothing() async {
+        var start: URL?
+        model.pickFolder = { start = $0; return URL(fileURLWithPath: "/usr") }
+        let id = add("ls")
+        model.commands.setFolder(id, "/tmp")
+        model.changeCommandFolder(id)
+        await settle()
+        XCTAssertEqual(start?.path, "/tmp")
+        XCTAssertEqual(model.commands.items[0].folder, "/usr")
+        XCTAssertNil(model.confirmer.pending)
+        XCTAssertTrue(launched.isEmpty)
+        XCTAssertFalse(model.picking)
+    }
+
+    func testCancellingAFolderChangeKeepsTheOldFolder() async {
+        model.pickFolder = { _ in nil }
+        let id = add("ls")
+        model.commands.setFolder(id, "/tmp")
+        model.changeCommandFolder(id)
+        await settle()
+        XCTAssertEqual(model.commands.items[0].folder, "/tmp")
+    }
+
+    func testChangingTheFolderIsIgnoredWhileACommandRuns() async {
+        var asked = false
+        model.pickFolder = { _ in asked = true; return nil }
+        let id = add("ls")
+        model.commands.setFolder(id, "/tmp")
+        model.runner.start(command: "sleep 1", in: URL(fileURLWithPath: "/tmp"))
+        model.changeCommandFolder(id)
+        await settle()
+        XCTAssertFalse(asked)
     }
 
     func testPanelStaysOpenWhileTheRunSheetIsUp() {
@@ -274,7 +343,7 @@ final class RunCommandModelTests: XCTestCase {
     func testPanelStaysOpenWhileTheRunConfirmIsPending() async {
         model.openPanel()
         model.pointer(inside: true)
-        model.pickFolder = { URL(fileURLWithPath: "/tmp") }
+        model.pickFolder = { _ in URL(fileURLWithPath: "/tmp") }
         model.runCommand(add("ls"))
         await settle()
         model.pointer(inside: false)
@@ -351,7 +420,7 @@ final class RunCommandModelTests: XCTestCase {
         model.unlockCommand(id)
         model.confirmer.confirm()
         await settle()
-        model.pickFolder = { URL(fileURLWithPath: "/tmp") }
+        model.pickFolder = { _ in URL(fileURLWithPath: "/tmp") }
         model.runCommand(id)
         await settle()
         XCTAssertEqual(model.confirmer.pending?.title, "Run this command?")

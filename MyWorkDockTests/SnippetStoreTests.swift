@@ -91,6 +91,46 @@ final class SnippetStoreTests: XCTestCase {
         XCTAssertEqual(SnippetStore(.prompts, url: url, seed: []).items.map(\.text), ["b", "a"])
     }
 
+    func testFolderIsRememberedAcrossARelaunchAndOlderFilesHaveNone() throws {
+        let dir = FileManager.default.temporaryDirectory.appending(path: "snips-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let url = dir.appending(path: "commands.json")
+        try Data(#"[{"id":1,"text":"ls"}]"#.utf8).write(to: url)
+        let first = SnippetStore(.commands, url: url, seed: [])
+        XCTAssertNil(first.items[0].folder)
+        XCTAssertNil(first.folder(1))
+        first.setFolder(1, dir.path)
+        XCTAssertEqual(SnippetStore(.commands, url: url, seed: []).folder(1)?.path, dir.path)
+    }
+
+    func testSavedFolderCountsOnlyWhileItIsAnExistingDirectory() throws {
+        let dir = FileManager.default.temporaryDirectory.appending(path: "snips-\(UUID().uuidString)")
+        let file = dir.appending(path: "f.txt")
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try Data().write(to: file)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let store = SnippetStore(.commands, url: nil, seed: ["a"])
+        store.setFolder(1, dir.path)
+        XCTAssertNotNil(store.folder(1))
+        store.setFolder(1, file.path)
+        XCTAssertNil(store.folder(1), "a file is not a folder")
+        store.setFolder(1, dir.appending(path: "gone").path)
+        XCTAssertNil(store.folder(1))
+    }
+
+    func testFolderStaysWithTheCommandThroughEditAndUndoDelete() {
+        let store = SnippetStore(.commands, url: nil, seed: ["a", "b"])
+        store.setFolder(2, "/tmp")
+        store.startEdit(2)
+        store.editDraft = "bb"
+        store.saveEdit()
+        XCTAssertEqual(store.items[1].folder, "/tmp")
+        store.delete(2)
+        store.undo()
+        XCTAssertEqual(store.items[1].folder, "/tmp")
+    }
+
     func testSearchFiltersByTextIgnoringCaseAndSpacesAndKeepsOrder() {
         let store = SnippetStore(.prompts, url: nil, seed: ["Write release notes", "Review this PR", "Release checklist", "Explain a crash"])
         XCTAssertFalse(store.isSearching)
