@@ -272,6 +272,43 @@ final class NotchModelTests: XCTestCase {
         XCTAssertEqual(model.mainTab, .notes)
     }
 
+    // MARK: Settings screen
+
+    func testPickingAMenuLeavesTheSettingsScreen() {
+        model.openPanel()
+        model.toggleSettings()
+        XCTAssertTrue(model.settings)
+        model.setMainTab(.notes)
+        XCTAssertFalse(model.settings)
+    }
+
+    func testHotkeyOnTheCurrentMenuLeavesTheSettingsScreen() {
+        model.setMainTab(.notes)
+        model.openPanel()
+        model.toggleSettings()
+        model.show(.notes) // same menu: setMainTab is not called, the screen still has to go
+        XCTAssertFalse(model.settings)
+        XCTAssertEqual(model.mainTab, .notes)
+    }
+
+    func testSwitchingOffTheCurrentMenuFromSettingsStaysInSettings() {
+        model.setMainTab(.notes)
+        model.openPanel()
+        model.toggleSettings()
+        model.setEnabled(.notes, false) // another menu takes over behind the screen
+        XCTAssertTrue(model.settings)
+        XCTAssertNotEqual(model.mainTab, .notes)
+    }
+
+    func testInnerTabKeyDoesNothingOnTheSettingsScreen() {
+        model.setMainTab(.notes)
+        let before = model.notesTab
+        model.openPanel()
+        model.toggleSettings()
+        model.cycleInnerTab()
+        XCTAssertEqual(model.notesTab, before)
+    }
+
     func testCalendarSitsBetweenClipboardAndNotes() {
         XCTAssertEqual(MainTab.allCases, [.clipboard, .calendar, .notes, .claudex, .emulator, .agents, .sessions])
         XCTAssertEqual(MainTab.calendar.label, "My Calendar")

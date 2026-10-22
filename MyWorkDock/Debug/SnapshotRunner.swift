@@ -79,13 +79,14 @@ enum SnapshotRunner {
             self.configure = configure
         }
 
-        /// Fragment of an open panel. `theme` / `tint` / `tab` set the model; `rect` is in panel points.
+        /// Fragment of an open panel. `theme` / `tint` / `tab` / `settings` set the model; `rect` is in panel points.
         static func fragment<V: View>(_ name: String, _ canvas: Canvas = .panel, theme: ThemeMode = .dark, tint: Tint = .lime,
-                                      tab: MainTab = .notes, rect: CGRect, @ViewBuilder _ view: @escaping () -> V) -> State {
+                                      tab: MainTab = .notes, settings: Bool = false, rect: CGRect, @ViewBuilder _ view: @escaping () -> V) -> State {
             State(name, canvas, content: .fragment(rect: rect, view: { AnyView(view()) })) {
                 $0.setTheme(theme)
                 $0.setTint(tint)
                 $0.mainTab = tab
+                if settings { $0.toggleSettings() } // the real top row and footer around a settings fragment
                 $0.openPanel()
             }
         }
@@ -110,17 +111,20 @@ enum SnapshotRunner {
         }
     }
 
+    /// The open panel's content area (medium size): below the top row, above the footer. Where the settings screen draws.
+    static let settingsRect = CGRect(x: Geo.Chrome.insetX, y: Geo.Chrome.topRowHeight, width: 720, height: 371)
+
     /// Names match the reference PNGs in `screenshots/artboards` and `screenshots/prototype`.
     /// States whose content isn't built yet are not listed; `compare-all.sh` reports them as missing.
     static let states: [State] = screenStates + Fragments.all + CalendarStates.all + [
-        State("settings-clipboard", .panel, content: .fragment(rect: CGRect(x: 260, y: 46, width: 480, height: 480),
-                                                               view: { AnyView(SettingsPopover(theme: .dark, tint: .lime, page: .clipboard, clipboardLimit: 500)) })) { $0.openPanel() },
-        // Settings › Menus: the popover keeps its natural height, so this shows whether every row still fits the panel.
-        State("settings-menus", .panel, content: .fragment(rect: CGRect(x: 260, y: 46, width: 480, height: 480),
-                                                           view: { AnyView(SettingsPopover(theme: .dark, tint: .lime, page: .menus)) })) { $0.openPanel() },
-        State("settings-version", .panel, content: .fragment(rect: CGRect(x: 260, y: 46, width: 480, height: 480),
-                                                             view: { AnyView(SettingsPopover(theme: .dark, tint: .lime, page: .version, version: "0.1.0 (1)",
-                                                                                             updatedAt: Date(timeIntervalSince1970: 1_790_000_000), onCheckForUpdates: {})) })) { $0.openPanel() },
+        State("settings-clipboard", .panel, content: .fragment(rect: settingsRect,
+                                                               view: { AnyView(SettingsScreen(theme: .dark, tint: .lime, page: .clipboard, clipboardLimit: 500).onPanel()) })) { $0.toggleSettings(); $0.openPanel() },
+        // Settings › Menus: the screen is as tall as the panel's content area, so this shows whether every row still fits.
+        State("settings-menus", .panel, content: .fragment(rect: settingsRect,
+                                                           view: { AnyView(SettingsScreen(theme: .dark, tint: .lime, page: .menus).onPanel()) })) { $0.toggleSettings(); $0.openPanel() },
+        State("settings-version", .panel, content: .fragment(rect: settingsRect,
+                                                             view: { AnyView(SettingsScreen(theme: .dark, tint: .lime, page: .version, version: "0.1.0 (1)",
+                                                                                            updatedAt: Date(timeIntervalSince1970: 1_790_000_000), onCheckForUpdates: {}).onPanel()) })) { $0.toggleSettings(); $0.openPanel() },
         State("gallery-dark", .gallery, content: .gallery) { $0.setTheme(.dark) },
         State("gallery-light", .gallery, content: .gallery) { $0.setTheme(.light) },
         State("60-agents", .panel) { m in m.agents.loadSample(); m.setMainTab(.agents); m.openPanel() },
@@ -334,11 +338,11 @@ enum SnapshotRunner {
             $0.localIP.show(.idle, ip: "192.168.1.31")
         },
         // No reference design: Settings › Menus and what the panel / peek show when menus are off.
-        State.fragment("47-settings-menus-dark", rect: CGRect(x: 440, y: 46, width: 300, height: 420)) {
-            SettingsPopover(theme: .dark, tint: .lime, disabled: [.emulator], page: .menus)
+        State.fragment("47-settings-menus-dark", settings: true, rect: settingsRect) {
+            SettingsScreen(theme: .dark, tint: .lime, disabled: [.emulator], page: .menus).onPanel()
         },
-        State.fragment("48-settings-menus-light", theme: .light, rect: CGRect(x: 440, y: 46, width: 300, height: 420)) {
-            SettingsPopover(theme: .light, tint: .lime, disabled: [.claudex, .localIP], page: .menus)
+        State.fragment("48-settings-menus-light", theme: .light, settings: true, rect: settingsRect) {
+            SettingsScreen(theme: .light, tint: .lime, disabled: [.claudex, .localIP], page: .menus).onPanel()
         },
         State("49-menus-all-off", .panel) { model in
             Feature.allCases.forEach { model.setEnabled($0, false) }
@@ -370,11 +374,11 @@ enum SnapshotRunner {
             $0.pointer(inside: true)
         },
         // No reference design: Settings › Peek, with claudex off (default) and on (the others wait, dimmed).
-        State.fragment("53-settings-peek-dark", rect: CGRect(x: 260, y: 46, width: 480, height: 300)) {
-            SettingsPopover(theme: .dark, tint: .lime, peekOn: [.clipboard, .localIP], page: .peek)
+        State.fragment("53-settings-peek-dark", settings: true, rect: settingsRect) {
+            SettingsScreen(theme: .dark, tint: .lime, peekOn: [.clipboard, .localIP], page: .peek).onPanel()
         },
-        State.fragment("54-settings-peek-light-claudex", theme: .light, rect: CGRect(x: 260, y: 46, width: 480, height: 300)) {
-            SettingsPopover(theme: .light, tint: .lime, peekOn: [.claudex], page: .peek)
+        State.fragment("54-settings-peek-light-claudex", theme: .light, settings: true, rect: settingsRect) {
+            SettingsScreen(theme: .light, tint: .lime, peekOn: [.claudex], page: .peek).onPanel()
         },
         State("16-notes-prompts-multiline-input", .panel) {
             prototypeNotes($0, .prompts)
@@ -562,7 +566,7 @@ enum SnapshotRunner {
         model.prompts.add()
     }
 
-    /// Settings shots: Emulator › Tunnel behind the Appearance popover.
+    /// Settings shots: the Appearance screen (the Emulator › Tunnel tab it was once drawn over stays selected underneath).
     static func tunnelWithSettings(_ model: NotchModel) {
         model.mainTab = .emulator
         model.emulatorTab = .tunnel
@@ -662,5 +666,16 @@ enum SnapshotRunner {
             .padding(.top, 12)
             .frame(maxWidth: .infinity, alignment: .top)
     }
+}
+
+extension View {
+    /// A settings screen drawn over the real panel's content area has no background of its own: give it the panel colour,
+    /// or the menu underneath shows through.
+    func onPanel() -> some View { modifier(OnPanel()) }
+}
+
+private struct OnPanel: ViewModifier {
+    @Environment(\.tokens) private var t
+    func body(content: Content) -> some View { content.background(t.panel) }
 }
 #endif
