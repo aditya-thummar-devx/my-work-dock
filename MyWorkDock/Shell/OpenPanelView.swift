@@ -55,13 +55,26 @@ private struct TopRow: View {
     var model: NotchModel
     @Environment(\.tokens) private var t
 
+    /// Collapse and Help: small rounded buttons on a `ctrl` fill.
+    private func cornerButton(_ title: String, _ action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(Typo.ui(12, .semibold))
+                .foregroundStyle(t.text2)
+                .padding(.horizontal, Geo.Chrome.footerButtonPaddingX)
+                .frame(height: Geo.Chrome.footerButtonHeight)
+                .background(RoundedRectangle(cornerRadius: Geo.Chrome.footerButtonRadius).fill(t.ctrl))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
     var body: some View {
         HStack(spacing: 0) {
-            if !model.enabledTabs.isEmpty {
-                PillTabs(items: model.enabledTabs.map { PillTabItem(id: $0.rawValue, label: $0.label, glyph: $0.glyph) },
-                         selection: model.settings ? "" : model.mainTab.rawValue) { id in
-                    model.setMainTab(MainTab(rawValue: id) ?? .notes)
-                }
+            // Collapse in the corner, where a window's close button sits; Help next to it. The menus are the tabs in the footer.
+            HStack(spacing: Geo.Chrome.rightClusterGap) {
+                cornerButton("Collapse", model.closePanel)
+                cornerButton("Help", model.openUsageGuide)
             }
 
             Spacer(minLength: Geo.keepOutWidth)
@@ -109,23 +122,27 @@ private struct Footer: View {
         }
     }
 
-    private func footerButton(_ title: String, _ action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Text(title)
-                .font(Typo.ui(12, .semibold))
-                .foregroundStyle(t.text2)
-                .padding(.horizontal, Geo.Chrome.footerButtonPaddingX)
-                .frame(height: Geo.Chrome.footerButtonHeight)
-                .background(RoundedRectangle(cornerRadius: Geo.Chrome.footerButtonRadius).fill(t.ctrl))
-                .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-    }
-
     var body: some View {
-        HStack {
-            Text(footerText.text).foregroundStyle(footerText.isError ? t.orange : t.faint)
-            Spacer()
+        // Three zones. The two outer ones take equal room, so the menu tabs stay on the exact centre line whatever the status text or
+        // the right-hand items are, and the text wraps (to two lines, cut after that, all of it on hover) instead of running under them.
+        // The row keeps the old 26 pt button height: the 34 pt tab capsule and a second line of text overflow it into spare padding.
+        HStack(spacing: 0) {
+            Text(footerText.text)
+                .foregroundStyle(footerText.isError ? t.orange : t.faint)
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+                .help(footerText.text)
+                .padding(.trailing, Geo.Chrome.footerGap)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            if !model.enabledTabs.isEmpty {
+                PillTabs(items: model.enabledTabs.map { PillTabItem(id: $0.rawValue, label: $0.label, glyph: $0.glyph) },
+                         selection: model.settings ? "" : model.mainTab.rawValue) { id in
+                    model.setMainTab(MainTab(rawValue: id) ?? .notes)
+                }
+                .fixedSize() // its own width, never a third of the row; the two zones around it then split the rest equally
+            }
+
             HStack(spacing: Geo.Chrome.footerGap) {
                 if let undo = model.pendingUndo {
                     DockButton(title: "Undo", glyph: nil, metrics: ButtonMetrics(height: Geo.Chrome.footerButtonHeight, radius: Geo.Chrome.footerButtonRadius, padLeading: Geo.Chrome.footerButtonPaddingX, padTrailing: Geo.Chrome.footerButtonPaddingX, font: 12),
@@ -135,10 +152,11 @@ private struct Footer: View {
                     Text("⌥Space").font(Typo.mono(12)).foregroundStyle(t.text2)
                     Text(" toggle")
                 }
-                footerButton("Help", model.openUsageGuide)
-                footerButton("Collapse", model.closePanel)
             }
+            .padding(.leading, Geo.Chrome.footerGap)
+            .frame(maxWidth: .infinity, alignment: .trailing)
         }
+        .frame(height: Geo.Chrome.footerButtonHeight)
         .font(Typo.ui(12))
         .foregroundStyle(t.faint)
         .padding(.top, Geo.Chrome.footerPaddingTop + 1) // + the 1 pt border-top, which is a row of its own in CSS

@@ -12,8 +12,9 @@ extension Geo {
         static let navGap: CGFloat = 6
     }
 
-    /// Five menus with "My Calendar" active would reach into the notch keep-out (the left side has 260 pt), so with more than
-    /// `fullCount` tabs the inactive icon tabs narrow; up to four tabs keep the designed width.
+    /// The bar sits centred in the footer, and the status text and the Undo / hotkey hint share what is left on either side. With more
+    /// than `fullCount` tabs the inactive icon tabs narrow, which holds the six-menu bar with "My Calendar" open to 288 pt and leaves
+    /// 216 pt a side at the medium panel; up to four tabs keep the designed width.
     enum PillTab {
         static let fullCount = 4
         static let compactInactiveMinWidth: CGFloat = 30
