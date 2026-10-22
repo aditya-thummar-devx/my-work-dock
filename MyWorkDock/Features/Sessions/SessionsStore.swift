@@ -76,11 +76,17 @@ final class SessionsStore {
     static func live() -> SessionsStore { SessionsStore(reader: TranscriptReader(TranscriptIndex()), groups: .live(), defaults: .standard) }
     static func sample() -> SessionsStore { SessionsStore(reader: nil, groups: SessionGroups(file: nil), defaults: nil) }
 
-    func refresh() async {
+    /// Every changed transcript is read again (unchanged ones cannot have changed). `fresh` (Refresh) also looks the Agents
+    /// titles up again, which are otherwise read once.
+    func refresh(fresh: Bool = false) async {
         guard let reader else { return }
         loading = true
         defer { loading = false }
         transcripts = await reader.scan()
+        if fresh {
+            let ids = Array(titles.keys)
+            titles = await reader.titles(ids)
+        }
         installedTerminals = TerminalLauncher.detect()
         loaded = true
     }

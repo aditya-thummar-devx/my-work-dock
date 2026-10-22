@@ -116,6 +116,8 @@ final class NotchModel {
     var claudeTab: ClaudeTab = .sessions
     /// Claude › Refresh is running.
     private(set) var claudeRefreshing = false
+    /// When Claude › Refresh last finished, for "Updated just now".
+    private(set) var claudeRefreshedAt: Date?
     /// Forces the live-activity state (debug menu, snapshots); otherwise it follows the emulator store.
     var bootingOverride: String?
     private(set) var peek = SampleData.peekPool
@@ -411,11 +413,22 @@ final class NotchModel {
         guard !claudeRefreshing else { return }
         claudeRefreshing = true
         defer { claudeRefreshing = false }
-        async let board: Void = sessions.refresh()
-        async let hooks: Void = agents.refreshHooks()
+        async let board: Void = sessions.refresh(fresh: true)
+        async let live: Void = agents.refresh()
         async let usage: Void = claudeUsage.refresh()
-        _ = await (board, hooks, usage)
+        async let seen: Void = Self.pause(0.6) // long enough to see the spinner when everything is already current
+        _ = await (board, live, usage, seen)
         sessions.ensureTitles(agents.sessions.map(\.transcriptID))
+        claudeRefreshedAt = Date()
+    }
+
+    private static func pause(_ seconds: Double) async { try? await Task.sleep(for: .seconds(seconds)) }
+
+    /// "just now" / "42s ago" / "3m ago" after Claude › Refresh; empty before the first one.
+    var claudeFreshLabel: String {
+        guard let at = claudeRefreshedAt else { return "" }
+        let age = Int(Date().timeIntervalSince(at))
+        return "Updated " + (age < 5 ? "just now" : age < 60 ? "\(age)s ago" : "\(age / 60)m ago")
     }
 
     func setEmulatorTab(_ tab: EmulatorTab) {

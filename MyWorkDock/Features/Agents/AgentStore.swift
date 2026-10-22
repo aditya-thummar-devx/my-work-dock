@@ -108,6 +108,12 @@ final class AgentStore {
         onData()
     }
 
+    /// Refresh: the hook setup, then drops sessions whose `claude` has gone and finds missing terminals.
+    func refresh() async {
+        await refreshHooks()
+        await core.recheck()
+    }
+
     /// Reads the hook setup off the main thread. `deploy` also keeps the stable hook copy current (app updates, moved bundles) once
     /// the user has set it up.
     func refreshHooks(deploy: Bool = false) async {
