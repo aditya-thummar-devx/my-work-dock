@@ -1,5 +1,6 @@
 import SwiftUI
 import Observation
+import UniformTypeIdentifiers
 
 typealias DisplayID = CGDirectDisplayID
 
@@ -147,6 +148,8 @@ final class NotchModel {
     let calendar: CalendarStore
     let agents: AgentStore
     let sessions: SessionsStore
+    /// Settings › Appearance › Notch buddy › Custom: the Lottie files the user added.
+    let customBuddies: CustomBuddyStore
     /// The user's choice; `resolvedTheme` is what is drawn.
     private(set) var theme: ThemeMode = .dark
     let appearance: AppearanceObserver
@@ -206,6 +209,8 @@ final class NotchModel {
     private(set) var picking = false
     /// Asks for a folder, opening at `start` when given; nil when cancelled. Injected by tests.
     @ObservationIgnored var pickFolder: (URL?) async -> URL? = NotchModel.chooseFolder
+    /// Asks for a custom buddy's Lottie file; nil when cancelled. Injected by tests.
+    @ObservationIgnored var pickBuddyFile: () async -> URL? = NotchModel.chooseBuddyFile
     /// Touch ID / password prompt for an unlock is open.
     private(set) var authenticating = false
     /// Why this Mac cannot check its owner, nil when it can; the prompt itself. Injected by tests.
@@ -218,7 +223,7 @@ final class NotchModel {
     /// `sample: true` keeps every store in memory with the designs' sample data (snapshots, tests).
     @ObservationIgnored private let defaults: UserDefaults?
 
-    init(sample: Bool = false) {
+    init(sample: Bool = false, customBuddies: CustomBuddyStore? = nil) {
         defaults = sample ? nil : .standard
         appearance = sample ? AppearanceObserver(isDark: true) : .live()
         if let defaults {
@@ -259,6 +264,7 @@ final class NotchModel {
         calendar = sample ? .sample() : .live(confirmer: confirmer)
         agents = sample ? .sample() : .live()
         sessions = sample ? .sample() : .live()
+        self.customBuddies = customBuddies ?? (sample ? .sample() : .live())
         if !sample { peek = claudex.peekData } // snapshots keep the prototype's POOL sample
         peekExtents = PeekMetrics.measure(peek)
         claudex.onData = { [weak self] in self?.refreshPeek() }
@@ -388,6 +394,9 @@ final class NotchModel {
     private func buddyWanted(on display: DisplayID?) -> Bool {
         buddy.on && !(buddy.hideInFullScreen && display.map(menuBarHidden.contains) == true)
     }
+
+    /// What the buddy plays: the style Settings picked, through the library for a custom one.
+    var buddyAsset: BuddyAsset { BuddyAsset(buddy, library: customBuddies) }
 
     /// The buddy is drawn on `display`'s idle shell: wanted there, and nothing else is showing.
     func buddyShown(on display: DisplayID? = nil) -> Bool { buddyWanted(on: display) && mode(on: display) == .idle }
@@ -625,6 +634,23 @@ final class NotchModel {
         }
     }
 
+    /// One Lottie file (`.json`, the only kind a buddy can be). Same level as the folder picker, for the same reason; the message says
+    /// what the check will ask of it.
+    static func chooseBuddyFile() async -> URL? {
+        NSApp.activate()
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.json]
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Add Buddy"
+        panel.message = BuddyFileCheck.Limits.summary
+        panel.level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 1)
+        return await withCheckedContinuation { cont in
+            panel.begin { cont.resume(returning: $0 == .OK ? panel.url : nil) }
+        }
+    }
+
     /// Nothing on screen or in flight that a relaunch would interrupt; the updater waits for this before installing.
     var isIdle: Bool {
         !open && !hover && confirmer.pending == nil && emulator.bootingName == nil && emulator.pendingBoot.isEmpty && claudex.busyMember == nil && !calendar.isSigningIn
@@ -712,6 +738,33 @@ final class NotchModel {
         buddy = prefs
         if let defaults { prefs.save(to: defaults) }
         changed()
+    }
+
+    /// Settings › Notch buddy › +: asks for a Lottie file (the panel stays open meanwhile), checks it, keeps it and shows it. A file that
+    /// is turned down changes nothing; the library says why.
+    func addCustomBuddy() {
+        guard !picking else { return }
+        picking = true
+        Task {
+            let file = await pickBuddyFile()
+            picking = false
+            changed() // the picker took key status; the panel takes it back
+            guard let file, let id = customBuddies.add(from: file) else { return }
+            var next = buddy
+            next.style = .custom
+            next.custom = id
+            setBuddy(next)
+        }
+    }
+
+    /// Deletes a custom buddy. If it was the one showing, the newest one left takes over, or the face when there is none.
+    func removeCustomBuddy(_ id: String) {
+        customBuddies.remove(id)
+        guard buddy.custom == id else { return }
+        var next = buddy
+        next.custom = customBuddies.entries.last?.id
+        if next.custom == nil, next.style == .custom { next.style = .face }
+        setBuddy(next)
     }
 
     /// The window layer: which displays have no menu bar showing right now.

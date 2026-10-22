@@ -5,6 +5,8 @@ import SwiftUI
 /// the shell is the theme's, so on the light one the tint is darkened to stay seen).
 struct BuddyView: View {
     var prefs: BuddyPrefs
+    /// What to play: `prefs` through the library (`BuddyAsset.init(_:library:)`).
+    var asset: BuddyAsset
     /// The first-launch hint is up: the buddy bobs, for a few bobs.
     var bobbing = false
     /// The screen is asleep or the session is away: nothing moves.
@@ -23,7 +25,6 @@ struct BuddyView: View {
     var body: some View {
         // Reduce Motion in macOS forces Still. Snapshots hold the first frame: ImageRenderer cannot draw an AppKit view.
         let motion = reduceMotion || paused ? BuddyMotion.still : prefs.motion
-        let asset = BuddyAsset(prefs.style, emoji: prefs.emoji)
         let bobs = bobbing && motion != .still
         Group {
             if motion == .still || staticRender {
