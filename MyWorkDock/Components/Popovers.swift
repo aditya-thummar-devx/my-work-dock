@@ -22,8 +22,9 @@ extension Geo {
         static let swatchCheck: CGFloat = 12
         static let ringWidth: CGFloat = 2
         static let noteFont: CGFloat = 11.5
-        /// Six menus + Show on all displays have to fit the settings screen (371 pt tall on the medium panel).
+        /// The menu switches sit in two columns, so the list plus Show on all displays fit the settings screen (371 pt tall on the medium panel).
         static let menuRowHeight: CGFloat = 32
+        static let menuColumnGap: CGFloat = 16
         static let switchSize = (width: CGFloat(34), height: CGFloat(20))
         static let switchKnob: CGFloat = 14
     }
@@ -286,8 +287,12 @@ private struct MenusSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Geo.Chrome.popoverGap) {
             Text("Menus").font(Typo.ui(Geo.Appearance.sectionFont, .semibold)).foregroundStyle(t.faint)
-            VStack(spacing: 0) {
-                ForEach(Feature.allCases) { row($0) }
+            // Two columns, filled top to bottom: eight switches in one column outgrow the settings screen.
+            let features = Array(Feature.allCases)
+            let half = (features.count + 1) / 2
+            HStack(alignment: .top, spacing: Geo.Appearance.menuColumnGap) {
+                VStack(spacing: 0) { ForEach(features.prefix(half)) { row($0) } }.frame(maxWidth: .infinity)
+                VStack(spacing: 0) { ForEach(features.dropFirst(half)) { row($0) } }.frame(maxWidth: .infinity)
             }
             .padding(.top, Geo.Appearance.pullUp)
             Text("A menu that is switched off is hidden and stops everything it runs in the background.")
