@@ -180,4 +180,16 @@ final class SessionsStoreTests: XCTestCase {
         s.create("foxtale")
         XCTAssertEqual(s.message?.error, true, "duplicate names are reported")
     }
+
+    func testBoardLoadsUntilTheFirstLookFinishes() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent("sess-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let s = SessionsStore(reader: TranscriptReader(TranscriptIndex(root: root)), groups: SessionGroups(file: nil), defaults: nil)
+        XCTAssertFalse(s.loaded)
+        await s.refresh()
+        XCTAssertTrue(s.loaded)
+        XCTAssertFalse(s.loading)
+        XCTAssertTrue(s.transcripts.isEmpty)
+    }
 }

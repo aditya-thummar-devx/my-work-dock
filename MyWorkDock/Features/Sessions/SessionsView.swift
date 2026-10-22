@@ -9,13 +9,17 @@ struct SessionsScreen: View {
 
     var body: some View {
         let store = model.sessions
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             SessionsToolbar(store: store)
             if let m = store.message {
                 Text(m.text).font(Typo.ui(11.5)).foregroundStyle(m.error ? t.red : t.muted).padding(.horizontal, 4)
             }
-            if store.transcripts.isEmpty {
-                EmptyHint(text: store.loading ? "Reading your Claude Code sessions…" : "No Claude Code sessions in the last 30 days.")
+            if !store.loaded {
+                ClaudePlaceholder(glyph: .terminal, title: "Loading sessions",
+                                  message: "Reading your Claude Code sessions. The first look can take a few seconds.", loading: true)
+            } else if store.transcripts.isEmpty {
+                ClaudePlaceholder(glyph: .terminal, title: "No sessions yet",
+                                  message: "Claude Code sessions from the last 30 days show up here, ready to group and resume.")
             } else {
                 let board = HStack(alignment: .top, spacing: 10) {
                     ForEach(store.columns) { col in BoardColumn(store: store, column: col) }
@@ -39,6 +43,28 @@ struct SessionsScreen: View {
             }
         }
         .task { await store.refresh() }
+    }
+}
+
+/// Refresh, turning while a look at the transcripts runs.
+private struct RefreshButton: View {
+    var loading: Bool
+    var action: () -> Void
+    @Environment(\.tokens) private var t
+
+    var body: some View {
+        Button(action: action) {
+            Group {
+                if loading { Spinner(size: 13) } else { Icon(.refresh, size: 13) }
+            }
+            .foregroundStyle(t.text2)
+            .frame(width: 28, height: 28)
+            .background(Circle().fill(t.ctrl))
+            .contentShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .disabled(loading)
+        .accessibilityLabel(loading ? "Refreshing" : "Refresh")
     }
 }
 
@@ -72,7 +98,7 @@ private struct SessionsToolbar: View {
                     Button("\(app.name)\(app.realPrompts ? "" : " — messages as notes")") { store.setOpenIn(app) }
                 }
             }
-            IconButton(glyph: .refresh, label: "Refresh", size: 28) { Task { await store.refresh() } }
+            RefreshButton(loading: store.loading) { Task { await store.refresh() } }
         }
     }
 

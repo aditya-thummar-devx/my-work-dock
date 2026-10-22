@@ -31,8 +31,40 @@ struct ClaudeScreen: View {
     }
 
     private var tabs: [SubTabItem] {
-        [SubTabItem(ClaudeTab.sessions.rawValue, "Sessions", count: model.sessions.transcripts.count),
-         SubTabItem(ClaudeTab.agents.rawValue, "Agents", count: model.agents.pending.count),
-         SubTabItem(ClaudeTab.tokens.rawValue, "Tokens & cost")]
+        let sessions = model.sessions.transcripts.count, waiting = model.agents.pending.count
+        return [SubTabItem(ClaudeTab.sessions.rawValue, "Sessions", count: sessions > 0 ? sessions : nil),
+                SubTabItem(ClaudeTab.agents.rawValue, "Agents", count: waiting > 0 ? waiting : nil),
+                SubTabItem(ClaudeTab.tokens.rawValue, "Tokens & cost")]
+    }
+}
+
+/// A Claude sub-tab with nothing to list yet, or still loading: a dashed box with an icon (a spinner while loading), a title and a line
+/// of help, centred in the space it is given.
+struct ClaudePlaceholder: View {
+    var glyph: Glyph
+    var title: String
+    var message: String
+    var loading = false
+    @Environment(\.tokens) private var t
+
+    var body: some View {
+        VStack(spacing: 8) {
+            Group {
+                if loading { Spinner(size: 20) } else { Icon(glyph, size: 20) }
+            }
+            .foregroundStyle(t.muted)
+            .frame(width: 40, height: 40)
+            .background(Circle().fill(t.ctrl))
+            Text(title).font(Typo.ui(13.5, .semibold)).foregroundStyle(t.text2)
+            Text(message)
+                .font(Typo.ui(12)).foregroundStyle(t.faint)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(maxWidth: 280)
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(RoundedRectangle(cornerRadius: 16).strokeBorder(t.line, style: StrokeStyle(lineWidth: 1, dash: [5, 4])))
+        .accessibilityElement(children: .combine)
     }
 }
