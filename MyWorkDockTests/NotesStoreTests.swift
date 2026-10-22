@@ -29,6 +29,18 @@ final class NotesStoreTests: XCTestCase {
         XCTAssertEqual(store.todos[0].tag, "idea")
     }
 
+    /// Claude Code's path (TodoBridge cleans its tag first): no draft, and the quick-add state is left alone.
+    func testAddFromOutsideKeepsTheDraft() {
+        let store = NotesStore.sample()
+        store.draft = "half typed"
+        XCTAssertNil(store.add("  ", tag: "x"))
+        let todo = store.add("Review PR", tag: "code-review")
+        XCTAssertEqual(todo?.tag, "code-review")
+        XCTAssertEqual(store.add("Fix it #bug", tag: "ignored")?.tag, "bug", "a #tag in the text wins")
+        XCTAssertEqual(store.todos[1].title, "Review PR")
+        XCTAssertEqual(store.draft, "half typed")
+    }
+
     func testToggleAndCounts() {
         let store = NotesStore.sample()
         XCTAssertEqual(store.leftCount, 3)

@@ -96,3 +96,108 @@ struct HookReply: Codable, Equatable {
     /// Makes the agent behave as if no hook ran.
     static func passthrough(_ id: String) -> HookReply { HookReply(v: HookWire.version, id: id, stdout: "", exit_code: 0) }
 }
+
+/// `mwd-mcp` (Claude Code's MCP server) asks the app to add a todo over a socket of its own, framed like `HookWire`.
+enum TodoWire {
+    /// Overrides the socket path (tests).
+    static let socketEnv = "MWD_TODO_SOCKET"
+
+    static var socketPath: String {
+        if let p = ProcessInfo.processInfo.environment[socketEnv], !p.isEmpty { return p }
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? URL(fileURLWithPath: NSTemporaryDirectory())
+        return base.appendingPathComponent("MyWorkDock/todos.sock").path
+    }
+}
+
+struct TodoRequest: Codable, Equatable {
+    var v: Int
+    var title: String
+    var tag: String?
+}
+
+struct TodoReply: Codable, Equatable {
+    var v: Int
+    var ok: Bool
+    var id: Int?
+    var title: String?
+    var tag: String?
+    var error: String?
+}
+
+/// Blocking Unix-socket helpers shared by the app's servers and the bundled tools.
+enum SocketIO {
+    enum ListenError: Error { case inUse, system(String) }
+
+    /// nil when `path` doesn't fit `sun_path` (a truncated path would name a different socket).
+    static func address(_ path: String) -> sockaddr_un? {
+        var addr = sockaddr_un()
+        addr.sun_family = sa_family_t(AF_UNIX)
+        let bytes = Array(path.utf8)
+        guard bytes.count < MemoryLayout.size(ofValue: addr.sun_path) else { return nil }
+        withUnsafeMutableBytes(of: &addr.sun_path) { raw in for (i, b) in bytes.enumerated() { raw[i] = b } }
+        return addr
+    }
+
+    /// Connects to `path`, refusing a socket that another user created.
+    static func connect(_ path: String) -> Int32? {
+        var st = stat()
+        guard var addr = address(path), lstat(path, &st) == 0, st.st_uid == getuid() else { return nil }
+        let fd = socket(AF_UNIX, SOCK_STREAM, 0)
+        guard fd >= 0 else { return nil }
+        let ok = withUnsafePointer(to: &addr) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { Darwin.connect(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size)) }
+        }
+        if ok != 0 { close(fd); return nil }
+        return fd
+    }
+
+    /// A private (0600) listening socket at `path`, in a 0700 directory. A socket that still answers belongs to a
+    /// running copy (`inUse`); dead ones are cleared.
+    static func listen(_ path: String) throws -> Int32 {
+        guard var addr = address(path) else { throw ListenError.system("socket path too long: \(path)") }
+        let dir = (path as NSString).deletingLastPathComponent
+        if !FileManager.default.fileExists(atPath: dir) {
+            try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
+        }
+        if let fd = connect(path) { close(fd); throw ListenError.inUse }
+        unlink(path)
+        let fd = socket(AF_UNIX, SOCK_STREAM, 0)
+        guard fd >= 0 else { throw ListenError.system("socket: \(errno)") }
+        let bound = withUnsafePointer(to: &addr) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { bind(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size)) }
+        }
+        guard bound == 0, Darwin.listen(fd, 32) == 0 else { close(fd); throw ListenError.system("bind/listen: \(errno)") }
+        chmod(path, 0o600)
+        return fd
+    }
+
+    static func readExactly(_ fd: Int32, _ count: Int) -> Data? {
+        var buf = [UInt8](repeating: 0, count: count)
+        var off = 0
+        while off < count {
+            let n = buf.withUnsafeMutableBytes { read(fd, $0.baseAddress! + off, count - off) }
+            if n <= 0 { return nil }
+            off += n
+        }
+        return Data(buf)
+    }
+
+    static func writeAll(_ fd: Int32, _ data: Data) -> Bool {
+        data.withUnsafeBytes { raw -> Bool in
+            var off = 0
+            while off < raw.count {
+                let n = write(fd, raw.baseAddress! + off, raw.count - off)
+                if n <= 0 { return false }
+                off += n
+            }
+            return true
+        }
+    }
+
+    /// The body of one length-prefixed frame; nil on hang-up, timeout or an oversized header.
+    static func readFrame(_ fd: Int32) -> Data? {
+        guard let header = readExactly(fd, 4), let len = HookWire.length(header) else { return nil }
+        return readExactly(fd, len)
+    }
+}

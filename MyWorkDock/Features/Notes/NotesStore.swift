@@ -162,17 +162,26 @@ final class NotesStore {
 
     /// Quick-add (Prototype `addTodo`): the first `#tag` in the text wins, else the picked tag, else none; every `#tag` is dropped from the title.
     func addTodo() {
-        let raw = draft.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !raw.isEmpty else { return }
+        guard add(draft, tag: todoTag) != nil else { return }
+        draft = ""
+        tagMenuOpen = false
+    }
+
+    /// Adds `text` as a new todo on top; quick-add and Claude Code (`mwd-mcp`) both come through here. The first `#tag`
+    /// in the text wins over `tag` (already clean: `cleanTag` isn't idempotent at its length cap). Nil when the text is blank.
+    @discardableResult
+    func add(_ text: String, tag: String?) -> TodoSample? {
+        let raw = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !raw.isEmpty else { return nil }
         let tagged = /#([A-Za-z0-9_-]+)/
-        let tag = raw.firstMatch(of: tagged)?.1.lowercased() ?? todoTag ?? ""
+        let tag = raw.firstMatch(of: tagged).map { String($0.1).lowercased() } ?? tag ?? ""
         let stripped = raw.replacing(tagged, with: "").trimmingCharacters(in: .whitespacesAndNewlines)
         let id = (todos.map(\.id).max() ?? 0) + 1
-        todos.insert(TodoSample(id: id, title: stripped.isEmpty ? raw : stripped, tag: tag, due: "Today", createdAt: now()), at: 0)
-        draft = ""
+        let todo = TodoSample(id: id, title: stripped.isEmpty ? raw : stripped, tag: tag, due: "Today", createdAt: now())
+        todos.insert(todo, at: 0)
         deleted = nil
-        tagMenuOpen = false
         save()
+        return todo
     }
 
     func toggleTagMenu() {

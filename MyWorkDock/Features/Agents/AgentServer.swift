@@ -23,27 +23,17 @@ final class AgentServer: @unchecked Sendable {
     }
 
     func start() throws {
-        let dir = (path as NSString).deletingLastPathComponent
-        if !FileManager.default.fileExists(atPath: dir) {
-            try FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
-        }
-        // A socket that still answers belongs to a running copy; only clear dead ones.
-        if let fd = Self.connect(path) { close(fd); throw StartError.alreadyRunning }
-        unlink(path)
-        let fd = socket(AF_UNIX, SOCK_STREAM, 0)
-        guard fd >= 0 else { throw StartError.system("socket: \(errno)") }
-        var addr = Self.address(path)
-        let bound = withUnsafePointer(to: &addr) {
-            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { bind(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size)) }
-        }
-        guard bound == 0, listen(fd, 32) == 0 else { close(fd); throw StartError.system("bind/listen: \(errno)") }
-        chmod(path, 0o600)
+        let fd: Int32
+        do { fd = try SocketIO.listen(path) }
+        catch SocketIO.ListenError.inUse { throw StartError.alreadyRunning }
+        catch SocketIO.ListenError.system(let s) { throw StartError.system(s) }
         listenFD = fd
         Thread.detachNewThread { [self] in acceptLoop(fd) }
     }
 
     func stop() {
-        if listenFD >= 0 { close(listenFD); listenFD = -1 }
+        // shutdown wakes the thread blocked in accept(); close alone may not.
+        if listenFD >= 0 { shutdown(listenFD, SHUT_RDWR); close(listenFD); listenFD = -1 }
         unlink(path)
     }
 
@@ -51,7 +41,7 @@ final class AgentServer: @unchecked Sendable {
         while true {
             let c = accept(lfd, nil, nil)
             if c < 0 {
-                if errno == EINTR || errno == EMFILE || errno == ENFILE { usleep(100_000); continue }
+                if [EINTR, EMFILE, ENFILE, ECONNABORTED].contains(errno) { usleep(100_000); continue }
                 return // listener closed
             }
             var on: Int32 = 1
@@ -64,8 +54,7 @@ final class AgentServer: @unchecked Sendable {
     private func serve(_ fd: Int32) {
         var tv = timeval(tv_sec: 5, tv_usec: 0)
         setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &tv, socklen_t(MemoryLayout<timeval>.size))
-        guard let header = Self.readExactly(fd, 4), let len = HookWire.length(header), let body = Self.readExactly(fd, len),
-              let msg = try? JSONDecoder().decode(HookMessage.self, from: body) else { close(fd); return }
+        guard let body = SocketIO.readFrame(fd), let msg = try? JSONDecoder().decode(HookMessage.self, from: body) else { close(fd); return }
 
         let conn = Connection(fd: fd)
         let core = self.core
@@ -105,7 +94,7 @@ final class AgentServer: @unchecked Sendable {
             lock.lock(); defer { lock.unlock() }
             guard !done else { return }
             done = true
-            if let reply, let data = try? HookWire.encode(reply) { _ = AgentServer.writeAll(fd, data) }
+            if let reply, let data = try? HookWire.encode(reply) { _ = SocketIO.writeAll(fd, data) }
             shutdown(fd, SHUT_RDWR)
             close(fd)
         }
@@ -125,50 +114,6 @@ final class AgentServer: @unchecked Sendable {
                 close(fd)
                 return true
             }
-        }
-    }
-
-    // MARK: socket helpers
-
-    static func address(_ path: String) -> sockaddr_un {
-        var addr = sockaddr_un()
-        addr.sun_family = sa_family_t(AF_UNIX)
-        let bytes = Array(path.utf8.prefix(MemoryLayout.size(ofValue: addr.sun_path) - 1))
-        withUnsafeMutableBytes(of: &addr.sun_path) { raw in for (i, b) in bytes.enumerated() { raw[i] = b } }
-        return addr
-    }
-
-    static func connect(_ path: String) -> Int32? {
-        let fd = socket(AF_UNIX, SOCK_STREAM, 0)
-        guard fd >= 0 else { return nil }
-        var addr = address(path)
-        let ok = withUnsafePointer(to: &addr) {
-            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) { Darwin.connect(fd, $0, socklen_t(MemoryLayout<sockaddr_un>.size)) }
-        }
-        if ok != 0 { close(fd); return nil }
-        return fd
-    }
-
-    static func readExactly(_ fd: Int32, _ count: Int) -> Data? {
-        var buf = [UInt8](repeating: 0, count: count)
-        var off = 0
-        while off < count {
-            let n = buf.withUnsafeMutableBytes { read(fd, $0.baseAddress! + off, count - off) }
-            if n <= 0 { return nil }
-            off += n
-        }
-        return Data(buf)
-    }
-
-    static func writeAll(_ fd: Int32, _ data: Data) -> Bool {
-        data.withUnsafeBytes { raw -> Bool in
-            var off = 0
-            while off < raw.count {
-                let n = write(fd, raw.baseAddress! + off, raw.count - off)
-                if n <= 0 { return false }
-                off += n
-            }
-            return true
         }
     }
 }

@@ -143,12 +143,16 @@ struct ClaudeHookInstaller {
     }
 
     /// Copies the bundled hook to its stable location (also on launch, so app updates refresh it).
-    func deployHook() throws {
-        try FileManager.default.createDirectory(at: binDir, withIntermediateDirectories: true)
-        let tmp = binDir.appendingPathComponent("mwd-hook.tmp")
+    func deployHook() throws { try Self.deploy(bundledHook, to: deployedHook) }
+
+    /// Atomically replaces `dest` with a copy of `src`; a process still running the old copy keeps it.
+    static func deploy(_ src: URL, to dest: URL) throws {
+        let dir = dest.deletingLastPathComponent()
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let tmp = dir.appendingPathComponent(dest.lastPathComponent + ".tmp")
         try? FileManager.default.removeItem(at: tmp)
-        try FileManager.default.copyItem(at: bundledHook, to: tmp)
-        _ = try FileManager.default.replaceItemAt(deployedHook, withItemAt: tmp)
+        try FileManager.default.copyItem(at: src, to: tmp)
+        _ = try FileManager.default.replaceItemAt(dest, withItemAt: tmp)
     }
 
     @discardableResult

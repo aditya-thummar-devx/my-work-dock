@@ -132,6 +132,8 @@ final class NotchModel {
     var claudeTab: ClaudeTab = .agents
     let clipboard: ClipboardStore
     let notes: NotesStore
+    /// Claude Code adds todos through it (`mwd-mcp`); runs while Notes › TODO is on.
+    let todoBridge: TodoBridge
     let commands: SnippetStore
     let prompts: SnippetStore
     let links: SnippetStore
@@ -230,6 +232,7 @@ final class NotchModel {
         }
         clipboard = sample ? .sample() : .live()
         notes = sample ? .sample() : NotesStore()
+        todoBridge = sample ? .sample(notes: notes) : .live(notes: notes)
         commands = sample ? .sample(.commands) : .persistent(.commands)
         prompts = sample ? .sample(.prompts) : .persistent(.prompts)
         links = sample ? .sample(.links) : .persistent(.links)
@@ -692,6 +695,7 @@ final class NotchModel {
         defaults?.set(disabledSubs.map(\.rawValue).sorted(), forKey: "disabledSubMenus")
         syncSubMenus()
         if sub.parent == .claude { applyServices(only: .claude) } // the hook server and the transcript scan follow their tabs
+        if sub == .notesTodo { applyServices(only: .notes) } // so does the todo socket
         changed()
     }
 
@@ -742,6 +746,9 @@ final class NotchModel {
             if on, isEnabled(SubMenu.claudeTokens) { claudeUsage.startIfActive() } // no tab to show it in: no transcript scan
         }
         if apply(.calendar), !isEnabled(.calendar) { calendar.stop() }
+        if apply(.notes) {
+            if isEnabled(.notes), isEnabled(SubMenu.notesTodo) { todoBridge.start() } else { todoBridge.stop() }
+        }
     }
 
     /// Saved switches from before Claude was one menu: Agents and Sessions were menus of their own and Tokens & cost a claudex tab.

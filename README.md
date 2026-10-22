@@ -10,7 +10,7 @@ Your work dock, in the notch. Hover the top of your Mac's screen: clipboard hist
 
 - **Clipboard**: searchable text history with tags and pins. Password managers are never recorded.
 - **My Calendar**: your Google Calendar by month, week or day, with the same event details Google shows. Read-only, for devxlabs.ai accounts.
-- **Notes**: TODOs, plus saved Commands, Prompts and Links.
+- **Notes**: TODOs, plus saved Commands, Prompts and Links. Claude Code can add TODOs too (see below).
 - **Claude**: **Agents** (approvals waiting for you, live sessions), **Sessions** (a board of your sessions) and **Tokens & cost** (what Claude Code used on this Mac). None of it needs claudex.
 - **claudex**: usage gauges and account switching for the optional `claudex` CLI.
 - **Emulator**: start and stop iOS simulators and Android emulators, pair devices over Wi-Fi, run `adb reverse` tunnels.
@@ -26,6 +26,14 @@ Requires macOS 14 Sonoma or later on Apple Silicon (M1 and newer).
 3. macOS blocks the first launch because the app is not notarized. Follow the [privacy blocker guide](https://aditya-thummar-devx.github.io/my-work-dock/privacy-blocker.html) once.
 
 Full steps: [Install guide](https://aditya-thummar-devx.github.io/my-work-dock/install.html).
+
+## Claude Code MCP
+
+MyWorkDock ships an MCP server, `mwd-mcp`, so Claude Code can add todos to the TODO list. Click **Connect** on the banner in Notes › TODO; it runs `claude mcp add --scope user myworkdock -- <path>` for you. Then, in a new Claude Code session, ask "add a todo: review the PR #work" (or use `/todo` inside this repo).
+
+- The app must be running with Notes › TODO switched on; otherwise the tool answers that MyWorkDock isn't running.
+- Without the `claude` command on your PATH, the banner shows the exact command to run yourself.
+- The server lives inside the app and Claude Code runs a copy in `~/Library/Application Support/MyWorkDock/bin`, refreshed on every launch, so app updates update it too. Sessions that were already open keep the old copy until they restart (or reconnect in `/mcp`).
 
 ## Docs
 
