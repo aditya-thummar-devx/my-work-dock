@@ -17,8 +17,7 @@ enum Fragments {
     // MARK: Dark
 
     private static let dark: [S] = [
-        // Top row (PillTabs, IconButton): the chrome itself
-        .chrome("03-notes-todo@maintabs", rect: r(20, 3, 157, 34)),
+        // Top row (IconButton): the chrome itself. No @maintabs: the menu tabs moved to the footer, centred, and no reference PNG shows them there.
         .chrome("03-notes-todo@topright", rect: r(534, 4, 206, 32)),
 
         // Notes sub-tabs (SubTabs): the left group only; filter / search / hint sit to its right
