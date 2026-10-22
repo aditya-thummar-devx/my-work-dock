@@ -69,6 +69,44 @@ enum Feature: String, CaseIterable, Identifiable {
     }
 }
 
+/// What Settings › Menus can switch off inside a menu: its sub-tabs. The raw values are stored in UserDefaults.
+enum SubMenu: String, CaseIterable, Identifiable {
+    case notesTodo, notesCommands, notesPrompts, notesLinks
+    case emulatorDevices, emulatorWireless, emulatorTunnel
+    case claudexUsage, claudexPool, claudexPlay, claudexHealth, claudexTokens
+
+    // The raw value is the menu plus the tab's own raw value, so one rule covers every tab (NotchModelTests checks it).
+    init(_ tab: NotesTab) { self = SubMenu(rawValue: "notes" + tab.rawValue.capitalized)! }
+    init(_ tab: EmulatorTab) { self = SubMenu(rawValue: "emulator" + tab.rawValue.capitalized)! }
+    init(_ tab: ClaudexTab) { self = SubMenu(rawValue: "claudex" + tab.rawValue.capitalized)! }
+
+    var id: String { rawValue }
+    var parent: Feature {
+        switch self {
+        case .notesTodo, .notesCommands, .notesPrompts, .notesLinks: .notes
+        case .emulatorDevices, .emulatorWireless, .emulatorTunnel: .emulator
+        case .claudexUsage, .claudexPool, .claudexPlay, .claudexHealth, .claudexTokens: .claudex
+        }
+    }
+    /// The sub-tab's name, as the menu shows it.
+    var label: String {
+        switch self {
+        case .notesTodo: "TODO"
+        case .notesCommands: "Commands"
+        case .notesPrompts: "Prompts"
+        case .notesLinks: "Links"
+        case .emulatorDevices: "Devices"
+        case .emulatorWireless: "Wireless"
+        case .emulatorTunnel: "Tunnel"
+        case .claudexUsage: "Usage"
+        case .claudexPool: "Pool"
+        case .claudexPlay: "Playground"
+        case .claudexHealth: "Health"
+        case .claudexTokens: "Tokens & cost"
+        }
+    }
+}
+
 /// Everything the shell animates: size, bottom radius and horizontal offset from the hardware-notch centre.
 struct ShellGeometry: Equatable {
     var width: CGFloat
@@ -112,6 +150,8 @@ final class NotchModel {
     private(set) var panelSize: PanelSize = .medium
     /// Settings › Menus: a disabled feature is hidden and runs nothing in the background.
     private(set) var disabled: Set<Feature> = []
+    /// Settings › Menus › a menu's sub-tabs: a switched-off one is hidden in its menu. Kept while the menu itself is off.
+    private(set) var disabledSubs: Set<SubMenu> = []
     /// Settings › Peek: the sources hover shows. `[.claudex]` alone, or any of the others (claudex takes the whole hover).
     private(set) var peekOn: Set<PeekSource> = PeekSource.defaultOn
     var emulatorTab: EmulatorTab = .devices
@@ -170,6 +210,7 @@ final class NotchModel {
             tint = defaults.string(forKey: "tint").flatMap(Tint.init(rawValue:)) ?? .lime
             panelSize = defaults.string(forKey: "panelSize").flatMap(PanelSize.init(rawValue:)) ?? .medium
             disabled = Set((defaults.stringArray(forKey: "disabledFeatures") ?? []).compactMap(Feature.init(rawValue:)))
+            disabledSubs = Set((defaults.stringArray(forKey: "disabledSubMenus") ?? []).compactMap(SubMenu.init(rawValue:)))
             if let saved = defaults.stringArray(forKey: "peekSources") { peekOn = PeekSource.restored(saved) }
             showOnAllDisplays = defaults.bool(forKey: "showOnAllDisplays")
             if defaults.string(forKey: "seenVersion") != version {
@@ -207,6 +248,7 @@ final class NotchModel {
             self.sessions.ensureTitles(self.agents.sessions.map(\.transcriptID))
         }
         if let first = enabledTabs.first, !enabledTabs.contains(mainTab) { mainTab = first }
+        syncSubMenus()
     }
 
     /// Re-reads the peek from claudex; only re-measures the ears when something changed.
@@ -242,13 +284,19 @@ final class NotchModel {
 
     func isEnabled(_ feature: Feature) -> Bool { !disabled.contains(feature) }
     var enabledTabs: [MainTab] { MainTab.allCases.filter { isEnabled($0.feature) } }
+    /// The stored choice for one sub-tab; whether it shows also depends on its menu being on.
+    func isEnabled(_ sub: SubMenu) -> Bool { !disabledSubs.contains(sub) }
+    var enabledNotesTabs: [NotesTab] { NotesTab.allCases.filter { isEnabled(SubMenu($0)) } }
+    var enabledEmulatorTabs: [EmulatorTab] { EmulatorTab.allCases.filter { isEnabled(SubMenu($0)) } }
     func isPeekEnabled(_ source: PeekSource) -> Bool { peekOn.contains(source) }
 
     /// What hover draws. claudex on: its two ears, or the hint while it has no account to show. Otherwise the TODO and
     /// clipboard counts (left) and the Local IP (right), each only when its source is on, its menu is on and it has
     /// something to show; with none of them, the hint invites a click.
     var peekContent: PeekContent {
-        func shows(_ source: PeekSource) -> Bool { isPeekEnabled(source) && isEnabled(source.feature) }
+        func shows(_ source: PeekSource) -> Bool {
+            isPeekEnabled(source) && isEnabled(source.feature) && (source.subMenu.map(isEnabled) ?? true)
+        }
         if isPeekEnabled(.claudex) { return shows(.claudex) && claudex.hasPeek ? .claudex : .hint }
         let info = PeekInfo(todo: shows(.todo) ? notes.peekTodo : nil,
                             clips: shows(.clipboard) ? clipboard.peekClips : nil,
@@ -378,20 +426,20 @@ final class NotchModel {
         setMainTab(tabs[(i + 1) % tabs.count])
     }
 
-    /// Shift+Tab: next sub-tab of the visible main menu, wrapping.
+    /// Shift+Tab: next sub-tab of the visible main menu, wrapping. Sub-tabs switched off in Settings are skipped.
     func cycleInnerTab() {
         guard !settings, isEnabled(mainTab.feature) else { return }
-        func next<T: CaseIterable & Equatable>(_ v: T) -> T {
-            let all = Array(T.allCases)
-            return all[((all.firstIndex(of: v) ?? 0) + 1) % all.count]
+        func next<T: Equatable>(_ v: T, in shown: [T]) -> T? {
+            guard shown.count > 1 else { return nil }
+            return shown[((shown.firstIndex(of: v) ?? -1) + 1) % shown.count]
         }
         switch mainTab {
         case .clipboard: break
         case .calendar: calendar.cycleMode()
         case .agents, .sessions: break
-        case .notes: setNotesTab(next(notesTab))
-        case .claudex: claudex.select(next(claudex.tab))
-        case .emulator: setEmulatorTab(next(emulatorTab))
+        case .notes: if let tab = next(notesTab, in: enabledNotesTabs) { setNotesTab(tab) }
+        case .claudex: if let tab = next(claudex.activeTab, in: claudex.visibleTabs) { claudex.select(tab) }
+        case .emulator: if let tab = next(emulatorTab, in: enabledEmulatorTabs) { setEmulatorTab(tab) }
         }
     }
 
@@ -524,12 +572,13 @@ final class NotchModel {
         open ? closePanel() : openPanel()
     }
 
-    /// ⌘⇧V / ⌘⇧D / ⌘⇧C / ⌘⇧P / ⌘⇧L / ⌘⇧E / ⌘⇧X: opens the panel on `tab` (and Notes sub-tab `sub`). No-op if that menu is switched off.
+    /// ⌘⇧V / ⌘⇧D / ⌘⇧C / ⌘⇧P / ⌘⇧L / ⌘⇧E / ⌘⇧X: opens the panel on `tab` (and Notes sub-tab `sub`). No-op if that menu is switched off;
+    /// a Notes sub-tab that is switched off leaves Notes on the tab it was on.
     func show(_ tab: MainTab, notes sub: NotesTab? = nil) {
         guard isEnabled(tab.feature) else { return }
         settings = false
         if mainTab != tab { setMainTab(tab) }
-        if let sub, notesTab != sub { setNotesTab(sub) } // guarded: setNotesTab drops drafts and search
+        if let sub, notesTab != sub, enabledNotesTabs.contains(sub) { setNotesTab(sub) } // guarded: setNotesTab drops drafts and search
         if open { changed() } else { openPanel() }
     }
 
@@ -587,6 +636,29 @@ final class NotchModel {
         changed()
     }
 
+    /// Settings › Menus › a menu's sub-tabs: hides or shows one. The last one showing cannot go off, so a menu is never empty;
+    /// the tab on screen moves to the first one left.
+    func setEnabled(_ sub: SubMenu, _ on: Bool) {
+        guard on != isEnabled(sub) else { return }
+        if on {
+            disabledSubs.remove(sub)
+        } else {
+            guard SubMenu.allCases.contains(where: { $0.parent == sub.parent && $0 != sub && isEnabled($0) }) else { return }
+            disabledSubs.insert(sub)
+        }
+        defaults?.set(disabledSubs.map(\.rawValue).sorted(), forKey: "disabledSubMenus")
+        syncSubMenus()
+        if sub == .claudexTokens, on { applyServices(only: .claudex) } // the transcript scan starts at launch, so switching it back on starts it
+        changed()
+    }
+
+    /// Hidden sub-tabs reach the screens, and a tab that is now hidden gives way to the first one showing.
+    private func syncSubMenus() {
+        claudex.hidden = Set(ClaudexTab.allCases.filter { !isEnabled(SubMenu($0)) })
+        if let first = enabledNotesTabs.first, !enabledNotesTabs.contains(notesTab) { setNotesTab(first) }
+        if let first = enabledEmulatorTabs.first, !enabledEmulatorTabs.contains(emulatorTab) { setEmulatorTab(first) }
+    }
+
     /// Settings › Peek. claudex on takes the whole hover and switches the others off; claudex off puts them all back on.
     /// The others only change while claudex is off. Today's events are a row under whatever shows, so they change any time
     /// and claudex leaves them as they are.
@@ -621,7 +693,7 @@ final class NotchModel {
         }
         if apply(.claudex), isEnabled(.claudex) {
             Task { await claudex.refresh() }
-            claudeUsage.startIfActive()
+            if isEnabled(SubMenu.claudexTokens) { claudeUsage.startIfActive() } // no tab to show it in: no transcript scan
         }
         if apply(.calendar), !isEnabled(.calendar) { calendar.stop() }
         if apply(.agents) {

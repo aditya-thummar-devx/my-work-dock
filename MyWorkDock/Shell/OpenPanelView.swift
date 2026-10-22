@@ -14,11 +14,11 @@ struct OpenPanelView: View {
             // ZStack so outgoing and incoming screens overlap during the crossfade instead of sharing the VStack's height.
             ZStack(alignment: .top) {
                 if model.settings {
-                    SettingsScreen(theme: model.theme, systemIsDark: model.appearance.isDark, tint: model.tint, panelSize: model.panelSize, disabled: model.disabled, peekOn: model.peekOn,
+                    SettingsScreen(theme: model.theme, systemIsDark: model.appearance.isDark, tint: model.tint, panelSize: model.panelSize, disabled: model.disabled, disabledSubs: model.disabledSubs, peekOn: model.peekOn,
                                    allDisplays: model.showOnAllDisplays, clipboardLimit: model.clipboard.limit,
                                    version: model.version, updatedAt: model.updatedAt, onCheckForUpdates: model.checkForUpdates,
                                    onTheme: model.setTheme, onTint: model.setTint, onPanelSize: model.setPanelSize,
-                                   onFeature: model.setEnabled, onPeek: model.setPeekEnabled, onAllDisplays: model.setShowOnAllDisplays,
+                                   onFeature: model.setEnabled, onSub: model.setEnabled, onPeek: model.setPeekEnabled, onAllDisplays: model.setShowOnAllDisplays,
                                    onClipboardLimit: model.setClipboardLimit)
                         .transition(.opacity)
                 } else if model.enabledTabs.isEmpty {

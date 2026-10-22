@@ -11,58 +11,64 @@ struct ClaudexScreen: View {
             .task { await store.refresh() }
     }
 
-    private func content(_ store: ClaudexStore, _ usage: ClaudeUsageStore) -> some View {
-        let onTokens = store.activeTab == .tokens
-        return VStack(spacing: 0) {
-            SubNavRow(items: tabs(store), selection: store.activeTab.rawValue, onSelect: { store.select(ClaudexTab(rawValue: $0) ?? .usage) }) {
-                if onTokens {
-                    FreshLabel { usage.freshLabel }
-                    PillButton(title: "Refresh", glyph: .refresh, iconSize: 13, action: usage.refreshNow)
-                } else {
-                    FreshLabel { store.freshLabel }
-                    PillButton(title: "Refresh", glyph: .refresh, iconSize: 13, action: store.refreshNow)
+    @ViewBuilder private func content(_ store: ClaudexStore, _ usage: ClaudeUsageStore) -> some View {
+        // claudex gives nothing and Tokens & cost is switched off: no tab is left, so the reason and a Retry are all there is.
+        if let why = store.unavailable, store.visibleTabs.isEmpty {
+            ClaudexMissing(reason: why, loading: store.loading, onRetry: store.retry)
+                .padding(.top, Geo.Chrome.subNavTop)
+                .frame(maxHeight: .infinity, alignment: .top)
+        } else {
+            let onTokens = store.activeTab == .tokens
+            VStack(spacing: 0) {
+                SubNavRow(items: tabs(store), selection: store.activeTab.rawValue, onSelect: { store.select(ClaudexTab(rawValue: $0) ?? .usage) }) {
+                    if onTokens {
+                        FreshLabel { usage.freshLabel }
+                        PillButton(title: "Refresh", glyph: .refresh, iconSize: 13, action: usage.refreshNow)
+                    } else {
+                        FreshLabel { store.freshLabel }
+                        PillButton(title: "Refresh", glyph: .refresh, iconSize: 13, action: store.refreshNow)
+                    }
                 }
-            }
-            .padding(.top, Geo.Chrome.subNavTop)
+                .padding(.top, Geo.Chrome.subNavTop)
 
-            if let why = store.unavailable {
-                ClaudexMissing(reason: why, loading: store.loading, onRetry: store.retry)
-                    .padding(.top, 10)
-            } else if !onTokens {
-                ClaudexToolbar(store: store)
-                    .padding(.top, 10)
-                    .zIndex(1) // the sort menu hangs below the toolbar, over the content
-            }
-
-            Group {
-                switch store.activeTab {
-                case .usage: UsageView(store: store)
-                case .pool: PoolView(store: store)
-                case .play: PlaygroundView(store: store)
-                case .health: HealthView(store: store)
-                case .tokens: TokensView(store: usage)
+                if let why = store.unavailable {
+                    ClaudexMissing(reason: why, loading: store.loading, onRetry: store.retry)
+                        .padding(.top, 10)
+                } else if !onTokens {
+                    ClaudexToolbar(store: store)
+                        .padding(.top, 10)
+                        .zIndex(1) // the sort menu hangs below the toolbar, over the content
                 }
+
+                Group {
+                    switch store.activeTab {
+                    case .usage: UsageView(store: store)
+                    case .pool: PoolView(store: store)
+                    case .play: PlaygroundView(store: store)
+                    case .health: HealthView(store: store)
+                    case .tokens: TokensView(store: usage)
+                    }
+                }
+                .padding(.top, onTokens && store.unavailable == nil ? Geo.Chrome.contentTop : Geo.Chrome.contentTopClaudex)
+                .frame(maxHeight: .infinity, alignment: .top)
             }
-            .padding(.top, onTokens && store.unavailable == nil ? Geo.Chrome.contentTop : Geo.Chrome.contentTopClaudex)
-            .frame(maxHeight: .infinity, alignment: .top)
-        }
-        .overlay {
-            if store.sortOpen { Color.clear.contentShape(Rectangle()).onTapGesture { store.sortOpen = false } }
+            .overlay {
+                if store.sortOpen { Color.clear.contentShape(Rectangle()).onTapGesture { store.sortOpen = false } }
+            }
         }
     }
 
-    /// claudex gives nothing: only Tokens & cost can show anything.
+    /// The tabs Settings › Menus leaves on. claudex gives nothing: only Tokens & cost can show anything.
     private func tabs(_ store: ClaudexStore) -> [SubTabItem] {
-        let tokens = SubTabItem(ClaudexTab.tokens.rawValue, "Tokens & cost")
-        guard store.unavailable == nil else { return [tokens] }
         let bad = store.unrecognisedTabs
         func item(_ tab: ClaudexTab, _ label: String, count: Int? = nil) -> SubTabItem {
             var i = SubTabItem(tab.rawValue, label, count: count)
             i.warn = bad.contains(tab)
             return i
         }
-        return [item(.usage, "Usage", count: store.usage.data?.count ?? 0), item(.pool, "Pool", count: store.members.data?.count ?? 0),
-                item(.play, "Playground"), item(.health, "Health"), tokens]
+        let all = [item(.usage, "Usage", count: store.usage.data?.count ?? 0), item(.pool, "Pool", count: store.members.data?.count ?? 0),
+                   item(.play, "Playground"), item(.health, "Health"), item(.tokens, "Tokens & cost")]
+        return all.filter { i in store.visibleTabs.contains { $0.rawValue == i.id } }
     }
 }
 

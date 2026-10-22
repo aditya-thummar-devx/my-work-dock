@@ -71,8 +71,16 @@ final class ClaudexStore {
     /// The pool member a confirmed write is running for (until the refresh after it lands).
     private(set) var busyMember: String?
 
-    /// The tab on screen. While claudex gives nothing the other four cannot show anything, so only Tokens & cost is left.
-    var activeTab: ClaudexTab { unavailable == nil ? tab : .tokens }
+    /// Settings › Menus: tabs switched off there. Set by `NotchModel`.
+    var hidden: Set<ClaudexTab> = []
+    /// The tabs the sub-nav shows. While claudex gives nothing the other four cannot show anything, so only Tokens & cost is left
+    /// (and nothing if that is switched off too: the screen then shows just why).
+    var visibleTabs: [ClaudexTab] {
+        let shown = ClaudexTab.allCases.filter { !hidden.contains($0) }
+        return unavailable == nil ? shown : shown.filter { $0 == .tokens }
+    }
+    /// The tab on screen: the chosen one, or the first showing when that one is switched off.
+    var activeTab: ClaudexTab { unavailable == nil ? (visibleTabs.contains(tab) ? tab : visibleTabs.first ?? tab) : .tokens }
 
     // Member details sheet
     private(set) var detailName: String?

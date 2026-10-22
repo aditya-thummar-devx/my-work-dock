@@ -69,6 +69,8 @@ enum PeekSource: String, CaseIterable, Identifiable {
         case .events: .calendar
         }
     }
+    /// The sub-tab that feeds it, when its menu has one: the TODO count needs Notes › TODO.
+    var subMenu: SubMenu? { self == .todo ? .notesTodo : nil }
 }
 
 /// One line of the events row: a timed event that is still to come today, or running now. It keeps the whole event so a click
