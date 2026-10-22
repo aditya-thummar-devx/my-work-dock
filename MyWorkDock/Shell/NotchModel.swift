@@ -150,8 +150,8 @@ final class NotchModel {
     @ObservationIgnored private var cancelLeave: (() -> Void)?
     /// The folder picker for a Run is open.
     private(set) var picking = false
-    /// Asks for a folder; nil when cancelled. Injected by tests.
-    @ObservationIgnored var pickFolder: () async -> URL? = NotchModel.chooseFolder
+    /// Asks for a folder, opening at `start` when given; nil when cancelled. Injected by tests.
+    @ObservationIgnored var pickFolder: (URL?) async -> URL? = NotchModel.chooseFolder
     /// Touch ID / password prompt for an unlock is open.
     private(set) var authenticating = false
     /// Why this Mac cannot check its owner, nil when it can; the prompt itself. Injected by tests.
@@ -437,21 +437,38 @@ final class NotchModel {
         })
     }
 
-    /// Notes › Commands › Run: pick a folder, confirm, then run and show the output. Cancelling either step runs nothing.
+    /// Notes › Commands › Run: use the command's saved folder or pick one (saved for next time), confirm, then run and show the output.
+    /// Cancelling either step runs nothing.
     func runCommand(_ id: Int) {
         guard let text = commands.items.first(where: { $0.id == id })?.text,
               !picking, !runner.isRunning, runner.availability(of: text) == .ready || runner.availability(of: text) == .unlocked else { return }
+        if let saved = commands.folder(id) { confirmRun(text, in: saved) } else { pick(for: id, from: nil) { [self] in confirmRun(text, in: $0) } }
+    }
+
+    /// The folder chip: pick another folder for this command. Does not run it.
+    func changeCommandFolder(_ id: Int) {
+        guard !picking, !runner.isRunning else { return }
+        pick(for: id, from: commands.folder(id)) { _ in }
+    }
+
+    private func confirmRun(_ text: String, in folder: URL) {
+        confirmer.ask(ConfirmRequest(title: "Run this command?", command: "cd \(Self.shellQuoted(folder.path)) && \(text)",
+                                     note: "Runs in \(folder.path). Stop ends it.", confirmTitle: "Run",
+                                     commandLines: 4, keepPanelOpen: true) { [runner] in
+            runner.start(command: text, in: folder)
+        })
+    }
+
+    /// Opens the picker at `start` (the panel stays open meanwhile), remembers the choice on the command, then calls `then`. Cancelling does neither.
+    private func pick(for id: Int, from start: URL?, then: @escaping (URL) -> Void) {
         picking = true
         Task {
-            let folder = await pickFolder()
+            let folder = await pickFolder(start)
             picking = false
             changed() // the picker took key status; the panel takes it back for the confirm sheet
             guard let folder else { return }
-            confirmer.ask(ConfirmRequest(title: "Run this command?", command: "cd \(Self.shellQuoted(folder.path)) && \(text)",
-                                         note: "Runs in \(folder.path). Stop ends it.", confirmTitle: "Run",
-                                         commandLines: 4, keepPanelOpen: true) { [runner] in
-                runner.start(command: text, in: folder)
-            })
+            commands.setFolder(id, folder.path)
+            then(folder)
         }
     }
 
@@ -478,14 +495,15 @@ final class NotchModel {
 
     static func shellQuoted(_ s: String) -> String { "'" + s.replacingOccurrences(of: "'", with: "'\\''") + "'" }
 
-    /// One-folder picker. The panel floats at status-bar level, so the picker goes one above it.
-    static func chooseFolder() async -> URL? {
+    /// One-folder picker, opened at `start` when the command already has a folder. The panel floats at status-bar level, so the picker goes one above it.
+    static func chooseFolder(from start: URL?) async -> URL? {
         NSApp.activate()
         let panel = NSOpenPanel()
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = false
-        panel.prompt = "Run Here"
+        panel.directoryURL = start
+        panel.prompt = start == nil ? "Run Here" : "Choose"
         panel.message = "Choose the folder to run the command in"
         panel.level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 1)
         return await withCheckedContinuation { cont in

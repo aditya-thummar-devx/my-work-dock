@@ -96,6 +96,35 @@ struct PresetChip: View {
     }
 }
 
+/// Where a saved command runs: the folder's name, full path on hover. Click to pick another folder.
+struct FolderChip: View {
+    var path: String
+    var enabled = true
+    var action: () -> Void = {}
+    @Environment(\.tokens) private var t
+
+    var body: some View {
+        Button(action: action) {
+            Text(URL(fileURLWithPath: path).lastPathComponent)
+                .font(Typo.ui(Geo.Chip.healthFont, .semibold))
+                .foregroundStyle(t.text2)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .frame(maxWidth: 96) // a long name truncates; a short one is not stretched (fixedSize below)
+                .fixedSize(horizontal: true, vertical: false)
+                .padding(.horizontal, Geo.Chip.healthPadX)
+                .frame(height: Geo.Chip.healthHeight)
+                .background(Capsule().fill(t.ctrl))
+                .contentShape(Capsule())
+                .opacity(enabled ? 1 : 0.5)
+        }
+        .buttonStyle(.plain)
+        .disabled(!enabled)
+        .accessibilityLabel("Change folder: \(path)")
+        .help(path)
+    }
+}
+
 /// Health summary chip: `sharing on` (green, outlined) or `consuming off` (grey).
 struct HealthChip: View {
     enum Tone { case on, off, neutral }

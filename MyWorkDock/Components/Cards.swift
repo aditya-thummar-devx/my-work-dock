@@ -396,6 +396,9 @@ struct SnippetRow: View {
     var editText: Binding<String>?
     /// Commands only: Run, or the lock that explains why there is none.
     var run = RunAvailability.none
+    /// Commands only: the folder Run uses, once chosen; shown as a chip before Run.
+    var folder: String?
+    var onFolder: () -> Void = {}
     var onTap: () -> Void = {}
     var onOpen: () -> Void = {}
     var onRun: () -> Void = {}
@@ -408,6 +411,8 @@ struct SnippetRow: View {
     @Environment(\.tokens) private var t
 
     private var multiline: Bool { kind == .prompts }
+    /// A play button is showing (not the lock, not a non-command row).
+    private var runs: Bool { switch run { case .ready, .unlocked, .busy: true; case .none, .blocked: false } }
 
     var body: some View {
         HStack(alignment: multiline ? .top : .center, spacing: 10) {
@@ -462,6 +467,9 @@ struct SnippetRow: View {
         }
         if kind == .links {
             RowIconButton(glyph: .globe, label: "Open link", fg: t.muted, action: onOpen)
+        }
+        if let folder, runs {
+            FolderChip(path: folder, enabled: run != .busy, action: onFolder)
         }
         switch run {
         case .none: EmptyView()

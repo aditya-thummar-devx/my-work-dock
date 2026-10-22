@@ -32,7 +32,7 @@ struct NotesScreen: View {
             Group {
                 switch model.notesTab {
                 case .todo: TodoView(store: model.notes)
-                case .commands: SnippetScreen(store: model.commands, runner: model.runner, onRun: model.runCommand, onUnlock: model.unlockCommand)
+                case .commands: SnippetScreen(store: model.commands, runner: model.runner, onRun: model.runCommand, onUnlock: model.unlockCommand, onFolder: model.changeCommandFolder)
                 case .prompts: SnippetScreen(store: model.prompts)
                 case .links: SnippetScreen(store: model.links)
                 }

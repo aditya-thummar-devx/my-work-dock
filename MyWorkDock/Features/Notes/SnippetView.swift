@@ -12,6 +12,7 @@ struct SnippetScreen: View {
     var runner: CommandRunner?
     var onRun: (Int) -> Void = { _ in }
     var onUnlock: (Int) -> Void = { _ in }
+    var onFolder: (Int) -> Void = { _ in }
 
     var body: some View {
         VStack(spacing: Geo.Surface.fieldGap) {
@@ -24,7 +25,7 @@ struct SnippetScreen: View {
                 // The prototype's empty list still draws its 2 pt border + fill under the box (and keeps its flex gap).
                 GroupedList(count: 0, rowHeight: Geo.Row.snippetHeight) { _ in EmptyView() }
             } else {
-                SnippetList(store: store, runner: runner, onRun: onRun, onUnlock: onUnlock)
+                SnippetList(store: store, runner: runner, onRun: onRun, onUnlock: onUnlock, onFolder: onFolder)
             }
         }
         .overlay(alignment: .bottom) {
@@ -92,6 +93,7 @@ struct SnippetList: View {
     var runner: CommandRunner?
     var onRun: (Int) -> Void = { _ in }
     var onUnlock: (Int) -> Void = { _ in }
+    var onFolder: (Int) -> Void = { _ in }
 
     var body: some View {
         let items = store.visibleItems
@@ -99,7 +101,7 @@ struct SnippetList: View {
             let item = items[i]
             SnippetRow(kind: store.kind, text: item.text, copied: store.copiedId == item.id, editing: store.editId == item.id,
                        editText: $store.editDraft,
-                       run: runner?.availability(of: item.text) ?? .none,
+                       run: runner?.availability(of: item.text) ?? .none, folder: item.folder, onFolder: { onFolder(item.id) },
                        onTap: { store.tap(item.id) }, onOpen: { store.open(item.id) }, onRun: { onRun(item.id) }, onUnlock: { onUnlock(item.id) }, onCopy: { store.copy(item.id) }, onEdit: { store.startEdit(item.id) },
                        onDelete: { store.delete(item.id) }, onSave: store.saveEdit, onCancel: store.cancelEdit)
         }

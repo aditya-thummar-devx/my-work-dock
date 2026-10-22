@@ -167,7 +167,7 @@ struct Gallery: View {
         section("GroupedList · rows") {
             GroupedList(count: 3, rowHeight: Geo.Row.todoHeight) { TodoRow(todo: SampleData.todos[[0, 3, 4][$0]]) }
             GroupedList(count: 3, rowHeight: Geo.Row.snippetHeight) { i in
-                SnippetRow(kind: .commands, text: SampleData.commands[i], copied: i == 1, editing: i == 2)
+                SnippetRow(kind: .commands, text: SampleData.commands[i], copied: i == 1, editing: i == 2, run: .ready, folder: i == 0 ? "/Users/me/Projects/mobile-app" : nil)
             }
             GroupedList(count: 2, rowHeight: Geo.Row.snippetHeight) { i in
                 SnippetRow(kind: .prompts, text: SampleData.prompts[i + 2], copied: i == 1, editing: false)
