@@ -237,10 +237,25 @@ final class NotchModelTests: XCTestCase {
 
     func testFeatureRawValuesAreStable() {
         // Stored in UserDefaults as "disabledFeatures".
-        XCTAssertEqual(Feature.allCases.map(\.rawValue), ["clipboard", "calendar", "notes", "claudex", "emulator", "localIP"])
+        XCTAssertEqual(Feature.allCases.map(\.rawValue), ["clipboard", "calendar", "notes", "claudex", "emulator", "localIP", "agents", "sessions"])
+    }
+
+    func testAgentsAndSessionsComeLastAndCanBeSwitchedOff() {
+        XCTAssertEqual(Array(model.enabledTabs.suffix(2)), [.agents, .sessions])
+        model.setEnabled(.agents, false)
+        model.setEnabled(.sessions, false)
+        XCTAssertEqual(model.enabledTabs, [.clipboard, .calendar, .notes, .claudex, .emulator])
+    }
+
+    func testShowOnBoardOpensSessionsFocusedOnTheSession() {
+        model.showOnBoard("abc")
+        XCTAssertEqual(model.mainTab, .sessions)
+        XCTAssertEqual(model.sessions.focusID, "abc")
     }
 
     func testDisablingTheCurrentMenuMovesToTheNextEnabledOne() {
+        model.setEnabled(.agents, false) // only the built-in menus
+        model.setEnabled(.sessions, false)
         model.setMainTab(.notes)
         model.setEnabled(.clipboard, false)
         model.setEnabled(.notes, false)
@@ -295,7 +310,7 @@ final class NotchModelTests: XCTestCase {
     }
 
     func testCalendarSitsBetweenClipboardAndNotes() {
-        XCTAssertEqual(MainTab.allCases, [.clipboard, .calendar, .notes, .claudex, .emulator])
+        XCTAssertEqual(MainTab.allCases, [.clipboard, .calendar, .notes, .claudex, .emulator, .agents, .sessions])
         XCTAssertEqual(MainTab.calendar.label, "My Calendar")
         model.setMainTab(.clipboard)
         model.cycleMainTab()
@@ -324,6 +339,8 @@ final class NotchModelTests: XCTestCase {
     }
 
     func testCycleMainTabWrapsAndSkipsDisabledMenus() {
+        model.setEnabled(.agents, false)
+        model.setEnabled(.sessions, false)
         model.setEnabled(.calendar, false)
         model.setMainTab(.clipboard)
         model.cycleMainTab()
@@ -463,6 +480,8 @@ final class NotchModelTests: XCTestCase {
         XCTAssertNotNil(model.activeSnippets)
         model.setEnabled(.clipboard, false)
         model.setEnabled(.calendar, false)
+        model.setEnabled(.agents, false)
+        model.setEnabled(.sessions, false)
         model.setEnabled(.claudex, false)
         model.setEnabled(.emulator, false)
         model.setEnabled(.notes, false) // mainTab stays .notes: nothing else to move to

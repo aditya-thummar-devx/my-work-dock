@@ -127,6 +127,8 @@ enum SnapshotRunner {
                                                                                             updatedAt: Date(timeIntervalSince1970: 1_790_000_000), onCheckForUpdates: {}).onPanel()) })) { $0.toggleSettings(); $0.openPanel() },
         State("gallery-dark", .gallery, content: .gallery) { $0.setTheme(.dark) },
         State("gallery-light", .gallery, content: .gallery) { $0.setTheme(.light) },
+        State("60-agents", .panel) { m in m.agents.loadSample(); m.setMainTab(.agents); m.openPanel() },
+        State("61-sessions", .panel) { m in m.sessions.loadSample(); m.setMainTab(.sessions); m.openPanel() },
     ]
 
     private static let screenStates: [State] = [
@@ -414,6 +416,7 @@ enum SnapshotRunner {
         },
         State("17-emulator-devices-ios", .panel) {
             $0.mainTab = .emulator
+            $0.emulator.platform = .ios
             $0.openPanel()
         },
         State("18-emulator-devices-android", .panel) {
@@ -424,6 +427,7 @@ enum SnapshotRunner {
         State("19-emulator-wireless", .panel) {
             $0.mainTab = .emulator
             $0.emulatorTab = .wireless
+            $0.emulator.wplatform = .ios
             $0.openPanel()
         },
         State("20-emulator-tunnel", .panel) {
@@ -433,6 +437,7 @@ enum SnapshotRunner {
         },
         State("29-emulator-booting", .panel) {
             $0.mainTab = .emulator
+            $0.emulator.platform = .ios
             $0.emulator.showBootingSample()
             $0.openPanel()
         },

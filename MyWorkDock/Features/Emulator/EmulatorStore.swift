@@ -19,8 +19,8 @@ struct StatusMessage: Equatable {
 @MainActor @Observable
 final class EmulatorStore {
     // View state
-    var platform: EmuPlatform = .ios
-    var wplatform: EmuPlatform = .ios
+    var platform: EmuPlatform = .android
+    var wplatform: EmuPlatform = .android
     private(set) var host = "8081"
     private(set) var device = "8081"
     private(set) var copied = false
