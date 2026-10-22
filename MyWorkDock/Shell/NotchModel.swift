@@ -4,7 +4,7 @@ import Observation
 typealias DisplayID = CGDirectDisplayID
 
 enum MainTab: String, CaseIterable, Identifiable {
-    case clipboard, calendar, notes, claudex, emulator, agents, sessions
+    case clipboard, calendar, notes, claude, claudex, emulator
 
     var id: String { rawValue }
     var label: String {
@@ -18,8 +18,7 @@ enum MainTab: String, CaseIterable, Identifiable {
         switch self {
         case .clipboard: .clipboard
         case .calendar: .calendar
-        case .agents: .chat
-        case .sessions: .terminal
+        case .claude: .chat
         case .notes: .notes
         case .claudex: .gauge
         case .emulator: .phone
@@ -29,8 +28,7 @@ enum MainTab: String, CaseIterable, Identifiable {
         switch self {
         case .clipboard: .clipboard
         case .calendar: .calendar
-        case .agents: .agents
-        case .sessions: .sessions
+        case .claude: .claude
         case .notes: .notes
         case .claudex: .claudex
         case .emulator: .emulator
@@ -40,15 +38,14 @@ enum MainTab: String, CaseIterable, Identifiable {
 
 /// What Settings › Menus can switch off. The raw values are stored in UserDefaults.
 enum Feature: String, CaseIterable, Identifiable {
-    case clipboard, calendar, notes, claudex, emulator, localIP, agents, sessions
+    case clipboard, calendar, notes, claude, claudex, emulator, localIP
 
     var id: String { rawValue }
     var label: String {
         switch self {
         case .clipboard: "Clipboard"
         case .calendar: "My Calendar"
-        case .agents: "Agents"
-        case .sessions: "Sessions"
+        case .claude: "Claude"
         case .notes: "Notes"
         case .claudex: "claudex"
         case .emulator: "Emulator"
@@ -59,8 +56,7 @@ enum Feature: String, CaseIterable, Identifiable {
         switch self {
         case .clipboard: .clipboard
         case .calendar: .calendar
-        case .agents: .chat
-        case .sessions: .terminal
+        case .claude: .chat
         case .notes: .notes
         case .claudex: .gauge
         case .emulator: .phone
@@ -73,11 +69,13 @@ enum Feature: String, CaseIterable, Identifiable {
 enum SubMenu: String, CaseIterable, Identifiable {
     case notesTodo, notesCommands, notesPrompts, notesLinks
     case emulatorDevices, emulatorWireless, emulatorTunnel
-    case claudexUsage, claudexPool, claudexPlay, claudexHealth, claudexTokens
+    case claudeAgents, claudeSessions, claudeTokens
+    case claudexUsage, claudexPool, claudexPlay, claudexHealth
 
     // The raw value is the menu plus the tab's own raw value, so one rule covers every tab (NotchModelTests checks it).
     init(_ tab: NotesTab) { self = SubMenu(rawValue: "notes" + tab.rawValue.capitalized)! }
     init(_ tab: EmulatorTab) { self = SubMenu(rawValue: "emulator" + tab.rawValue.capitalized)! }
+    init(_ tab: ClaudeTab) { self = SubMenu(rawValue: "claude" + tab.rawValue.capitalized)! }
     init(_ tab: ClaudexTab) { self = SubMenu(rawValue: "claudex" + tab.rawValue.capitalized)! }
 
     var id: String { rawValue }
@@ -85,7 +83,8 @@ enum SubMenu: String, CaseIterable, Identifiable {
         switch self {
         case .notesTodo, .notesCommands, .notesPrompts, .notesLinks: .notes
         case .emulatorDevices, .emulatorWireless, .emulatorTunnel: .emulator
-        case .claudexUsage, .claudexPool, .claudexPlay, .claudexHealth, .claudexTokens: .claudex
+        case .claudeAgents, .claudeSessions, .claudeTokens: .claude
+        case .claudexUsage, .claudexPool, .claudexPlay, .claudexHealth: .claudex
         }
     }
     /// The sub-tab's name, as the menu shows it.
@@ -98,11 +97,13 @@ enum SubMenu: String, CaseIterable, Identifiable {
         case .emulatorDevices: "Devices"
         case .emulatorWireless: "Wireless"
         case .emulatorTunnel: "Tunnel"
+        case .claudeAgents: "Agents"
+        case .claudeSessions: "Sessions"
+        case .claudeTokens: "Tokens & cost"
         case .claudexUsage: "Usage"
         case .claudexPool: "Pool"
         case .claudexPlay: "Playground"
         case .claudexHealth: "Health"
-        case .claudexTokens: "Tokens & cost"
         }
     }
 }
@@ -127,6 +128,8 @@ final class NotchModel {
     private(set) var shrinking = false
     var mainTab: MainTab = .clipboard
     var notesTab: NotesTab = .todo
+    /// Claude's sub-tab; it stays where it was when you leave the menu and come back.
+    var claudeTab: ClaudeTab = .agents
     let clipboard: ClipboardStore
     let notes: NotesStore
     let commands: SnippetStore
@@ -198,6 +201,8 @@ final class NotchModel {
     @ObservationIgnored var authUnavailable: () -> String? = Authenticator.unavailableReason
     @ObservationIgnored var authenticate: (String) async -> Bool = { await Authenticator.authenticate(reason: $0) }
     @ObservationIgnored private var lastRank = NotchMode.idle.rank
+    /// Ids of the requests waiting on the last Agents update, to tell a new one from one already shown.
+    @ObservationIgnored private var seenRequests: Set<String> = []
 
     /// `sample: true` keeps every store in memory with the designs' sample data (snapshots, tests).
     @ObservationIgnored private let defaults: UserDefaults?
@@ -209,8 +214,12 @@ final class NotchModel {
             theme = defaults.string(forKey: "theme").flatMap(ThemeMode.init(rawValue:)) ?? .system
             tint = defaults.string(forKey: "tint").flatMap(Tint.init(rawValue:)) ?? .lime
             panelSize = defaults.string(forKey: "panelSize").flatMap(PanelSize.init(rawValue:)) ?? .medium
-            disabled = Set((defaults.stringArray(forKey: "disabledFeatures") ?? []).compactMap(Feature.init(rawValue:)))
-            disabledSubs = Set((defaults.stringArray(forKey: "disabledSubMenus") ?? []).compactMap(SubMenu.init(rawValue:)))
+            let saved = Self.migrated(features: defaults.stringArray(forKey: "disabledFeatures") ?? [],
+                                      subs: defaults.stringArray(forKey: "disabledSubMenus") ?? [])
+            disabled = Set(saved.features.compactMap(Feature.init(rawValue:)))
+            disabledSubs = Set(saved.subs.compactMap(SubMenu.init(rawValue:)))
+            defaults.set(saved.features.filter { Feature(rawValue: $0) != nil }.sorted(), forKey: "disabledFeatures")
+            defaults.set(saved.subs.filter { SubMenu(rawValue: $0) != nil }.sorted(), forKey: "disabledSubMenus")
             if let saved = defaults.stringArray(forKey: "peekSources") { peekOn = PeekSource.restored(saved) }
             showOnAllDisplays = defaults.bool(forKey: "showOnAllDisplays")
             if defaults.string(forKey: "seenVersion") != version {
@@ -246,6 +255,7 @@ final class NotchModel {
         agents.onData = { [weak self] in
             guard let self else { return }
             self.sessions.ensureTitles(self.agents.sessions.map(\.transcriptID))
+            self.showNewRequests()
         }
         if let first = enabledTabs.first, !enabledTabs.contains(mainTab) { mainTab = first }
         syncSubMenus()
@@ -288,6 +298,7 @@ final class NotchModel {
     func isEnabled(_ sub: SubMenu) -> Bool { !disabledSubs.contains(sub) }
     var enabledNotesTabs: [NotesTab] { NotesTab.allCases.filter { isEnabled(SubMenu($0)) } }
     var enabledEmulatorTabs: [EmulatorTab] { EmulatorTab.allCases.filter { isEnabled(SubMenu($0)) } }
+    var enabledClaudeTabs: [ClaudeTab] { ClaudeTab.allCases.filter { isEnabled(SubMenu($0)) } }
     func isPeekEnabled(_ source: PeekSource) -> Bool { peekOn.contains(source) }
 
     /// What hover draws. claudex on: its two ears, or the hint while it has no account to show. Otherwise the TODO and
@@ -436,7 +447,7 @@ final class NotchModel {
         switch mainTab {
         case .clipboard: break
         case .calendar: calendar.cycleMode()
-        case .agents, .sessions: break
+        case .claude: if let tab = next(claudeTab, in: enabledClaudeTabs) { setClaudeTab(tab) }
         case .notes: if let tab = next(notesTab, in: enabledNotesTabs) { setNotesTab(tab) }
         case .claudex: if let tab = next(claudex.activeTab, in: claudex.visibleTabs) { claudex.select(tab) }
         case .emulator: if let tab = next(emulatorTab, in: enabledEmulatorTabs) { setEmulatorTab(tab) }
@@ -445,8 +456,22 @@ final class NotchModel {
 
     /// Agents › Show on board.
     func showOnBoard(_ transcriptID: String) {
-        setMainTab(.sessions)
+        guard isEnabled(.claude), enabledClaudeTabs.contains(.sessions) else { return }
+        setMainTab(.claude)
+        claudeTab = .sessions
         sessions.focus(transcriptID)
+    }
+
+    func setClaudeTab(_ tab: ClaudeTab) { claudeTab = tab }
+
+    /// A request that was not waiting a moment ago, while Claude is on screen on another tab: Agents is where it is answered.
+    private func showNewRequests() {
+        let ids = Set(agents.pending.map(\.id))
+        defer { seenRequests = ids }
+        guard !ids.subtracting(seenRequests).isEmpty, open, !settings, mainTab == .claude, claudeTab != .agents,
+              enabledClaudeTabs.contains(.agents) else { return }
+        claudeTab = .agents
+        changed()
     }
 
     func setEmulatorTab(_ tab: EmulatorTab) {
@@ -666,7 +691,7 @@ final class NotchModel {
         }
         defaults?.set(disabledSubs.map(\.rawValue).sorted(), forKey: "disabledSubMenus")
         syncSubMenus()
-        if sub == .claudexTokens, on { applyServices(only: .claudex) } // the transcript scan starts at launch, so switching it back on starts it
+        if sub.parent == .claude { applyServices(only: .claude) } // the hook server and the transcript scan follow their tabs
         changed()
     }
 
@@ -675,6 +700,7 @@ final class NotchModel {
         claudex.hidden = Set(ClaudexTab.allCases.filter { !isEnabled(SubMenu($0)) })
         if let first = enabledNotesTabs.first, !enabledNotesTabs.contains(notesTab) { setNotesTab(first) }
         if let first = enabledEmulatorTabs.first, !enabledEmulatorTabs.contains(emulatorTab) { setEmulatorTab(first) }
+        if let first = enabledClaudeTabs.first, !enabledClaudeTabs.contains(claudeTab) { setClaudeTab(first) }
     }
 
     /// Settings › Peek. claudex on takes the whole hover and switches the others off; claudex off puts them all back on.
@@ -709,14 +735,34 @@ final class NotchModel {
         if apply(.localIP) {
             if isEnabled(.localIP) { localIP.startMonitoring() } else { localIP.stopMonitoring() }
         }
-        if apply(.claudex), isEnabled(.claudex) {
-            Task { await claudex.refresh() }
-            if isEnabled(SubMenu.claudexTokens) { claudeUsage.startIfActive() } // no tab to show it in: no transcript scan
+        if apply(.claudex), isEnabled(.claudex) { Task { await claudex.refresh() } }
+        if apply(.claude) {
+            let on = isEnabled(.claude)
+            if on, isEnabled(SubMenu.claudeAgents) { agents.start() } else { agents.stop() }
+            if on, isEnabled(SubMenu.claudeTokens) { claudeUsage.startIfActive() } // no tab to show it in: no transcript scan
         }
         if apply(.calendar), !isEnabled(.calendar) { calendar.stop() }
-        if apply(.agents) {
-            if isEnabled(.agents) { agents.start() } else { agents.stop() }
+    }
+
+    /// Saved switches from before Claude was one menu: Agents and Sessions were menus of their own and Tokens & cost a claudex tab.
+    /// They become Claude's tabs; with all three off the Claude menu is off. Anything already saved in the new form is kept.
+    nonisolated static func migrated(features: [String], subs: [String]) -> (features: [String], subs: [String]) {
+        let legacy: [(old: String, new: String)] = [("agents", "claudeAgents"), ("sessions", "claudeSessions")]
+        var features = features, subs = subs
+        for (old, new) in legacy where features.contains(old) {
+            features.removeAll { $0 == old }
+            if !subs.contains(new) { subs.append(new) }
         }
+        if subs.contains("claudexTokens") {
+            subs.removeAll { $0 == "claudexTokens" }
+            if !subs.contains("claudeTokens") { subs.append("claudeTokens") }
+        }
+        let tabs = ["claudeTokens", "claudeAgents", "claudeSessions"]
+        if tabs.allSatisfy(subs.contains) {
+            subs.removeAll { tabs.contains($0) }
+            if !features.contains("claude") { features.append("claude") }
+        }
+        return (features, subs)
     }
 
     private static var versionLabel: String {

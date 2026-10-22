@@ -8,7 +8,7 @@ struct AgentsScreen: View {
     var body: some View {
         let store = model.agents
         VStack(alignment: .leading, spacing: 12) {
-            SetupBanner(store: store).padding(.top, Geo.Chrome.subNavTop)
+            SetupBanner(store: store)
             HStack(alignment: .top, spacing: 14) {
                 VStack(alignment: .leading, spacing: 8) {
                     SectionLabel(text: "Waiting for you", count: store.pending.count)

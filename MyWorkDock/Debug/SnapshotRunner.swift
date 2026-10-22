@@ -132,8 +132,8 @@ enum SnapshotRunner {
                                                                                             updatedAt: Date(timeIntervalSince1970: 1_790_000_000), onCheckForUpdates: {}).onPanel()) })) { $0.toggleSettings(); $0.openPanel() },
         State("gallery-dark", .gallery, content: .gallery) { $0.setTheme(.dark) },
         State("gallery-light", .gallery, content: .gallery) { $0.setTheme(.light) },
-        State("60-agents", .panel) { m in m.agents.loadSample(); m.setMainTab(.agents); m.openPanel() },
-        State("61-sessions", .panel) { m in m.sessions.loadSample(); m.setMainTab(.sessions); m.openPanel() },
+        State("60-agents", .panel) { m in m.agents.loadSample(); m.setMainTab(.claude); m.setClaudeTab(.agents); m.openPanel() },
+        State("61-sessions", .panel) { m in m.sessions.loadSample(); m.setMainTab(.claude); m.setClaudeTab(.sessions); m.openPanel() },
     ]
 
     private static let screenStates: [State] = [
@@ -494,39 +494,39 @@ enum SnapshotRunner {
             $0.claudex.select(.health)
             $0.openPanel()
         },
-        // No reference design: Tokens & cost, from Claude Code's transcripts. It works with claudex missing (only that tab is left).
-        State("58-claudex-tokens", .panel) {
-            $0.mainTab = .claudex
-            $0.claudex.select(.tokens)
+        // No reference design: Claude › Tokens & cost, from Claude Code's transcripts. It works without claudex.
+        State("58-claude-tokens", .panel) {
+            $0.mainTab = .claude
+            $0.setClaudeTab(.tokens)
             $0.openPanel()
         },
-        State("59-claudex-tokens-partial", .panel) {
-            $0.mainTab = .claudex
-            $0.claudex.select(.tokens)
+        State("59-claude-tokens-partial", .panel) {
+            $0.mainTab = .claude
+            $0.setClaudeTab(.tokens)
             $0.claudeUsage.showSamplePartial()
             $0.openPanel()
         },
-        State("60-claudex-missing-tokens", .panel) {
+        State("60-claudex-missing", .panel) {
             $0.mainTab = .claudex
             $0.claudex.showSampleUnavailable()
             $0.openPanel()
         },
-        State("61-claudex-tokens-empty", .panel) {
-            $0.mainTab = .claudex
-            $0.claudex.select(.tokens)
+        State("61-claude-tokens-empty", .panel) {
+            $0.mainTab = .claude
+            $0.setClaudeTab(.tokens)
             $0.claudeUsage.showSampleEmpty()
             $0.openPanel()
         },
-        State("62-claudex-tokens-loading", .panel) {
-            $0.mainTab = .claudex
-            $0.claudex.select(.tokens)
+        State("62-claude-tokens-loading", .panel) {
+            $0.mainTab = .claude
+            $0.setClaudeTab(.tokens)
             $0.claudeUsage.showSampleLoading()
             $0.openPanel()
         },
-        State("63-light-claudex-tokens", .panel) {
+        State("63-light-claude-tokens", .panel) {
             $0.setTheme(.light)
-            $0.mainTab = .claudex
-            $0.claudex.select(.tokens)
+            $0.mainTab = .claude
+            $0.setClaudeTab(.tokens)
             $0.claudeUsage.showSamplePartial()
             $0.openPanel()
         },

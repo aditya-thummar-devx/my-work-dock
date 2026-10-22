@@ -79,8 +79,20 @@
   <p>Paste a URL and press Enter. <strong>Open</strong> launches it in your default browser, <strong>Copy</strong> copies it. Searchable.</p>
   <p>In Commands, Prompts and Links, a double-click copies the item.</p>
 
+  <h2 id="claude">Claude</h2>
+  <p>Claude Code’s own tools in one menu, before claudex. None of it needs the <code>claudex</code> CLI. Each tab has its own switch in Settings › Menus.</p>
+  <ul>
+    <li><strong>Agents:</strong> approvals and questions waiting for you, and your live Claude Code sessions, with a message box for each. The tab shows how many are waiting, and when a new one arrives while you are on another Claude tab the panel moves to Agents.</li>
+    <li><strong>Sessions:</strong> a board of your Claude Code sessions from the last 30 days, grouped in columns you drag between. Resume or copy the resume command; <strong>Show on board</strong> in Agents jumps to a session here.</li>
+    <li><strong>Tokens &amp; cost:</strong> what Claude Code used on this Mac, in four cards: the last 5 hours (rolling), today, this month and last month. Each shows the tokens (all kinds, cache reads included) and what they would cost at API list prices. That is an estimate, not your plan’s bill. It reads Claude Code’s own transcripts in <code>~/.claude/projects</code> (every account and subagent). The first look takes a few seconds, then it updates every minute while the tab is open.</li>
+    <li>Claude Code deletes a transcript 30 days after its last write, so MyWorkDock keeps daily totals of its own from the first time it looks (it also looks each time the app starts, once you have opened the tab). A month that began before that, or that includes a stretch of more than 30 days in which MyWorkDock did not look, is marked <strong>partial</strong>, with the day from which its numbers are complete.</li>
+  </ul>
+  <figure class="shot">
+    <img src="assets/shots/claudex-tokens.png" alt="Tokens and cost tab with cards for the last 5 hours, today, this month and last month" width="1400" height="867">
+  </figure>
+
   <h2 id="claudex">claudex</h2>
-  <p>A front-end for the <code>claudex</code> command-line tool, which manages several Claude accounts, plus <strong>Tokens &amp; cost</strong>, which does not need it. <strong>Usage, Pool, Playground and Health need <code>claudex</code> installed and on your PATH</strong>; without it they are hidden behind a “claudex is not available” note with the reason and a <strong>Retry</strong> button, and only Tokens &amp; cost is left. Open it with <kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>X</kbd>.</p>
+  <p>A front-end for the <code>claudex</code> command-line tool, which manages several Claude accounts. <strong>It needs <code>claudex</code> installed and on your PATH</strong>; without it the menu shows a “claudex is not available” note with the reason and a <strong>Retry</strong> button. Open it with <kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>X</kbd>.</p>
   <figure class="shot">
     <img src="assets/shots/claudex.png" alt="claudex tab with session and weekly usage gauges per account" width="1400" height="867">
   </figure>
@@ -89,15 +101,9 @@
     <li><strong>Pool:</strong> accounts pooled behind one auto-failover proxy. Allow or deny members, switch, view details, start or stop the pool, and enable autoswitch.</li>
     <li><strong>Playground:</strong> run claudex commands (usage, list, current account, doctor and more) and see the output.</li>
     <li><strong>Health:</strong> claudex doctor results: what is on, wired or failing.</li>
-    <li><strong>Tokens &amp; cost:</strong> what Claude Code used on this Mac, in four cards: the last 5 hours (rolling), today, this month and last month. Each shows the tokens (all kinds, cache reads included) and what they would cost at API list prices. That is an estimate, not your plan’s bill. It reads Claude Code’s own transcripts in <code>~/.claude/projects</code> (every account and subagent), so it needs no claudex. The first look takes a few seconds, then it updates every minute while the tab is open.</li>
-    <li>Claude Code deletes a transcript 30 days after its last write, so MyWorkDock keeps daily totals of its own from the first time it looks (it also looks each time the app starts, once you have opened the tab). A month that began before that, or that includes a stretch of more than 30 days in which MyWorkDock did not look, is marked <strong>partial</strong>, with the day from which its numbers are complete.</li>
     <li>The hover <strong>peek</strong> shows the 5-hour and weekly rings for the active account when you switch it on in Settings › Peek. It then takes the whole peek.</li>
     <li>Results are cached for 60 seconds (use <strong>Refresh</strong>). Any change, such as switching or removing an account, asks you to confirm first. If claudex output looks unfamiliar the tab shows the raw text with a ⚠ instead of guessing.</li>
   </ul>
-
-  <figure class="shot">
-    <img src="assets/shots/claudex-tokens.png" alt="Tokens and cost tab with cards for the last 5 hours, today, this month and last month" width="1400" height="867">
-  </figure>
 
   <h2 id="emulator">Emulator</h2>
   <p>Control iOS simulators and Android emulators without opening Xcode or Android Studio. Open it with <kbd>⌘</kbd> <kbd>⇧</kbd> <kbd>E</kbd>. iOS needs Xcode; Android needs the Android SDK (<code>adb</code> and <code>emulator</code>). MyWorkDock looks in the usual places (such as <code>~/Library/Android/sdk</code> and Homebrew) before falling back to your shell.</p>
@@ -137,7 +143,7 @@
     <thead><tr><th>Page</th><th>What you can change</th></tr></thead>
     <tbody>
       <tr><td><strong>Appearance</strong></td><td>Theme: System, Dark or Light. Tint: lime (default), blue, purple, pink, orange, yellow, green or teal. Panel size: Medium, or Large (three quarters of the display).</td></tr>
-      <tr><td><strong>Menus</strong></td><td>Switch Clipboard, My Calendar, Notes, claudex, Emulator and Local IP on or off. A menu that is off is hidden and stops everything it runs in the background (My Calendar stops talking to Google). Under Notes, claudex and Emulator, each tab (TODO, Commands, Prompts, Links; Usage, Pool, Playground, Health, Tokens &amp; cost; Devices, Wireless, Tunnel) has its own switch, so you can hide the ones you never use; at least one tab always stays. Also <strong>Show on all displays</strong>.</td></tr>
+      <tr><td><strong>Menus</strong></td><td>Switch Clipboard, My Calendar, Notes, Claude, claudex, Emulator and Local IP on or off. A menu that is off is hidden and stops everything it runs in the background (My Calendar stops talking to Google). Under Notes, Claude, claudex and Emulator, each tab (TODO, Commands, Prompts, Links; Agents, Sessions, Tokens &amp; cost; Usage, Pool, Playground, Health; Devices, Wireless, Tunnel) has its own switch, so you can hide the ones you never use; at least one tab always stays. Also <strong>Show on all displays</strong>.</td></tr>
       <tr><td><strong>Peek</strong></td><td>What hover shows. claudex usage is off by default; switching it on takes the whole hover and switches the rest off. Otherwise the TODO counts (not done, done) and clipboard counts (total, pinned) show left of the notch and the local IP on its right. Anything with nothing to show is hidden, and each needs its menu on (the TODO count also needs Notes › TODO). <strong>Today’s events</strong> (off by default) add a row under whichever is showing, claudex included: the next three events today that are not over yet, with how long until each starts. Click an event to open it in My Calendar, scrolled to it with its details open; click elsewhere on the row to open My Calendar on today. It needs My Calendar signed in, and it asks Google only when you hover (at most once a minute).</td></tr>
       <tr><td><strong>Clipboard</strong></td><td>How many untagged clips to keep (1 to 1000, default 200). Lowering it deletes the oldest ones, so it asks first.</td></tr>
       <tr><td><strong>Version</strong></td><td>Current version, when it last updated, and <strong>Check for updates</strong>.</td></tr>
