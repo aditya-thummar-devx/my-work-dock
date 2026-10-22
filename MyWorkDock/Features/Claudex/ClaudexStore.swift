@@ -1,8 +1,7 @@
 import Foundation
 import Observation
 
-/// `tokens` is Tokens & cost: it reads Claude Code's own transcripts and never needs the claudex CLI.
-enum ClaudexTab: String, CaseIterable { case usage, pool, play, health, tokens }
+enum ClaudexTab: String, CaseIterable { case usage, pool, play, health }
 
 /// One claudex read: what the parser made of it, and the raw text it came from, so a panel can fall back to
 /// plain text (with a ⚠) when the parser no longer recognises the output.
@@ -73,14 +72,10 @@ final class ClaudexStore {
 
     /// Settings › Menus: tabs switched off there. Set by `NotchModel`.
     var hidden: Set<ClaudexTab> = []
-    /// The tabs the sub-nav shows. While claudex gives nothing the other four cannot show anything, so only Tokens & cost is left
-    /// (and nothing if that is switched off too: the screen then shows just why).
-    var visibleTabs: [ClaudexTab] {
-        let shown = ClaudexTab.allCases.filter { !hidden.contains($0) }
-        return unavailable == nil ? shown : shown.filter { $0 == .tokens }
-    }
+    /// The tabs the sub-nav shows. While claudex gives nothing none of them can show anything: the screen then shows just why.
+    var visibleTabs: [ClaudexTab] { unavailable == nil ? ClaudexTab.allCases.filter { !hidden.contains($0) } : [] }
     /// The tab on screen: the chosen one, or the first showing when that one is switched off.
-    var activeTab: ClaudexTab { unavailable == nil ? (visibleTabs.contains(tab) ? tab : visibleTabs.first ?? tab) : .tokens }
+    var activeTab: ClaudexTab { visibleTabs.contains(tab) ? tab : visibleTabs.first ?? tab }
 
     // Member details sheet
     private(set) var detailName: String?
@@ -183,7 +178,7 @@ final class ClaudexStore {
         return s
     }
 
-    var footer: String { activeTab == .tokens ? ClaudeUsageStore.footer : message ?? Self.defaultFooter }
+    var footer: String { message ?? Self.defaultFooter }
 
     /// Peek ears: pool on -> the pool member claudex has selected (▶, POOL); pool off -> the active account of the SSO
     /// list (SSO). No reading shows "—" and "no reading". nil when claudex gave no account at all (missing, logged out, unreadable).
@@ -305,7 +300,7 @@ final class ClaudexStore {
     // MARK: Navigation
 
     func select(_ t: ClaudexTab) {
-        tab = unavailable == nil ? t : .tokens
+        tab = t
         sortOpen = false
         detailName = nil
         detailLoading = false
@@ -484,10 +479,9 @@ final class ClaudexStore {
         detailAge = 60
     }
 
-    /// Snapshot states only: claudex missing, so only Tokens & cost is left.
+    /// Snapshot states only: claudex missing.
     func showSampleUnavailable() {
         unavailable = "claudex not found. Install it or add it to PATH."
-        tab = .tokens
     }
 
     func showSampleOutput() {
