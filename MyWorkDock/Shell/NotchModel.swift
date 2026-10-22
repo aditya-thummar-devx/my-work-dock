@@ -500,7 +500,7 @@ final class NotchModel {
         open ? closePanel() : openPanel()
     }
 
-    /// ⌘⇧V / ⌘⇧T / ⌘⇧C / ⌘⇧P / ⌘⇧L / ⌘⇧E / ⌘⇧X: opens the panel on `tab` (and Notes sub-tab `sub`). No-op if that menu is switched off.
+    /// ⌘⇧V / ⌘⇧D / ⌘⇧C / ⌘⇧P / ⌘⇧L / ⌘⇧E / ⌘⇧X: opens the panel on `tab` (and Notes sub-tab `sub`). No-op if that menu is switched off.
     func show(_ tab: MainTab, notes sub: NotesTab? = nil) {
         guard isEnabled(tab.feature) else { return }
         if mainTab != tab { setMainTab(tab) }

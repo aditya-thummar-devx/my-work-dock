@@ -39,7 +39,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             HotKey(keyCode: kVK_Space, modifiers: optionKey) { [weak controller] in controller?.model.togglePanel() },
             HotKey(keyCode: kVK_ANSI_V, modifiers: cmdShift) { [weak controller] in controller?.model.show(.clipboard) },
             HotKey(keyCode: kVK_ANSI_M, modifiers: cmdShift) { [weak controller] in controller?.model.show(.calendar) },
-            HotKey(keyCode: kVK_ANSI_T, modifiers: cmdShift) { [weak controller] in controller?.model.show(.notes, notes: .todo) },
+            HotKey(keyCode: kVK_ANSI_D, modifiers: cmdShift) { [weak controller] in controller?.model.show(.notes, notes: .todo) },
             HotKey(keyCode: kVK_ANSI_C, modifiers: cmdShift) { [weak controller] in controller?.model.show(.notes, notes: .commands) },
             HotKey(keyCode: kVK_ANSI_P, modifiers: cmdShift) { [weak controller] in controller?.model.show(.notes, notes: .prompts) },
             HotKey(keyCode: kVK_ANSI_L, modifiers: cmdShift) { [weak controller] in controller?.model.show(.notes, notes: .links) },
