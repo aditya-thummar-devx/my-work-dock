@@ -29,6 +29,10 @@ extension Geo {
         static let subRowHeight: CGFloat = 28
         static let subIndent: CGFloat = 33
         static let subFont: CGFloat = 12
+        /// Each menu is a card holding its own switch and its tabs, so the grouping reads at a glance.
+        static let cardRadius: CGFloat = 12
+        static let cardPadY: CGFloat = 4
+        static let cardGap: CGFloat = 8
         static let switchSize = (width: CGFloat(34), height: CGFloat(20))
         static let switchKnob: CGFloat = 14
     }
@@ -286,11 +290,12 @@ private struct ClipboardSection: View {
     }
 }
 
-/// Where the two Menus columns break. A menu and its sub-tab switches stay together, so the break goes between menus,
-/// at the point that leaves the columns closest in height. The first menu always stays on the left.
+/// Where the two Menus columns break. A menu's card (itself and its sub-tab switches) stays whole, so the break goes between
+/// cards, at the point that leaves the columns closest in height. The first card always stays on the left.
 enum MenuColumns {
-    /// `rows`: how many rows each menu takes (itself plus its sub-tabs). Returns how many menus go in the left column.
-    static func split(_ rows: [Int]) -> Int {
+    /// `heights`: how tall each menu's card is. Returns how many cards go in the left column.
+    static func split(_ heights: [Int]) -> Int {
+        let rows = heights
         let total = rows.reduce(0, +)
         var left = 0, best = rows.count, gap = Int.max
         for (i, n) in rows.enumerated().dropLast() {
@@ -315,14 +320,13 @@ private struct MenusSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Geo.Chrome.popoverGap) {
             Text("Menus").font(Typo.ui(Geo.Appearance.sectionFont, .semibold)).foregroundStyle(t.faint)
-            // Two columns, filled top to bottom: the switches in one column outgrow the settings screen.
+            // Two columns of cards, filled top to bottom: the switches in one column outgrow the settings screen.
             let features = Array(Feature.allCases)
-            let split = MenuColumns.split(features.map { 1 + subs(of: $0).count })
+            let split = MenuColumns.split(features.map(cardHeight))
             HStack(alignment: .top, spacing: Geo.Appearance.menuColumnGap) {
-                VStack(spacing: 0) { ForEach(features.prefix(split)) { group($0) } }.frame(maxWidth: .infinity)
-                VStack(spacing: 0) { ForEach(features.dropFirst(split)) { group($0) } }.frame(maxWidth: .infinity)
+                VStack(spacing: Geo.Appearance.cardGap) { ForEach(features.prefix(split)) { group($0) } }.frame(maxWidth: .infinity)
+                VStack(spacing: Geo.Appearance.cardGap) { ForEach(features.dropFirst(split)) { group($0) } }.frame(maxWidth: .infinity)
             }
-            .padding(.top, Geo.Appearance.pullUp)
             Text("A menu that is switched off is hidden and stops everything it runs in the background. Under a menu that is on, switch off the tabs you do not use; one always stays.")
                 .font(Typo.ui(Geo.Appearance.noteFont))
                 .foregroundStyle(t.faint)
@@ -330,7 +334,7 @@ private struct MenusSection: View {
                 .fixedSize(horizontal: false, vertical: true)
             Text("Displays").font(Typo.ui(Geo.Appearance.sectionFont, .semibold)).foregroundStyle(t.faint)
             row("Show on all displays", .monitor, on: allDisplays) { onAllDisplays(!allDisplays) }
-                .padding(.top, Geo.Appearance.pullUp)
+                .modifier(MenuCard())
             Text("Also draws the notch on every other display. Hover or click one to use it there.")
                 .font(Typo.ui(Geo.Appearance.noteFont))
                 .foregroundStyle(t.faint)
@@ -344,10 +348,16 @@ private struct MenusSection: View {
         disabled.contains(feature) ? [] : SubMenu.allCases.filter { $0.parent == feature }
     }
 
+    /// A card's height in points, with the gap under it: what the column break balances.
+    private func cardHeight(_ feature: Feature) -> Int {
+        Int(Geo.Appearance.menuRowHeight + CGFloat(subs(of: feature).count) * Geo.Appearance.subRowHeight + 2 * Geo.Appearance.cardPadY + Geo.Appearance.cardGap)
+    }
+
     private func group(_ feature: Feature) -> some View {
-        VStack(spacing: 0) {
+        let children = subs(of: feature)
+        return VStack(spacing: 0) {
             row(feature.label, feature.glyph, on: !disabled.contains(feature)) { onFeature(feature, disabled.contains(feature)) }
-            let children = subs(of: feature)
+            if !children.isEmpty { Rectangle().fill(t.line).frame(height: 1).padding(.horizontal, Geo.Menu.rowPadX) }
             ForEach(children) { sub in
                 let isOn = !disabledSubs.contains(sub)
                 // The last one showing cannot go off: a menu with no tab is just a hidden menu.
@@ -355,10 +365,23 @@ private struct MenusSection: View {
                 SwitchRow(label: sub.label, glyph: nil, on: isOn, locked: last, nested: true) { onSub(sub, !isOn) }
             }
         }
+        .modifier(MenuCard())
     }
 
     private func row(_ label: String, _ glyph: Glyph, on: Bool, toggle: @escaping () -> Void) -> some View {
         SwitchRow(label: label, glyph: glyph, on: on, toggle: toggle)
+    }
+}
+
+/// The card around one menu's switches (and around Show on all displays).
+private struct MenuCard: ViewModifier {
+    @Environment(\.tokens) private var t
+
+    func body(content: Content) -> some View {
+        content
+            .padding(.vertical, Geo.Appearance.cardPadY)
+            .background(RoundedRectangle(cornerRadius: Geo.Appearance.cardRadius).fill(t.card))
+            .overlay(RoundedRectangle(cornerRadius: Geo.Appearance.cardRadius).strokeBorder(t.border, lineWidth: 1))
     }
 }
 
