@@ -412,6 +412,7 @@ enum SnapshotRunner {
         },
         State("17-emulator-devices-ios", .panel) {
             $0.mainTab = .emulator
+            $0.emulator.platform = .ios
             $0.openPanel()
         },
         State("18-emulator-devices-android", .panel) {
@@ -422,6 +423,7 @@ enum SnapshotRunner {
         State("19-emulator-wireless", .panel) {
             $0.mainTab = .emulator
             $0.emulatorTab = .wireless
+            $0.emulator.wplatform = .ios
             $0.openPanel()
         },
         State("20-emulator-tunnel", .panel) {
@@ -431,6 +433,7 @@ enum SnapshotRunner {
         },
         State("29-emulator-booting", .panel) {
             $0.mainTab = .emulator
+            $0.emulator.platform = .ios
             $0.emulator.showBootingSample()
             $0.openPanel()
         },
