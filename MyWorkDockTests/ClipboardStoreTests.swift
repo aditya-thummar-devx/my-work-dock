@@ -286,4 +286,108 @@ final class ClipboardStoreTests: XCTestCase {
         XCTAssertEqual(ClipboardStore.sample().peekClips, PeekClips(total: 4, pinned: 1))
         XCTAssertNil(ClipboardStore(url: nil, seed: []).peekClips)
     }
+
+    func testClearAllDeletesAllClipsAndSaves() {
+        let url = FileManager.default.temporaryDirectory.appending(path: "clip-\(UUID().uuidString).json")
+        defer { try? FileManager.default.removeItem(at: url) }
+        let (store, pb) = make(url: url)
+        copy("a", store, pb)
+        copy("b", store, pb)
+        XCTAssertEqual(store.items.count, 2)
+        XCTAssertNotNil(store.peekClips)
+        store.clearAll()
+        XCTAssertTrue(store.items.isEmpty)
+        XCTAssertNil(store.peekClips)
+        let (again, _) = make(url: url)
+        XCTAssertTrue(again.items.isEmpty)
+    }
+
+    func testClearAllPreservingPinnedKeepsOnlyPinned() {
+        let (store, pb) = make()
+        copy("a", store, pb)
+        copy("b", store, pb)
+        copy("c", store, pb)
+        store.togglePin(store.items.first { $0.text == "b" }!.id)
+        store.clearAll(includingPinned: false)
+        XCTAssertEqual(store.items.map(\.text), ["b"])
+        XCTAssertEqual(store.peekClips, PeekClips(total: 1, pinned: 1))
+    }
+
+    func testRequestClearAllWithNoPinnedClipsAsksConfirmerAndExecutesOnConfirm() async {
+        let (store, pb) = make()
+        copy("a", store, pb)
+        copy("b", store, pb)
+        store.requestClearAll()
+        guard let pending = store.confirmer.pending else {
+            return XCTFail("Expected confirmer.pending to be set")
+        }
+        XCTAssertEqual(pending.title, "Clear all clipboard history?")
+        XCTAssertEqual(pending.command, "Delete all 2 clips")
+        XCTAssertEqual(pending.confirmTitle, "Clear all")
+        XCTAssertTrue(pending.danger)
+
+        store.confirmer.cancel()
+        XCTAssertEqual(store.items.count, 2)
+
+        store.requestClearAll()
+        await store.confirmer.pending?.run()
+        store.confirmer.cancel()
+        XCTAssertTrue(store.items.isEmpty)
+    }
+
+    func testRequestClearAllWithPinnedClipsAsksToKeepPinned() async {
+        let (store, pb) = make()
+        copy("a", store, pb)
+        copy("b", store, pb)
+        copy("c", store, pb)
+        store.togglePin(store.items.first { $0.text == "c" }!.id)
+        store.requestClearAll()
+        guard let pending = store.confirmer.pending else {
+            return XCTFail("Expected confirmer.pending to be set")
+        }
+        XCTAssertEqual(pending.title, "Clear clipboard history?")
+        XCTAssertEqual(pending.command, "Delete 2 unpinned clips")
+        XCTAssertEqual(pending.note, "1 pinned clip will stay. This can't be undone.")
+        XCTAssertEqual(pending.confirmTitle, "Clear 2")
+        XCTAssertTrue(pending.danger)
+
+        await store.confirmer.pending?.run()
+        store.confirmer.cancel()
+        XCTAssertEqual(store.items.map(\.text), ["c"])
+    }
+
+    func testRequestClearAllWhenAllClipsArePinnedAsksToClearPinned() async {
+        let (store, pb) = make()
+        copy("pinned clip", store, pb)
+        store.togglePin(store.items[0].id)
+        store.requestClearAll()
+        guard let pending = store.confirmer.pending else {
+            return XCTFail("Expected confirmer.pending to be set")
+        }
+        XCTAssertEqual(pending.title, "Clear all pinned clips?")
+        XCTAssertEqual(pending.command, "Delete all 1 pinned clip")
+        XCTAssertEqual(pending.confirmTitle, "Clear all")
+        XCTAssertTrue(pending.danger)
+
+        await store.confirmer.pending?.run()
+        store.confirmer.cancel()
+        XCTAssertTrue(store.items.isEmpty)
+    }
+
+    func testRequestClearAllWhenEmptyDoesNothing() {
+        let (store, _) = make()
+        store.requestClearAll()
+        XCTAssertNil(store.confirmer.pending)
+    }
+
+    func testClearAllPreservesCustomTags() {
+        let (store, pb) = make()
+        makeTag("dev", store)
+        copy("npm test", store, pb)
+        store.assign("dev", to: store.items[0].id)
+        XCTAssertEqual(store.tags, ["dev"])
+        store.clearAll()
+        XCTAssertTrue(store.items.isEmpty)
+        XCTAssertEqual(store.tags, ["dev"])
+    }
 }

@@ -507,6 +507,14 @@ final class NotchModelTests: XCTestCase {
         XCTAssertEqual(model.clipboard.limit, 500)
     }
 
+    func testClipboardSharesConfirmerWithNotchModel() async {
+        XCTAssertTrue(model.clipboard.confirmer === model.confirmer)
+        XCTAssertFalse(model.clipboard.items.isEmpty)
+        model.clipboard.requestClearAll()
+        XCTAssertNotNil(model.confirmer.pending)
+        model.confirmer.cancel()
+    }
+
     func testDisabledNotesIgnoresSearchAndUndoEvenWhileItIsTheLastTab() {
 
         model.setMainTab(.notes)

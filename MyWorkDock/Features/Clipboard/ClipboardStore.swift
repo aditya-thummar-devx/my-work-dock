@@ -70,6 +70,7 @@ final class ClipboardStore {
     @ObservationIgnored var copyToClipboard: (String) -> Void = Clipboard.copy
     /// Called after an item is copied; the shell closes the panel.
     @ObservationIgnored var onCopied: () -> Void = {}
+    @ObservationIgnored let confirmer: Confirmer
     @ObservationIgnored private var lastCount = -1
     @ObservationIgnored private var timer: Timer?
     @ObservationIgnored private var copyTask: Task<Void, Never>?
@@ -85,12 +86,14 @@ final class ClipboardStore {
 
     init(url: URL?, seed: [ClipItem] = [], excluded: Set<String> = [],
          changeCount: @escaping () -> Int = { 0 }, readText: @escaping () -> String? = { nil },
-         frontApp: @escaping () -> String? = { nil }) {
+         frontApp: @escaping () -> String? = { nil },
+         confirmer: Confirmer? = nil) {
         self.url = url
         self.excluded = excluded
         self.changeCount = changeCount
         self.readText = readText
         self.frontApp = frontApp
+        self.confirmer = confirmer ?? Confirmer()
         let saved = JSONFile.load(Saved.self, from: url) ?? JSONFile.load([ClipItem].self, from: url).map { Saved(items: $0) }
         let loaded = saved?.items ?? seed
         var known = saved?.customTags ?? []
@@ -104,24 +107,25 @@ final class ClipboardStore {
     }
 
     /// The running app. Extra bundle IDs to skip go in the `clipboardExcludedApps` default (no UI yet).
-    static func live() -> ClipboardStore {
+    static func live(confirmer: Confirmer? = nil) -> ClipboardStore {
         let extra = Set(UserDefaults.standard.stringArray(forKey: "clipboardExcludedApps") ?? [])
         let store = ClipboardStore(url: JSONFile.url("clipboard.json"), excluded: defaultExcluded.union(extra),
                                    changeCount: { NSPasteboard.general.changeCount },
                                    readText: SystemPasteboard.text,
-                                   frontApp: { NSWorkspace.shared.frontmostApplication?.bundleIdentifier })
+                                   frontApp: { NSWorkspace.shared.frontmostApplication?.bundleIdentifier },
+                                   confirmer: confirmer)
         store.accessDenied = SystemPasteboard.accessDenied
         store.polls = true
         return store
     }
 
-    static func sample() -> ClipboardStore {
+    static func sample(confirmer: Confirmer? = nil) -> ClipboardStore {
         ClipboardStore(url: nil, seed: [
             ClipItem(id: 1, text: "npm run build -- --watch", tag: "dev"),
             ClipItem(id: 2, text: "https://developer.apple.com/documentation/appkit/nspasteboard", pinned: true, tag: "docs"),
             ClipItem(id: 3, text: "git commit -m \"feat: add clipboard tab\"\ngit push -u origin HEAD:refs/heads/feat/clipboard-tab\n# then open the pull request\n# this fourth line is cut off", tag: "dev"),
             ClipItem(id: 4, text: "feat: add clipboard tab", tag: "git"),
-        ])
+        ], confirmer: confirmer)
     }
 
     // MARK: Polling
@@ -383,6 +387,57 @@ final class ClipboardStore {
 
     func delete(_ id: Int) {
         items.removeAll { $0.id == id }
+        save()
+    }
+
+    /// Asks for confirmation via `confirmer`, then deletes clips if confirmed.
+    func requestClearAll(preservePinned: Bool = true) {
+        guard !items.isEmpty else { return }
+        closeMenus()
+        let unpinnedCount = items.filter { !$0.pinned }.count
+        let pinnedCount = items.count - unpinnedCount
+
+        let title: String
+        let command: String
+        let note: String
+        let confirmTitle: String
+        let includingPinned: Bool
+
+        if preservePinned && pinnedCount > 0 {
+            if unpinnedCount > 0 {
+                title = "Clear clipboard history?"
+                command = "Delete \(unpinnedCount) unpinned clip\(unpinnedCount == 1 ? "" : "s")"
+                note = "\(pinnedCount) pinned clip\(pinnedCount == 1 ? "" : "s") will stay. This can't be undone."
+                confirmTitle = "Clear \(unpinnedCount)"
+                includingPinned = false
+            } else {
+                title = "Clear all pinned clips?"
+                command = "Delete all \(pinnedCount) pinned clip\(pinnedCount == 1 ? "" : "s")"
+                note = "This can't be undone."
+                confirmTitle = "Clear all"
+                includingPinned = true
+            }
+        } else {
+            title = "Clear all clipboard history?"
+            command = "Delete all \(items.count) clip\(items.count == 1 ? "" : "s")"
+            note = "This can't be undone."
+            confirmTitle = "Clear all"
+            includingPinned = true
+        }
+
+        confirmer.ask(ConfirmRequest(title: title, command: command, note: note, confirmTitle: confirmTitle, danger: true) { [weak self] in
+            self?.clearAll(includingPinned: includingPinned)
+        })
+    }
+
+    func clearAll(includingPinned: Bool = true) {
+        if includingPinned {
+            items.removeAll()
+        } else {
+            items.removeAll { !$0.pinned }
+        }
+        copiedId = nil
+        hintShown = false
         save()
     }
 

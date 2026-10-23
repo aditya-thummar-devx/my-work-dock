@@ -83,7 +83,7 @@ struct ClipboardScreen: View {
 }
 
 /// Chips on the left (All, then one per tag; tapping a tag filters the list to it, again clears), then search, then `Manage`
-/// at the right. With no tags yet only the search shows.
+/// and `Clear all` at the right.
 private struct TopRow<Search: View>: View {
     var store: ClipboardStore
     @ViewBuilder var search: Search
@@ -106,6 +106,7 @@ private struct TopRow<Search: View>: View {
             }
             search
             if !store.tags.isEmpty { manage }
+            if !store.items.isEmpty { clearAll }
         }
         .frame(height: Geo.SubTab.height)
         .padding(.top, Geo.Chrome.subNavTop)
@@ -152,6 +153,23 @@ private struct TopRow<Search: View>: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Manage tags")
+    }
+
+    /// Clears clips after confirming via the confirm sheet.
+    private var clearAll: some View {
+        Button(action: { store.requestClearAll() }) {
+            HStack(spacing: 6) {
+                Icon(.trash, size: 11, stroke: 2.4)
+                Text("Clear all").font(Typo.ui(12, .semibold))
+            }
+            .foregroundStyle(t.text2)
+            .padding(.horizontal, 11)
+            .frame(height: height)
+            .background(Capsule().fill(t.ctrl))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Clear all clips")
     }
 }
 

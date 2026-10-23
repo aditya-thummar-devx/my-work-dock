@@ -250,14 +250,14 @@ final class NotchModel {
         } else {
             buddyHintSeen = true // snapshots and tests start without the hint; the buddy states ask for it
         }
-        clipboard = sample ? .sample() : .live()
+        let confirmer = Confirmer()
+        self.confirmer = confirmer
+        clipboard = sample ? .sample(confirmer: confirmer) : .live(confirmer: confirmer)
         notes = sample ? .sample() : NotesStore()
         todoBridge = sample ? .sample(notes: notes) : .live(notes: notes)
         commands = sample ? .sample(.commands) : .persistent(.commands)
         prompts = sample ? .sample(.prompts) : .persistent(.prompts)
         links = sample ? .sample(.links) : .persistent(.links)
-        let confirmer = Confirmer()
-        self.confirmer = confirmer
         runner = CommandRunner()
         emulator = sample ? EmulatorStore(sample: false, confirmer: confirmer) : EmulatorStore(confirmer: confirmer)
         claudex = sample ? ClaudexStore(sample: true, confirmer: confirmer) : ClaudexStore(confirmer: confirmer)
