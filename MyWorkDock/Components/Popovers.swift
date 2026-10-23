@@ -95,6 +95,8 @@ struct SettingsScreen: View {
     var buddy = BuddyPrefs()
     var customBuddies = CustomBuddies()
     var clipboardLimit = ClipboardStore.defaultLimit
+    var calendarAutoPeek = false
+    var calendarAutoPeekThreshold = 5
     var version = ""
     var updatedAt: Date?
     /// nil in debug builds (no updater): the Version page then says so instead of showing the button.
@@ -105,6 +107,8 @@ struct SettingsScreen: View {
     var onFeature: (Feature, Bool) -> Void = { _, _ in }
     var onSub: (SubMenu, Bool) -> Void = { _, _ in }
     var onPeek: (PeekSource, Bool) -> Void = { _, _ in }
+    var onCalendarAutoPeek: (Bool) -> Void = { _ in }
+    var onCalendarAutoPeekThreshold: (Int) -> Void = { _ in }
     var onAllDisplays: (Bool) -> Void = { _ in }
     var onBuddy: (BuddyPrefs) -> Void = { _ in }
     var onClipboardLimit: (Int) -> Void = { _ in }
@@ -112,12 +116,14 @@ struct SettingsScreen: View {
     @Environment(\.tokens) private var t
 
     init(theme: ThemeMode, systemIsDark: Bool = true, tint: Tint, panelSize: PanelSize = .medium, disabled: Set<Feature> = [], disabledSubs: Set<SubMenu> = [], peekOn: Set<PeekSource> = PeekSource.defaultOn, allDisplays: Bool = false, buddy: BuddyPrefs = BuddyPrefs(), customBuddies: CustomBuddies = CustomBuddies(), page: Page = .appearance,
-         clipboardLimit: Int = ClipboardStore.defaultLimit, version: String = "", updatedAt: Date? = nil,
+         clipboardLimit: Int = ClipboardStore.defaultLimit, calendarAutoPeek: Bool = false, calendarAutoPeekThreshold: Int = 5, version: String = "", updatedAt: Date? = nil,
          onCheckForUpdates: (() -> Void)? = nil,
          onTheme: @escaping (ThemeMode) -> Void = { _ in }, onTint: @escaping (Tint) -> Void = { _ in },
          onPanelSize: @escaping (PanelSize) -> Void = { _ in },
          onFeature: @escaping (Feature, Bool) -> Void = { _, _ in }, onSub: @escaping (SubMenu, Bool) -> Void = { _, _ in },
          onPeek: @escaping (PeekSource, Bool) -> Void = { _, _ in },
+         onCalendarAutoPeek: @escaping (Bool) -> Void = { _ in },
+         onCalendarAutoPeekThreshold: @escaping (Int) -> Void = { _ in },
          onAllDisplays: @escaping (Bool) -> Void = { _ in },
          onBuddy: @escaping (BuddyPrefs) -> Void = { _ in },
          onClipboardLimit: @escaping (Int) -> Void = { _ in }) {
@@ -132,6 +138,8 @@ struct SettingsScreen: View {
         self.buddy = buddy
         self.customBuddies = customBuddies
         self.clipboardLimit = clipboardLimit
+        self.calendarAutoPeek = calendarAutoPeek
+        self.calendarAutoPeekThreshold = calendarAutoPeekThreshold
         self.version = version
         self.updatedAt = updatedAt
         self.onCheckForUpdates = onCheckForUpdates
@@ -142,6 +150,8 @@ struct SettingsScreen: View {
         self.onFeature = onFeature
         self.onSub = onSub
         self.onPeek = onPeek
+        self.onCalendarAutoPeek = onCalendarAutoPeek
+        self.onCalendarAutoPeekThreshold = onCalendarAutoPeekThreshold
         self.onAllDisplays = onAllDisplays
         self.onBuddy = onBuddy
         _page = State(initialValue: page)
@@ -178,7 +188,12 @@ struct SettingsScreen: View {
             MenusSection(disabled: disabled, disabledSubs: disabledSubs, allDisplays: allDisplays,
                          onFeature: onFeature, onSub: onSub, onAllDisplays: onAllDisplays)
         case .peek:
-            PeekSection(on: peekOn, disabled: disabled, disabledSubs: disabledSubs, onPeek: onPeek)
+            PeekSection(on: peekOn, disabled: disabled, disabledSubs: disabledSubs,
+                        calendarAutoPeek: calendarAutoPeek,
+                        calendarAutoPeekThreshold: calendarAutoPeekThreshold,
+                        onPeek: onPeek,
+                        onCalendarAutoPeek: onCalendarAutoPeek,
+                        onCalendarAutoPeekThreshold: onCalendarAutoPeekThreshold)
         case .clipboard:
             ClipboardSection(limit: clipboardLimit, onLimit: onClipboardLimit)
         case .version:
@@ -399,7 +414,11 @@ private struct PeekSection: View {
     var on: Set<PeekSource>
     var disabled: Set<Feature>
     var disabledSubs: Set<SubMenu>
+    var calendarAutoPeek: Bool
+    var calendarAutoPeekThreshold: Int
     var onPeek: (PeekSource, Bool) -> Void
+    var onCalendarAutoPeek: (Bool) -> Void
+    var onCalendarAutoPeekThreshold: (Int) -> Void
     @Environment(\.tokens) private var t
 
     var body: some View {
@@ -416,6 +435,66 @@ private struct PeekSection: View {
             }
             .padding(.top, Geo.Appearance.pullUp)
             Text("claudex takes the whole hover and switches the rest off; switching it off turns them back on. Otherwise TODO and Clipboard counts show left of the notch and the IP on its right. Today's events add a row under whichever is showing, once you are signed in to My Calendar. Anything with nothing to show is hidden, and each needs its menu (and, for the TODO count, its TODO tab) on in Menus.")
+                .font(Typo.ui(Geo.Appearance.noteFont))
+                .foregroundStyle(t.faint)
+                .lineSpacing(Typo.lineSpacing(size: Geo.Appearance.noteFont, lineHeight: 1.4))
+                .fixedSize(horizontal: false, vertical: true)
+
+            Text("Auto-peek").font(Typo.ui(Geo.Appearance.sectionFont, .semibold)).foregroundStyle(t.faint)
+                .padding(.top, 8)
+            VStack(spacing: 0) {
+                let calOff = disabled.contains(.calendar)
+                SwitchRow(label: "Meeting heads-up", glyph: .video, on: calendarAutoPeek, locked: calOff) {
+                    onCalendarAutoPeek(!calendarAutoPeek)
+                }
+                if calendarAutoPeek {
+                    HStack(spacing: Geo.NewTag.gap) {
+                        Text("Opens before start")
+                            .font(Typo.ui(Geo.Appearance.subFont, .regular))
+                            .foregroundStyle(t.text2)
+                        Spacer()
+                        HStack(spacing: 6) {
+                            Button {
+                                if calendarAutoPeekThreshold > 2 {
+                                    onCalendarAutoPeekThreshold(calendarAutoPeekThreshold - 1)
+                                }
+                            } label: {
+                                Text("−")
+                                    .font(Typo.ui(14, .bold))
+                                    .foregroundStyle(t.text)
+                                    .frame(width: 24, height: 24)
+                                    .background(RoundedRectangle(cornerRadius: 6).fill(t.ctrl))
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(calendarAutoPeekThreshold <= 2 || calOff)
+
+                            Text("\(calendarAutoPeekThreshold) min")
+                                .font(Typo.mono(Geo.NewTag.font, .semibold))
+                                .foregroundStyle(t.text)
+                                .frame(minWidth: 48, alignment: .center)
+
+                            Button {
+                                if calendarAutoPeekThreshold < 30 {
+                                    onCalendarAutoPeekThreshold(calendarAutoPeekThreshold + 1)
+                                }
+                            } label: {
+                                Text("+")
+                                    .font(Typo.ui(14, .bold))
+                                    .foregroundStyle(t.text)
+                                    .frame(width: 24, height: 24)
+                                    .background(RoundedRectangle(cornerRadius: 6).fill(t.ctrl))
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(calendarAutoPeekThreshold >= 30 || calOff)
+                        }
+                    }
+                    .padding(.leading, Geo.Appearance.subIndent)
+                    .padding(.horizontal, Geo.Menu.rowPadX)
+                    .frame(height: Geo.Appearance.subRowHeight)
+                }
+            }
+            .padding(.top, Geo.Appearance.pullUp)
+            Text("Opens the meeting heads-up bar automatically in the notch before events that have a Google Meet or video conference link. Pressing Esc or ✕ shrinks it to a dot beside the notch.")
                 .font(Typo.ui(Geo.Appearance.noteFont))
                 .foregroundStyle(t.faint)
                 .lineSpacing(Typo.lineSpacing(size: Geo.Appearance.noteFont, lineHeight: 1.4))

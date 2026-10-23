@@ -18,9 +18,12 @@ struct OpenPanelView: View {
                                    allDisplays: model.showOnAllDisplays, buddy: model.buddy,
                                    customBuddies: CustomBuddies(library: model.customBuddies, add: model.addCustomBuddy, remove: model.removeCustomBuddy,
                                                                  setFile: { model.setCustomBuddyFile($0, of: $1) }), clipboardLimit: model.clipboard.limit,
+                                   calendarAutoPeek: model.calendarAutoPeekEnabled, calendarAutoPeekThreshold: model.calendarAutoPeekThreshold,
                                    version: model.version, updatedAt: model.updatedAt, onCheckForUpdates: model.checkForUpdates,
                                    onTheme: model.setTheme, onTint: model.setTint, onPanelSize: model.setPanelSize,
-                                   onFeature: model.setEnabled, onSub: model.setEnabled, onPeek: model.setPeekEnabled, onAllDisplays: model.setShowOnAllDisplays,
+                                   onFeature: model.setEnabled, onSub: model.setEnabled, onPeek: model.setPeekEnabled,
+                                   onCalendarAutoPeek: model.setCalendarAutoPeekEnabled, onCalendarAutoPeekThreshold: model.setCalendarAutoPeekThreshold,
+                                   onAllDisplays: model.setShowOnAllDisplays,
                                    onBuddy: model.setBuddy, onClipboardLimit: model.setClipboardLimit)
                         .transition(.opacity)
                 } else if model.enabledTabs.isEmpty {

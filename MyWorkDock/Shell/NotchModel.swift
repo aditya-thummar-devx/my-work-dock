@@ -162,6 +162,13 @@ final class NotchModel {
     private(set) var disabledSubs: Set<SubMenu> = []
     /// Settings › Peek: the sources hover shows. `[.claudex]` alone, or any of the others (claudex takes the whole hover).
     private(set) var peekOn: Set<PeekSource> = PeekSource.defaultOn
+    /// Settings › Peek › Calendar meeting peek: auto-opens the notch N minutes before a meeting with a video link.
+    private(set) var calendarAutoPeekEnabled = false
+    /// How many minutes before start the heads-up fires. Range 2…30; default 5.
+    private(set) var calendarAutoPeekThreshold = 5
+    /// The active auto-peek state; nil when no event is being tracked.
+    private(set) var calendarPeekState: CalendarPeekState?
+    @ObservationIgnored private var autoPeekScheduler: CalendarAutoPeekScheduler?
     var emulatorTab: EmulatorTab = .devices
     /// Forces the live-activity state (debug menu, snapshots); otherwise it follows the emulator store.
     var bootingOverride: String?
@@ -240,6 +247,9 @@ final class NotchModel {
             defaults.set(saved.subs.filter { SubMenu(rawValue: $0) != nil }.sorted(), forKey: "disabledSubMenus")
             if let saved = defaults.stringArray(forKey: "peekSources") { peekOn = PeekSource.restored(saved) }
             showOnAllDisplays = defaults.bool(forKey: "showOnAllDisplays")
+            calendarAutoPeekEnabled = defaults.bool(forKey: "calendarAutoPeekEnabled")
+            let savedThreshold = defaults.integer(forKey: "calendarAutoPeekThreshold")
+            calendarAutoPeekThreshold = savedThreshold > 0 ? min(30, max(2, savedThreshold)) : 5
             buddy = BuddyPrefs(defaults: defaults)
             buddyHintSeen = defaults.bool(forKey: "buddyHintSeen")
             if defaults.string(forKey: "seenVersion") != version {
@@ -275,7 +285,10 @@ final class NotchModel {
         prompts.onCopied = { [weak self] in self?.closePanel() }
         links.onCopied = { [weak self] in self?.closePanel() }
         calendar.willOpenBrowser = { [weak self] in self?.closePanel() } // the open panel floats above the browser
-        calendar.onSignedIn = { [weak self] in self?.show(.calendar) }
+        calendar.onSignedIn = { [weak self] in
+            self?.show(.calendar)
+            self?.applyCalendarAutoPeek()
+        }
         agents.onData = { [weak self] in
             guard let self else { return }
             self.sessions.ensureTitles(self.agents.sessions.map(\.transcriptID))
@@ -350,7 +363,7 @@ final class NotchModel {
     /// Simulator currently booting; drives the live-activity state. Never set while the Emulator menu is off.
     var bootingName: String? { isEnabled(.emulator) ? bootingOverride ?? emulator.bootingName : nil }
 
-    var mode: NotchMode { open ? .open : hover ? .peek : bootingName != nil ? .live : .idle }
+    var mode: NotchMode { open ? .open : (hover || calendarPeekState != nil) ? .peek : bootingName != nil ? .live : .idle }
     var resolvedTheme: ThemeMode { theme.resolved(systemIsDark: appearance.isDark) }
     var isLight: Bool { resolvedTheme == .light }
     var tokens: Tokens { Tokens(mode: resolvedTheme, tint: tint) }
@@ -366,17 +379,25 @@ final class NotchModel {
     func geometry(notch: CGSize? = nil, on display: DisplayID? = nil, screen: CGSize? = nil) -> ShellGeometry {
         switch mode(on: display) {
         case .idle:
-            idleGeometry(notch: notch, on: display)
+            return idleGeometry(notch: notch, on: display)
         case .peek:
+            // Calendar auto-peek: uses a fixed wide bar matching the design (610 pt from HTML spec)
+            // or shrunk width (300 pt) when in shrunk state and not re-expanded.
+            if let calPeek = calendarPeekState {
+                if calPeek.isShrunk && !calPeek.isVisible {
+                    return ShellGeometry(width: Geo.calendarPeekShrunk.width, height: Geo.calendarPeekShrunk.height, radius: Geo.calendarPeekShrunk.radius)
+                }
+                return ShellGeometry(width: Geo.calendarPeek.width, height: Geo.peek.height, radius: Geo.peek.radius)
+            }
             // The events row hangs under the ears: the shell grows by its height and is wide enough for a title. The extra width is
             // split evenly, so the ears stay where they were against the notch.
-            ShellGeometry(width: max(Geo.keepOutWidth + shownPeekExtents.left + shownPeekExtents.right, peekEvents == nil ? 0 : Geo.Peek.eventsMinWidth),
-                          height: Geo.peek.height + (peekEvents?.height ?? 0), radius: Geo.peek.radius,
-                          centerOffset: (shownPeekExtents.right - shownPeekExtents.left) / 2)
+            return ShellGeometry(width: max(Geo.keepOutWidth + shownPeekExtents.left + shownPeekExtents.right, peekEvents == nil ? 0 : Geo.Peek.eventsMinWidth),
+                                 height: Geo.peek.height + (peekEvents?.height ?? 0), radius: Geo.peek.radius,
+                                 centerOffset: (shownPeekExtents.right - shownPeekExtents.left) / 2)
         case .live:
-            ShellGeometry(width: Geo.live.width, height: Geo.live.height, radius: Geo.live.radius)
+            return ShellGeometry(width: Geo.live.width, height: Geo.live.height, radius: Geo.live.radius)
         case .open:
-            ShellGeometry(width: panelSize.size(on: screen).width, height: panelSize.size(on: screen).height, radius: Geo.open.radius)
+            return ShellGeometry(width: panelSize.size(on: screen).width, height: panelSize.size(on: screen).height, radius: Geo.open.radius)
         }
     }
 
@@ -417,6 +438,9 @@ final class NotchModel {
     /// arms it until the pointer has entered at least once (`hover` stays false).
     func pointer(inside: Bool) {
         if inside {
+            if let state = calendarPeekState, state.isShrunk {
+                autoPeekScheduler?.setReExpanded(true, currentState: state)
+            }
             guard !hover || cancelLeave != nil else { return }
             clearLeaveTimer()
             if !hover, isPeekEnabled(.claudex), isEnabled(.claudex) { Task { await claudex.refresh() } } // reads are cached for 60 s
@@ -434,6 +458,9 @@ final class NotchModel {
 
     private func leaveFired() {
         cancelLeave = nil
+        if let state = calendarPeekState, case .shrunk(let item, true) = state {
+            autoPeekScheduler?.setReExpanded(false, currentState: state)
+        }
         // The folder picker, its confirm sheet and the run sheet all lead the pointer away from the panel; none of them may vanish under it.
         if picking || authenticating || runner.sheetOpen || confirmer.pending?.keepPanelOpen == true { return }
         hover = false
@@ -868,6 +895,77 @@ final class NotchModel {
         changed()
     }
 
+    /// Settings › Peek › Calendar meeting heads-up auto-peek toggle.
+    func setCalendarAutoPeekEnabled(_ on: Bool) {
+        guard on != calendarAutoPeekEnabled else { return }
+        calendarAutoPeekEnabled = on
+        defaults?.set(on, forKey: "calendarAutoPeekEnabled")
+        applyCalendarAutoPeek()
+        changed()
+    }
+
+    /// Settings › Peek › Minutes before meeting to show heads-up (2…30 min).
+    func setCalendarAutoPeekThreshold(_ minutes: Int) {
+        let clamped = min(30, max(2, minutes))
+        guard clamped != calendarAutoPeekThreshold else { return }
+        calendarAutoPeekThreshold = clamped
+        defaults?.set(clamped, forKey: "calendarAutoPeekThreshold")
+        autoPeekScheduler?.threshold = clamped
+        changed()
+    }
+
+    private func applyCalendarAutoPeek() {
+        if calendarAutoPeekEnabled && isEnabled(.calendar) {
+            if autoPeekScheduler == nil {
+                autoPeekScheduler = CalendarAutoPeekScheduler(calendar: calendar, threshold: calendarAutoPeekThreshold) { [weak self] state in
+                    self?.setCalendarPeekState(state)
+                }
+            }
+            autoPeekScheduler?.threshold = calendarAutoPeekThreshold
+            autoPeekScheduler?.start()
+        } else {
+            autoPeekScheduler?.stop()
+            autoPeekScheduler = nil
+            setCalendarPeekState(nil)
+        }
+    }
+
+    func setCalendarPeekState(_ state: CalendarPeekState?) {
+        guard state != calendarPeekState else { return }
+        calendarPeekState = state
+        changed()
+    }
+
+    /// Opens the meeting URL in default browser and clears the peek state.
+    func joinMeeting() {
+        guard let url = calendarPeekState?.item.meetURL else { return }
+        NSWorkspace.shared.open(url)
+        autoPeekScheduler?.joined()
+        setCalendarPeekState(nil)
+    }
+
+    /// Dismisses the auto-peek for the current meeting for the session.
+    func dismissCalendarPeek() {
+        autoPeekScheduler?.dismissCurrent()
+        setCalendarPeekState(nil)
+    }
+
+    /// Collapses the auto-peek to a dot (or dismisses completely if already shrunk).
+    func shrinkCalendarPeek() {
+        guard let current = calendarPeekState else { return }
+        if current.isShrunk && !current.isVisible {
+            dismissCalendarPeek()
+        } else {
+            autoPeekScheduler?.shrinkCurrent(currentState: current)
+        }
+    }
+
+    /// Expands the shrunk dot back to the full peek bar on hover/tap.
+    func expandCalendarPeek() {
+        guard let current = calendarPeekState, current.isShrunk else { return }
+        autoPeekScheduler?.setReExpanded(true, currentState: current)
+    }
+
     /// App launch: start the background work of every enabled feature.
     func startServices() { applyServices(only: nil) }
 
@@ -888,7 +986,16 @@ final class NotchModel {
             if on, isEnabled(SubMenu.claudeAgents) { agents.start() } else { agents.stop() }
             if on, isEnabled(SubMenu.claudeTokens) { claudeUsage.startIfActive() } // no tab to show it in: no transcript scan
         }
-        if apply(.calendar), !isEnabled(.calendar) { calendar.stop() }
+        if apply(.calendar) {
+            if isEnabled(.calendar) {
+                applyCalendarAutoPeek()
+            } else {
+                calendar.stop()
+                autoPeekScheduler?.stop()
+                autoPeekScheduler = nil
+                setCalendarPeekState(nil)
+            }
+        }
         if apply(.notes) {
             if isEnabled(.notes), isEnabled(SubMenu.notesTodo) { todoBridge.start() } else { todoBridge.stop() }
         }

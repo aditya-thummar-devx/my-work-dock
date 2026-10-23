@@ -73,7 +73,7 @@ struct GoogleCalendarClient: Sendable {
         repeat {
             var query = [("singleEvents", "true"), ("orderBy", "startTime"), ("timeMin", utc.string(from: from)), ("timeMax", utc.string(from: to)),
                          ("maxResults", "2500"), ("timeZone", cal.timeZone.identifier),
-                         ("fields", "nextPageToken,items(id,status,summary,start,end,colorId,attendees(email,responseStatus,self))")]
+                         ("fields", "nextPageToken,items(id,status,summary,start,end,colorId,attendees(email,responseStatus,self),hangoutLink,conferenceData(conferenceSolution(name),entryPoints(entryPointType,uri)))")]
             query += Self.eventTypes.map { ("eventTypes", $0) }
             if let pageToken { query.append(("pageToken", pageToken)) }
             let page = try decode(Page.self, try await get("\(Self.base)/calendars/\(id)/events?\(HTTP.form(query))"))

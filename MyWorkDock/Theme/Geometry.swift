@@ -66,6 +66,8 @@ enum Geo {
     }
     /// Peek width is not fixed: `keepOutWidth + leftEar + rightEar`, ears hug their content.
     static let peek = (height: CGFloat(48), radius: CGFloat(22))
+    static let calendarPeek = (width: CGFloat(610), height: CGFloat(48), radius: CGFloat(22))
+    static let calendarPeekShrunk = (width: CGFloat(300), height: CGFloat(32), radius: CGFloat(14))
     static let live = (width: CGFloat(520), height: CGFloat(70), radius: CGFloat(26))
     static let open = (width: CGFloat(760), height: CGFloat(480), radius: CGFloat(36))
 
