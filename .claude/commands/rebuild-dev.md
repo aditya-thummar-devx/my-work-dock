@@ -24,7 +24,7 @@ Ask: "Good to go with rebuild from the working tree as-is?" Yes / No.
 - Yes:
   1. Ask: "Build configuration?" Debug (recommended) / Release.
   2. Run `xcodegen generate`. It is idempotent: no diff in the tracked xcodeproj unless `project.yml` changed. (An mtime check is unreliable, git rewrites mtimes on checkout.)
-  3. Build: `xcodebuild -project MyWorkDock.xcodeproj -scheme MyWorkDock -configuration <chosen> -derivedDataPath build build -quiet CURRENT_PROJECT_VERSION=99999`. The high build number stops Sparkle from replacing this dev build with a release within the hour.
+  3. Build: `xcodebuild -project MyWorkDock.xcodeproj -scheme MyWorkDock -configuration <chosen> -derivedDataPath build build -quiet CURRENT_PROJECT_VERSION=99999`. The high build number stops Sparkle from prompting to replace this dev build with a release.
   4. Build failed: quote the shortest decisive error line, stop here, skip step 3.
 
 ## Step 3 - Install now?
