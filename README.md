@@ -15,7 +15,7 @@ Your work dock, in the notch. Hover the top of your Mac's screen: clipboard hist
 - **claudex**: usage gauges and account switching for the optional `claudex` CLI.
 - **Emulator**: start and stop iOS simulators and Android emulators, pair devices over Wi-Fi, run `adb reverse` tunnels.
 - **Global hotkeys**: jump to a tab from any app with `⌘ ⇧` plus a letter. `⌥ Space` opens the panel.
-- **Updates itself**: checks hourly and installs quietly when idle.
+- **Updates itself**: checks daily and asks to install.
 
 ## Install
 
@@ -59,4 +59,4 @@ My Calendar signs in with Google, so a build needs an OAuth client: a Desktop-ap
 
 ## Releasing
 
-Actions tab > **Release** > Run workflow > enter the version (e.g. `0.1.13`) > approve the run. It builds the DMG, signs the appcast and publishes the GitHub release; installed copies pick it up on their next hourly check. It only runs from `main` and needs the `SPARKLE_ED_PRIVATE_KEY` secret on the `release` environment. `scripts/release.sh <version>` does the same from a Mac that holds the key in its Keychain.
+Actions tab > **Release** > Run workflow > enter the version (e.g. `0.1.13`) > approve the run. It builds the DMG, signs the appcast and publishes the GitHub release; installed copies pick it up on their next daily check. It only runs from `main` and needs the `SPARKLE_ED_PRIVATE_KEY` secret on the `release` environment. `scripts/release.sh <version>` does the same from a Mac that holds the key in its Keychain.

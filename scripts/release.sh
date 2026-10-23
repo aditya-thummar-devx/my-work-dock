@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Cut an OTA release: build the DMG, sign the Sparkle appcast, publish both on a GitHub release.
-# Installed copies find it on their next hourly check and relaunch into it once idle.
+# Installed copies find it on their next daily check and prompt to install.
 #
 #   scripts/release.sh 0.1.1          # asks before publishing (needs a real terminal)
 #   scripts/release.sh 0.1.1 --yes    # no prompt, e.g. from Claude Code's `!`

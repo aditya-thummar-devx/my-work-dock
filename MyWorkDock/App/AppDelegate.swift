@@ -22,7 +22,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Debug builds are never updated: they would fetch release builds over themselves.
         #if !DEBUG
         MainActor.assumeIsolated {
-            let updater = Updater(isIdle: { [unowned model] in model.isIdle })
+            let updater = Updater(isIdle: { [unowned model] in model.isIdle },
+                                  closePanel: { [unowned model] in model.closePanel() },
+                                  automaticallyChecksForUpdates: model.autoCheckUpdates)
+            model.onAutoCheckUpdates = { [unowned updater] on in
+                updater.automaticallyChecksForUpdates = on
+            }
             // Sparkle's window is a normal-level window and the open panel floats above it (and never closes on outside clicks), so close it first.
             model.checkForUpdates = { [unowned model] in
                 model.closePanel()

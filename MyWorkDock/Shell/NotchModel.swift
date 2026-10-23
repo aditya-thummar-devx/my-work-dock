@@ -194,6 +194,9 @@ final class NotchModel {
     /// Settings › Version: "1.0 (1)", and when this version first ran here (an install or an update). nil in snapshots and tests.
     let version = NotchModel.versionLabel
     private(set) var updatedAt: Date?
+    /// Settings › Version: whether updates are checked automatically in the background. Defaults to true.
+    private(set) var autoCheckUpdates = true
+    @ObservationIgnored var onAutoCheckUpdates: ((Bool) -> Void)?
     /// Display whose shell peeks / opens; the others stay idle. nil (snapshots) = every shell follows `mode`.
     private(set) var activeDisplay: DisplayID?
 
@@ -257,6 +260,7 @@ final class NotchModel {
                 defaults.set(Date(), forKey: "updatedAt")
             }
             updatedAt = defaults.object(forKey: "updatedAt") as? Date
+            autoCheckUpdates = defaults.object(forKey: "autoCheckUpdates") as? Bool ?? true
         } else {
             buddyHintSeen = true // snapshots and tests start without the hint; the buddy states ask for it
         }
@@ -911,6 +915,15 @@ final class NotchModel {
         calendarAutoPeekThreshold = clamped
         defaults?.set(clamped, forKey: "calendarAutoPeekThreshold")
         autoPeekScheduler?.threshold = clamped
+        changed()
+    }
+
+    /// Settings › Version › Automatically check for updates switch.
+    func setAutoCheckUpdates(_ on: Bool) {
+        guard on != autoCheckUpdates else { return }
+        autoCheckUpdates = on
+        defaults?.set(on, forKey: "autoCheckUpdates")
+        onAutoCheckUpdates?(on)
         changed()
     }
 
