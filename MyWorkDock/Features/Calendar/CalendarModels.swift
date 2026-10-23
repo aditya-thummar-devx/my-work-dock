@@ -33,6 +33,10 @@ struct CalendarEvent: Identifiable, Equatable, Hashable {
     var declined = false
     /// Google's own id, for fetching the details; `id` is this plus the calendar.
     var eventID = ""
+    /// Video join URL from the list response (hangoutLink or conferenceData video entry). nil for events with no video link.
+    var meetURL: URL? = nil
+    /// Conference provider name: "Google Meet", "Zoom", etc. nil when there's no video link.
+    var meetName: String? = nil
 }
 
 /// The few fields of a Google event the grids need; the request's `fields` mask asks for exactly these.
@@ -60,6 +64,20 @@ struct RawEvent: Decodable {
     var end: When?
     var colorId: String?
     var attendees: [Attendee]?
+    var hangoutLink: String?
+    /// Minimal conference data from the list response (only the video entry URI and solution name).
+    var conferenceData: RawEventConference?
+}
+
+/// Minimal conference data decoded from the events.list response fields mask.
+struct RawEventConference: Decodable {
+    struct Solution: Decodable { var name: String? }
+    struct EntryPoint: Decodable {
+        var entryPointType: String?
+        var uri: String?
+    }
+    var conferenceSolution: Solution?
+    var entryPoints: [EntryPoint]?
 }
 
 enum EventParser {
@@ -106,8 +124,20 @@ enum EventParser {
         }
         let declined = raw.attendees?.contains { ($0.isSelf == true || $0.email == calendar.id) && $0.responseStatus == "declined" } ?? false
         let title = raw.summary.flatMap { $0.isEmpty ? nil : $0 } ?? (calendar.busyOnly ? "Busy" : "(No title)")
-        return CalendarEvent(id: "\(calendar.id)|\(raw.id)", calendarID: calendar.id, title: title, start: from, end: to, allDay: allDay,
+        var event = CalendarEvent(id: "\(calendar.id)|\(raw.id)", calendarID: calendar.id, title: title, start: from, end: to, allDay: allDay,
                              color: raw.colorId.flatMap { palette[$0] } ?? calendar.color, declined: declined, eventID: raw.id)
+        // Populate meetURL from hangoutLink or the first video conferenceData entry.
+        if let link = raw.hangoutLink, let url = URL(string: link),
+           let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https" {
+            event.meetURL = url
+            event.meetName = raw.conferenceData?.conferenceSolution?.name ?? "Google Meet"
+        } else if let entry = raw.conferenceData?.entryPoints?.first(where: { $0.entryPointType == "video" }),
+                  let uri = entry.uri, let url = URL(string: uri),
+                  let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https" {
+            event.meetURL = url
+            event.meetName = raw.conferenceData?.conferenceSolution?.name
+        }
+        return event
     }
 
     /// `#9fe1e7` → 0x9FE1E7.

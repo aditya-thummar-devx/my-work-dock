@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		043D3D486CB1C4759511E030 /* Surfaces.swift in Sources */ = {isa = PBXBuildFile; fileRef = 858F6609858992D96433DB80 /* Surfaces.swift */; };
 		04BA5028E7DD969C219CD144 /* OpenPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82C5EDB22D2C108813EB0BD6 /* OpenPanelView.swift */; };
+		0C2109C7C7A43AEAB0048A65 /* CalendarPeekView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C39EADD1BF316F0BB43BDD3 /* CalendarPeekView.swift */; };
 		0D7F24CE1ADE944C93706C19 /* HotKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = 507B24A0C2AFEB72EF9DB202 /* HotKey.swift */; };
 		0EFFA977040153D18AB122E5 /* ClaudeUsageView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BABACDBB72A173310871679 /* ClaudeUsageView.swift */; };
 		1149E57D1659127385A8D3FA /* ClaudeUsageStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 857158B18FF12DC4DADE1330 /* ClaudeUsageStore.swift */; };
@@ -110,6 +111,7 @@
 		A7AF5E6B9E8D9BD2543E34E1 /* NotchModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B97E1C4288EDC22AE19BF414 /* NotchModelTests.swift */; };
 		A7C3904A67D0563366F8F675 /* PeekView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D27D6105A84C4F2EBD04890F /* PeekView.swift */; };
 		AFAA270016FF8CC385293259 /* buddy-pulse.json in Resources */ = {isa = PBXBuildFile; fileRef = 8B7D4525C6F6F62AC6B4D0F6 /* buddy-pulse.json */; };
+		B0E1CEAEEF8C7C6DCD28A5F5 /* CalendarPeekState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FB94351C3A7770A376EF1F0 /* CalendarPeekState.swift */; };
 		B1B9B238698B8D847189604C /* Tokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9973D49E4E706206141196C5 /* Tokens.swift */; };
 		B21ED8F73D62619EBB015952 /* Geist[wght].ttf in Resources */ = {isa = PBXBuildFile; fileRef = 74EA9F0816C0D446937D2461 /* Geist[wght].ttf */; };
 		B2744316E54BA8D19950A741 /* HookWire.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8104852873B388E1D6A2F3FB /* HookWire.swift */; };
@@ -126,6 +128,7 @@
 		C1D659123F163B71A8B285AF /* Cards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0791AC2DC2BB65DC207E6C02 /* Cards.swift */; };
 		C29B6582BE3100C84B67D17E /* CalendarSample.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5513D10DD26468BB73BC9B05 /* CalendarSample.swift */; };
 		C63AA3B3ED9418333D8CE280 /* ClipboardStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 775B32E742D61CE2103286D5 /* ClipboardStoreTests.swift */; };
+		C67C5BF5A3474B5C6917C090 /* CalendarAutoPeekScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0052D483B3B07512F5A8414 /* CalendarAutoPeekScheduler.swift */; };
 		CA6708813B8BD2F5DC928E93 /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = C59C351B32DA140A15D6D8D4 /* Lottie */; };
 		CACBF7000B88CCEEDB0AA106 /* ClaudexTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3EBBF6E673A2BD551CD61669 /* ClaudexTests.swift */; };
 		CBE2E86CE7DB4A15028A8A20 /* BuddyAsset.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAFD09552E89F5D6B8F55B9E /* BuddyAsset.swift */; };
@@ -157,6 +160,7 @@
 		FA6E5329FAD31AF258C3AA25 /* SnippetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF75D679CBBD1CD31DA922BA /* SnippetView.swift */; };
 		FC9B18AA1BEC0517CA3BE8F7 /* BuddyPrefs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84551E29945EDA5751BD0611 /* BuddyPrefs.swift */; };
 		FDEFD59E08B32544CD429A1C /* buddy-emoji-wave.json in Resources */ = {isa = PBXBuildFile; fileRef = B4CE639789218CB84FE0F7B3 /* buddy-emoji-wave.json */; };
+		FE2B89CD0D1E97021637E50B /* CalendarAutoPeekTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95A6A48627271C03C1B1C9EA /* CalendarAutoPeekTests.swift */; };
 		FF06FB9EDEA7D47A13471535 /* CalendarText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 540C47594262FE6E7C8C6A23 /* CalendarText.swift */; };
 		FF5A7F1AB1319E27B59C1608 /* CalendarDataTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 742E4C637E7C173433507FA4 /* CalendarDataTests.swift */; };
 /* End PBXBuildFile section */
@@ -223,6 +227,7 @@
 		170EC65D981DACCAC7F50DCB /* EmulatorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EmulatorView.swift; sourceTree = "<group>"; };
 		174DA180C8C55A169C206321 /* BuddyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuddyView.swift; sourceTree = "<group>"; };
 		1A1AACA66596EF05BC9CE6EE /* TranscriptIndex.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptIndex.swift; sourceTree = "<group>"; };
+		1C39EADD1BF316F0BB43BDD3 /* CalendarPeekView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarPeekView.swift; sourceTree = "<group>"; };
 		20E785AE8A7FC410EAE0E333 /* NotchShape.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchShape.swift; sourceTree = "<group>"; };
 		221459049FDAA4BB7F5CADB0 /* OutputBuffer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutputBuffer.swift; sourceTree = "<group>"; };
 		224A2B071B58057570A00D65 /* Base.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Base.xcconfig; sourceTree = "<group>"; };
@@ -231,6 +236,7 @@
 		2A9E9C219E5402A514BBCFDE /* ClaudexStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudexStore.swift; sourceTree = "<group>"; };
 		2D21F01F7B75E6C071654F53 /* StreamingProcess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamingProcess.swift; sourceTree = "<group>"; };
 		2DAEEB0F70FC3DF502D62B82 /* AgentCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentCore.swift; sourceTree = "<group>"; };
+		2FB94351C3A7770A376EF1F0 /* CalendarPeekState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarPeekState.swift; sourceTree = "<group>"; };
 		308A58D40F4981EFC551C093 /* GoogleAuthTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleAuthTests.swift; sourceTree = "<group>"; };
 		346CBEB1381DFE585C8DCA50 /* CalendarLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarLayout.swift; sourceTree = "<group>"; };
 		36391DD6D35CF8F34256307F /* GoogleCalendarClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GoogleCalendarClient.swift; sourceTree = "<group>"; };
@@ -292,11 +298,13 @@
 		91900544FAD4164858D19EE1 /* ClaudeUsageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeUsageTests.swift; sourceTree = "<group>"; };
 		9286F435184F1D92EF8E55CF /* UsageLedger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageLedger.swift; sourceTree = "<group>"; };
 		9560B277AF811CBA16AF9406 /* NotchContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchContainer.swift; sourceTree = "<group>"; };
+		95A6A48627271C03C1B1C9EA /* CalendarAutoPeekTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarAutoPeekTests.swift; sourceTree = "<group>"; };
 		9973D49E4E706206141196C5 /* Tokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tokens.swift; sourceTree = "<group>"; };
 		9A719DBA5CFFD6B2A2A21DF6 /* CalendarGrids.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarGrids.swift; sourceTree = "<group>"; };
 		9BABACDBB72A173310871679 /* ClaudeUsageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeUsageView.swift; sourceTree = "<group>"; };
 		9E7489A8195E56AB63E88994 /* ClaudeUsageStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeUsageStoreTests.swift; sourceTree = "<group>"; };
 		9FA09B7A2C87B7CC4C986E77 /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		A0052D483B3B07512F5A8414 /* CalendarAutoPeekScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarAutoPeekScheduler.swift; sourceTree = "<group>"; };
 		A2466DD771AABF9148E474A2 /* AgentsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentsView.swift; sourceTree = "<group>"; };
 		A2811D63DAF1BDB46FBF9172 /* MyWorkDock.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MyWorkDock.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A693D8C92368EF5E14F71820 /* SnapshotRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnapshotRunner.swift; sourceTree = "<group>"; };
@@ -371,10 +379,13 @@
 		098471C36C6F81A30B02BADC /* Calendar */ = {
 			isa = PBXGroup;
 			children = (
+				A0052D483B3B07512F5A8414 /* CalendarAutoPeekScheduler.swift */,
 				B00248C7800786512F861D4C /* CalendarDetails.swift */,
 				9A719DBA5CFFD6B2A2A21DF6 /* CalendarGrids.swift */,
 				346CBEB1381DFE585C8DCA50 /* CalendarLayout.swift */,
 				0EAE454CCBE842C94194E6ED /* CalendarModels.swift */,
+				2FB94351C3A7770A376EF1F0 /* CalendarPeekState.swift */,
+				1C39EADD1BF316F0BB43BDD3 /* CalendarPeekView.swift */,
 				25D456883C688E4D2A8DF726 /* CalendarScreen.swift */,
 				57F7D732533030CFD5FA33DD /* CalendarSheet.swift */,
 				517407DD58D7B05A8CA7129B /* CalendarStore.swift */,
@@ -714,6 +725,7 @@
 				C1F876BC563567DB3D42208A /* AgentTests.swift */,
 				6861B42C459C87EFD57D08E0 /* BuddyFileCheckTests.swift */,
 				CFE22105CC90815297A7A0B3 /* BuddyTests.swift */,
+				95A6A48627271C03C1B1C9EA /* CalendarAutoPeekTests.swift */,
 				742E4C637E7C173433507FA4 /* CalendarDataTests.swift */,
 				DDC506B6C38D153418426A8F /* CalendarLayoutTests.swift */,
 				4FA92EF873DB92A9B2B6BB3C /* CalendarParseTests.swift */,
@@ -939,10 +951,13 @@
 				B8F34CFD12CC4DE619964DB7 /* BuddyStates.swift in Sources */,
 				8A8E9BB9566E873909AB62E8 /* BuddyView.swift in Sources */,
 				D9CAB625BAD3FA98CB3E9A89 /* Buttons.swift in Sources */,
+				C67C5BF5A3474B5C6917C090 /* CalendarAutoPeekScheduler.swift in Sources */,
 				B5D5ED043788F47D8DA1953D /* CalendarDetails.swift in Sources */,
 				E3C75166B6FD9A9F7C1B9FA6 /* CalendarGrids.swift in Sources */,
 				84DCD0505ECD9D502C695EFD /* CalendarLayout.swift in Sources */,
 				F4A516960EB8A1186A752763 /* CalendarModels.swift in Sources */,
+				B0E1CEAEEF8C7C6DCD28A5F5 /* CalendarPeekState.swift in Sources */,
+				0C2109C7C7A43AEAB0048A65 /* CalendarPeekView.swift in Sources */,
 				C29B6582BE3100C84B67D17E /* CalendarSample.swift in Sources */,
 				9EE2ADCC4BC56EB40C058C02 /* CalendarScreen.swift in Sources */,
 				61721B0F4DB201CDDA2C57E4 /* CalendarSheet.swift in Sources */,
@@ -1038,6 +1053,7 @@
 				50EC0063A2A4E73E2AE28FFA /* AgentTests.swift in Sources */,
 				5461DC10834E3EFCC3AC8CFA /* BuddyFileCheckTests.swift in Sources */,
 				B540DE8CCED47B9E84471B71 /* BuddyTests.swift in Sources */,
+				FE2B89CD0D1E97021637E50B /* CalendarAutoPeekTests.swift in Sources */,
 				FF5A7F1AB1319E27B59C1608 /* CalendarDataTests.swift in Sources */,
 				72E693F0CB256E31D0782017 /* CalendarLayoutTests.swift in Sources */,
 				229ED64D9F6423260D43735F /* CalendarParseTests.swift in Sources */,
