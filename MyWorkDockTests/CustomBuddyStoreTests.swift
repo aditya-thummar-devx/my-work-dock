@@ -141,15 +141,15 @@ final class CustomBuddyStoreTests: XCTestCase {
         XCTAssertEqual(store().entry("Momo")?.files.count, 2, "a later launch sees the same set")
     }
 
-    func testOffsetsAreClampedRoundedAndKept() throws {
+    func testOffsetsAreWholePointsOfAnySizeAndKept() throws {
         let s = store()
         s.add(from: try download("Momo.json"))
         s.setOffset(.glance, of: "Momo", to: CGPoint(x: -4.6, y: 36))
-        s.setOffset(.nap, of: "Momo", to: CGPoint(x: 900, y: -900))
+        s.setOffset(.nap, of: "Momo", to: CGPoint(x: 900, y: -900)) // no limit
         let saved = try XCTUnwrap(store().entry("Momo")?.offsets)
         XCTAssertEqual(saved.idle, .zero)
         XCTAssertEqual(saved.glance, CGPoint(x: -5, y: 36))
-        XCTAssertEqual(saved.nap, CGPoint(x: 120, y: -10))
+        XCTAssertEqual(saved.nap, CGPoint(x: 900, y: -900))
         try Data("garbage".utf8).write(to: library.appending(path: "Momo/offsets.json"))
         XCTAssertEqual(store().entry("Momo")?.offsets, BuddyOffsets(), "unreadable offsets are the centre, the buddy stays")
     }

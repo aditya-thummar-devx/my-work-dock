@@ -247,6 +247,15 @@ final class BuddyTests: XCTestCase {
         XCTAssertEqual(face.idle, BuddyAsset(.face, emoji: .wave))
     }
 
+    func testTheOffsetFieldsTakeAMinusAndFiveDigitsNothingElse() {
+        XCTAssertEqual(OffsetEditor.clean("-12"), "-12")
+        XCTAssertEqual(OffsetEditor.clean("1-2"), "12")
+        XCTAssertEqual(OffsetEditor.clean("-1a2.5"), "-125")
+        XCTAssertEqual(OffsetEditor.clean("1234567"), "12345")
+        XCTAssertEqual(OffsetEditor.clean("-"), "-")
+        XCTAssertEqual(OffsetEditor.clean(""), "")
+    }
+
     func testTheScheduleGlancesNapsOrStays() {
         func next(glance: Bool = true, nap: Bool = true, bobbing: Bool = false, motion: BuddyMotion = .lively, toNap: Double = 600, gap: Double = 45) -> BuddyStep {
             .next(glance: glance, nap: nap, bobbing: bobbing, motion: motion, toNap: toNap, gap: gap)

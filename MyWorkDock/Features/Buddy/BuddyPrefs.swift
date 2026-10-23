@@ -124,7 +124,7 @@ struct BuddyOffsets: Codable, Equatable {
             }
         }
         set {
-            let p = Self.clamped(newValue)
+            let p = Self.whole(newValue)
             switch state {
             case .idle: idle = p
             case .glance: glance = p
@@ -133,9 +133,6 @@ struct BuddyOffsets: Codable, Equatable {
         }
     }
 
-    /// Whole points inside `Geo.Buddy.States.offsetX` / `offsetY`.
-    static func clamped(_ p: CGPoint) -> CGPoint {
-        let x = Geo.Buddy.States.offsetX, y = Geo.Buddy.States.offsetY
-        return CGPoint(x: min(max(p.x.rounded(), x.lowerBound), x.upperBound), y: min(max(p.y.rounded(), y.lowerBound), y.upperBound))
-    }
+    /// Whole points, any distance: negative is left / up.
+    static func whole(_ p: CGPoint) -> CGPoint { CGPoint(x: p.x.rounded(), y: p.y.rounded()) }
 }

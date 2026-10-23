@@ -226,9 +226,6 @@ enum Geo {
             static let napAfter = 600.0
             /// One state fades out while the next fades in.
             static let fade = 0.4
-            /// Offsets from the ear's centre, in points. Below the notch is the menu bar and the app under it; clicks there go through.
-            static let offsetX: ClosedRange<CGFloat> = -120...120
-            static let offsetY: ClosedRange<CGFloat> = -10...80
             /// A custom file draws at its own size, 1 unit = 1 pt, scaled down to fit this.
             static let maxSize = CGSize(width: 120, height: 120)
             /// Settings › a custom buddy's state row: file line over offset line.

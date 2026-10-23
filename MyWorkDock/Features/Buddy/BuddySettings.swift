@@ -218,12 +218,7 @@ struct BuddySettings: View {
                 }
             }
             if has {
-                HStack(spacing: Geo.Menu.rowGap) {
-                    Text("Offset").font(Typo.ui(Geo.Appearance.noteFont)).foregroundStyle(t.faint)
-                    OffsetField(axis: "X", value: entry.offsets[state].x) { library.setOffset(state, of: entry.id, to: CGPoint(x: $0, y: entry.offsets[state].y)) }
-                    OffsetField(axis: "Y", value: entry.offsets[state].y) { library.setOffset(state, of: entry.id, to: CGPoint(x: entry.offsets[state].x, y: $0)) }
-                    Spacer(minLength: 0)
-                }
+                OffsetEditor(value: entry.offsets[state]) { library.setOffset(state, of: entry.id, to: $0) }
             }
         }
         .padding(Geo.Menu.rowPadX)
@@ -294,39 +289,65 @@ struct BuddySettings: View {
     }
 }
 
-/// One offset in points, typed in; applied as soon as it reads as a number, kept to `Geo.Buddy.States`' range.
-private struct OffsetField: View {
-    var axis: String
-    var value: CGFloat
-    var onChange: (CGFloat) -> Void
-    @State private var draft: String
+/// A state's X and Y offset in points, any whole number (negative: left / up). Typed in and applied together, like the clipboard limit:
+/// writing the store on every key would redraw the panel under the cursor and drop the field's focus.
+struct OffsetEditor: View {
+    var value: CGPoint
+    var onApply: (CGPoint) -> Void
+    @State private var x: String
+    @State private var y: String
     @Environment(\.tokens) private var t
 
-    init(axis: String, value: CGFloat, onChange: @escaping (CGFloat) -> Void) {
-        self.axis = axis
+    init(value: CGPoint, onApply: @escaping (CGPoint) -> Void) {
         self.value = value
-        self.onChange = onChange
-        _draft = State(initialValue: String(Int(value)))
+        self.onApply = onApply
+        _x = State(initialValue: String(Int(value.x)))
+        _y = State(initialValue: String(Int(value.y)))
     }
 
     var body: some View {
+        HStack(spacing: Geo.Menu.rowGap) {
+            Text("Offset").font(Typo.ui(Geo.Appearance.noteFont)).foregroundStyle(t.faint)
+            field("X", $x)
+            field("Y", $y)
+            Spacer(minLength: 0)
+            DockButton(title: "Apply", glyph: nil, metrics: .save, tone: .tint, weight: .bold, action: apply)
+        }
+        .onChange(of: x) { x = Self.clean(x) }
+        .onChange(of: y) { y = Self.clean(y) }
+        .onChange(of: value) { // changed elsewhere: show it
+            x = String(Int(value.x))
+            y = String(Int(value.y))
+        }
+    }
+
+    private func field(_ axis: String, _ text: Binding<String>) -> some View {
         HStack(spacing: 4) {
             Text(axis).font(Typo.ui(Geo.Appearance.noteFont, .semibold)).foregroundStyle(t.text2)
-            DockTextField(text: $draft, placeholder: "0", font: Typo.mono(Geo.NewTag.font))
-                .frame(height: Geo.NewTag.inputHeight)
-                .padding(.horizontal, Geo.NewTag.fieldPad.leading)
-                .frame(width: 52, height: Geo.NewTag.fieldHeight)
-                .background(RoundedRectangle(cornerRadius: Geo.NewTag.fieldRadius).fill(t.inset))
-                .overlay(RoundedRectangle(cornerRadius: Geo.NewTag.fieldRadius).strokeBorder(t.border, lineWidth: 1))
-                .onSubmit { draft = String(Int(value)) } // shows what was kept after clamping
-                .accessibilityLabel("\(axis) offset in points")
+            HStack {
+                DockTextField(text: text, placeholder: "0", font: Typo.mono(Geo.NewTag.font))
+                    .frame(height: Geo.NewTag.inputHeight)
+                    .onSubmit(apply)
+            }
+            .padding(.horizontal, Geo.NewTag.fieldPad.leading)
+            .frame(width: 64, height: Geo.NewTag.fieldHeight)
+            .background(RoundedRectangle(cornerRadius: Geo.NewTag.fieldRadius).fill(t.inset))
+            .overlay(RoundedRectangle(cornerRadius: Geo.NewTag.fieldRadius).strokeBorder(t.border, lineWidth: 1))
+            .accessibilityLabel("\(axis) offset in points")
         }
-        .onChange(of: draft) {
-            let kept = String(draft.prefix(1).filter { $0 == "-" || $0.isNumber } + draft.dropFirst().filter(\.isNumber).prefix(3))
-            if kept != draft { draft = kept; return }
-            if let n = Int(draft) { onChange(CGFloat(n)) }
-        }
-        .onChange(of: value) { if Int(draft) != Int(value) { draft = String(Int(value)) } }
+    }
+
+    /// An optional minus, then up to five digits.
+    static func clean(_ text: String) -> String {
+        (text.hasPrefix("-") ? "-" : "") + String(text.filter(\.isNumber).prefix(5))
+    }
+
+    /// Blank or just a minus keeps the number that was there.
+    private func apply() {
+        let point = CGPoint(x: Int(x) ?? Int(value.x), y: Int(y) ?? Int(value.y))
+        x = String(Int(point.x))
+        y = String(Int(point.y))
+        onApply(point)
     }
 }
 
