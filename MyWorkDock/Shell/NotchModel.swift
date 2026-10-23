@@ -182,6 +182,8 @@ final class NotchModel {
     private(set) var menuBarHidden: Set<DisplayID> = []
     /// False while the display sleeps or the session is switched out: the buddy stops moving.
     private(set) var screenAwake = true
+    /// The last hover or panel open (or the launch): a custom buddy naps `Geo.Buddy.States.napAfter` after it.
+    private(set) var lastActive = Date()
     /// Settings › Version: "1.0 (1)", and when this version first ran here (an install or an update). nil in snapshots and tests.
     let version = NotchModel.versionLabel
     private(set) var updatedAt: Date?
@@ -397,6 +399,8 @@ final class NotchModel {
 
     /// What the buddy plays: the style Settings picked, through the library for a custom one.
     var buddyAsset: BuddyAsset { BuddyAsset(buddy, library: customBuddies) }
+    /// The same with a custom buddy's glance, nap and offsets.
+    var buddySet: BuddySet { BuddySet(buddy, library: customBuddies) }
 
     /// The buddy is drawn on `display`'s idle shell: wanted there, and nothing else is showing.
     func buddyShown(on display: DisplayID? = nil) -> Bool { buddyWanted(on: display) && mode(on: display) == .idle }
@@ -419,6 +423,7 @@ final class NotchModel {
             if !hover {
                 loadPeekEvents()
                 endBuddyHint()
+                lastActive = Date()
             }
             hover = true
             changed()
@@ -660,6 +665,7 @@ final class NotchModel {
     func openPanel() {
         if isEnabled(.localIP) { localIP.refresh() }
         endBuddyHint()
+        lastActive = Date()
         open = true
         changed()
     }
@@ -765,6 +771,20 @@ final class NotchModel {
         next.custom = customBuddies.entries.last?.id
         if next.custom == nil, next.style == .custom { next.style = .face }
         setBuddy(next)
+    }
+
+    /// Settings › Notch buddy › a custom buddy's Idle, Every ~45 s or After 10 min file: asks for a Lottie file (the panel stays open
+    /// meanwhile), checks it and puts it in that buddy's set. A file that is turned down changes nothing; the library says why.
+    func setCustomBuddyFile(_ state: BuddyState, of id: String) {
+        guard !picking else { return }
+        picking = true
+        Task {
+            let file = await pickBuddyFile()
+            picking = false
+            changed()
+            guard let file else { return }
+            customBuddies.setFile(state, of: id, from: file)
+        }
     }
 
     /// The window layer: which displays have no menu bar showing right now.

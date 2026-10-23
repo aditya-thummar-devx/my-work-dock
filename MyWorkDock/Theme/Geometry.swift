@@ -218,6 +218,24 @@ enum Geo {
             static let text = "I live in your notch. Hover me."
         }
 
+        /// A custom buddy's three states (BuddyState): when they come, how they swap, and where they may sit.
+        enum States {
+            /// Seconds between glances, picked at random each time; Calm doubles it.
+            static let glanceEvery: ClosedRange<Double> = 40...50
+            /// The buddy naps after this long without a hover or an open panel.
+            static let napAfter = 600.0
+            /// One state fades out while the next fades in.
+            static let fade = 0.4
+            /// A custom file draws at its own size, 1 unit = 1 pt, scaled down to fit this.
+            static let maxSize = CGSize(width: 120, height: 120)
+            /// Settings › a custom buddy's state row: file line over offset line.
+            static let rowGap: CGFloat = 8
+            /// Settings › the offset preview: a strip of screen under a hardware-sized notch (a 14" MacBook's), drawn 1:1.
+            static let previewNotch = CGSize(width: 156, height: 28)
+            static let previewHeight: CGFloat = 100
+            static let previewRadius: CGFloat = 9
+        }
+
         // Settings › Appearance › Notch buddy
         static let styleCardPad = (top: CGFloat(6), side: CGFloat(6), bottom: CGFloat(8))
         static let styleCardRadius: CGFloat = 13

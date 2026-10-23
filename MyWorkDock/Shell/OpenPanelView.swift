@@ -16,7 +16,8 @@ struct OpenPanelView: View {
                 if model.settings {
                     SettingsScreen(theme: model.theme, systemIsDark: model.appearance.isDark, tint: model.tint, panelSize: model.panelSize, disabled: model.disabled, disabledSubs: model.disabledSubs, peekOn: model.peekOn,
                                    allDisplays: model.showOnAllDisplays, buddy: model.buddy,
-                                   customBuddies: CustomBuddies(library: model.customBuddies, add: model.addCustomBuddy, remove: model.removeCustomBuddy), clipboardLimit: model.clipboard.limit,
+                                   customBuddies: CustomBuddies(library: model.customBuddies, add: model.addCustomBuddy, remove: model.removeCustomBuddy,
+                                                                 setFile: { model.setCustomBuddyFile($0, of: $1) }), clipboardLimit: model.clipboard.limit,
                                    version: model.version, updatedAt: model.updatedAt, onCheckForUpdates: model.checkForUpdates,
                                    onTheme: model.setTheme, onTint: model.setTint, onPanelSize: model.setPanelSize,
                                    onFeature: model.setEnabled, onSub: model.setEnabled, onPeek: model.setPeekEnabled, onAllDisplays: model.setShowOnAllDisplays,

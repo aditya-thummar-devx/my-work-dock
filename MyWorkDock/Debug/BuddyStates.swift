@@ -31,10 +31,17 @@ enum BuddyStates {
     private static func customSettings(_ name: String, theme: ThemeMode = .dark, tint: Tint = .lime, prefs: BuddyPrefs, library: [String] = ["Cat", "Round", "Spark"],
                                        rejection: [String] = []) -> SnapshotRunner.State {
         let files = ["Cat": "buddy-emoji-cat", "Round": "buddy-face", "Spark": "buddy-emoji-sparkle"]
-        let rect = CGRect(x: settingsBlock.minX, y: settingsBlock.minY, width: settingsBlock.width, height: 560)
+        let rect = CGRect(x: settingsBlock.minX, y: settingsBlock.minY, width: settingsBlock.width, height: 1000)
         return .fragment(name, .artboard, theme: theme, tint: tint, settings: true, rect: rect) {
             MainActor.assumeIsolated {
-                let entries = library.compactMap { id in files[id].flatMap { Bundle.main.url(forResource: $0, withExtension: "json") }.map { CustomBuddyStore.Entry(id: id, url: $0) } }
+                func url(_ file: String) -> URL? { Bundle.main.url(forResource: file, withExtension: "json") }
+                var entries = library.compactMap { id in files[id].flatMap(url).map { CustomBuddyStore.Entry(id: id, url: $0) } }
+                // Round has the whole set: a wave every ~45 s and the pulse for its nap, below the notch.
+                if let n = entries.firstIndex(where: { $0.id == "Round" }), let glance = url("buddy-emoji-wave"), let nap = url("buddy-pulse") {
+                    entries[n].files[.glance] = glance
+                    entries[n].files[.nap] = nap
+                    entries[n].offsets = BuddyOffsets(idle: .zero, glance: CGPoint(x: -6, y: 4), nap: CGPoint(x: 0, y: 30))
+                }
                 return BuddySettings(prefs: prefs, customs: CustomBuddies(library: .sample(entries, rejection: rejection))).padding(.leading, 8).onPanel()
             }
         }

@@ -5,12 +5,14 @@ import SwiftUI
 /// the shell is the theme's, so on the light one the tint is darkened to stay seen).
 struct BuddyView: View {
     var prefs: BuddyPrefs
-    /// What to play: `prefs` through the library (`BuddyAsset.init(_:library:)`).
-    var asset: BuddyAsset
-    /// The first-launch hint is up: the buddy bobs, for a few bobs.
+    /// What to play: `prefs` through the library (`BuddySet.init(_:library:)`).
+    var set: BuddySet
+    /// The first-launch hint is up: the buddy bobs, for a few bobs, and does not glance meanwhile.
     var bobbing = false
     /// The screen is asleep or the session is away: nothing moves.
     var paused = false
+    /// The last hover or panel open: the nap starts `Geo.Buddy.States.napAfter` after it.
+    var lastActive = Date.distantFuture
     @Environment(\.tokens) private var t
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.staticRender) private var staticRender
@@ -19,27 +21,86 @@ struct BuddyView: View {
     @State private var arrived = false
     /// The hint's bob: up and down a few times, then at rest.
     @State private var lifted = false
+    /// What plays now. Only a custom buddy with a glance or nap file ever leaves idle.
+    @State private var state = BuddyState.idle
 
     private static let fade = Animation.easeInOut(duration: Geo.Buddy.fadeIn.duration).delay(Geo.Buddy.fadeIn.delay)
+
+    /// What the state schedule depends on: when any of it changes the schedule starts over.
+    private struct Schedule: Equatable {
+        var set: BuddySet
+        var motion: BuddyMotion
+        var bobbing: Bool
+        var lastActive: Date
+    }
 
     var body: some View {
         // Reduce Motion in macOS forces Still. Snapshots hold the first frame: ImageRenderer cannot draw an AppKit view.
         let motion = reduceMotion || paused ? BuddyMotion.still : prefs.motion
+        let shown = motion == .still ? BuddyState.idle : state
         let bobs = bobbing && motion != .still
-        Group {
-            if motion == .still || staticRender {
-                BuddyStillView(asset: asset, tint: t.buddy)
-            } else {
-                LottieBuddy(asset: asset, tint: t.buddy, speed: asset.speed(for: motion))
-            }
+        ZStack {
+            part(shown, motion: motion)
+                .id(shown)
+                .transition(.opacity) // the two states cross-fade
         }
-        .offset(y: lifted ? -Geo.Buddy.bob : 0)
-        .frame(width: Geo.Buddy.ear, height: Geo.Buddy.height)
         .opacity(arrived || !entrance ? 1 : 0)
         .animation(Self.fade, value: arrived)
         .accessibilityHidden(true) // decorative: the notch itself is the button
         .onAppear { arrived = true }
         .task(id: bobs) { await bob(bobs) }
+        .task(id: Schedule(set: set, motion: motion, bobbing: bobbing, lastActive: lastActive)) { await run(motion) }
+    }
+
+    private func part(_ state: BuddyState, motion: BuddyMotion) -> some View {
+        let asset = set.assets[state] ?? set.idle
+        let at = set.offsets[state]
+        return Group {
+            if motion == .still || staticRender {
+                BuddyStillView(asset: asset, tint: t.buddy)
+            } else {
+                LottieBuddy(asset: asset, tint: t.buddy, speed: asset.speed(for: motion), loops: state == .glance ? .playOnce : .loop)
+            }
+        }
+        .offset(y: lifted && state == .idle ? -Geo.Buddy.bob : 0)
+        .frame(width: asset.size.width, height: asset.size.height)
+        .offset(x: at.x, y: at.y)
+    }
+
+    private func go(_ next: BuddyState) {
+        guard next != state else { return }
+        withAnimation(.easeInOut(duration: Geo.Buddy.States.fade)) { state = next }
+    }
+
+    /// Idle loops; every ~45 s (twice that on Calm) the glance plays once and idle comes back; `napAfter` past the last hover the
+    /// nap loops until the next one, which hides the buddy and so ends this. A buddy without one of those files skips that part.
+    private func run(_ motion: BuddyMotion) async {
+        let glance = set.assets[.glance]
+        let napAt = lastActive.addingTimeInterval(Geo.Buddy.States.napAfter)
+        func step() -> BuddyStep {
+            .next(glance: glance != nil, nap: set.assets[.nap] != nil, bobbing: bobbing, motion: motion,
+                  toNap: napAt.timeIntervalSinceNow, gap: .random(in: Geo.Buddy.States.glanceEvery))
+        }
+        do {
+            var next = step()
+            if next == .nap(after: 0) { return go(.nap) } // already due (the screen woke, say): no idle in between
+            go(.idle)
+            while true {
+                switch next {
+                case .stay:
+                    return
+                case .nap(let after):
+                    try await Task.sleep(for: .seconds(after))
+                    return go(.nap)
+                case .glance(let after):
+                    try await Task.sleep(for: .seconds(after))
+                    go(.glance)
+                    if let glance { try await Task.sleep(for: .seconds(glance.duration(speed: glance.speed(for: motion)))) }
+                    go(.idle)
+                }
+                next = step()
+            }
+        } catch {} // cancelled: a new schedule takes over
     }
 
     /// The hint stays until the first hover, however long: the bob runs `bobFor` seconds, then the buddy rests.
@@ -56,6 +117,23 @@ struct BuddyView: View {
         } catch {
             lifted = false
         }
+    }
+}
+
+/// What a custom buddy does next, from idle (`BuddyView.run`).
+enum BuddyStep: Equatable {
+    /// Idle for good: no glance or nap to come, or nothing moves.
+    case stay
+    case glance(after: Double)
+    case nap(after: Double)
+
+    /// `toNap`: seconds until the nap is due (negative: overdue). `gap`: the next random Lively gap between glances.
+    static func next(glance: Bool, nap: Bool, bobbing: Bool, motion: BuddyMotion, toNap: Double, gap: Double) -> BuddyStep {
+        guard motion != .still else { return .stay }
+        let untilNap = max(toNap, 0)
+        guard glance, !bobbing else { return nap ? .nap(after: untilNap) : .stay }
+        let wait = gap * (motion == .calm ? 2 : 1)
+        return nap && wait >= untilNap ? .nap(after: untilNap) : .glance(after: wait)
     }
 }
 

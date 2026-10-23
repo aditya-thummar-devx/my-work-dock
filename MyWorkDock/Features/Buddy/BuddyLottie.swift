@@ -119,8 +119,16 @@ enum BuddyStill {
 struct BuddyStillView: View {
     var asset: BuddyAsset
     var tint: Color
+    /// Shrunk to fit this box (Settings' tiles); nil draws it at its own size.
+    var fit: CGSize?
 
     var body: some View {
-        if let image = BuddyStill.image(asset, tint: tint) { Image(nsImage: image) }
+        if let image = BuddyStill.image(asset, tint: tint) {
+            if let fit, image.size.width > fit.width || image.size.height > fit.height {
+                Image(nsImage: image).resizable().scaledToFit().frame(maxWidth: fit.width, maxHeight: fit.height)
+            } else {
+                Image(nsImage: image)
+            }
+        }
     }
 }
