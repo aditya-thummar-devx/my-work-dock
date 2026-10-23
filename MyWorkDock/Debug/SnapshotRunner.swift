@@ -116,7 +116,7 @@ enum SnapshotRunner {
 
     /// Names match the reference PNGs in `screenshots/artboards` and `screenshots/prototype`.
     /// States whose content isn't built yet are not listed; `compare-all.sh` reports them as missing.
-    static let states: [State] = screenStates + Fragments.all + CalendarStates.all + [
+    static let states: [State] = screenStates + Fragments.all + CalendarStates.all + BuddyStates.all + [
         State("settings-clipboard", .panel, content: .fragment(rect: settingsRect,
                                                                view: { AnyView(SettingsScreen(theme: .dark, tint: .lime, page: .clipboard, clipboardLimit: 500).onPanel()) })) { $0.toggleSettings(); $0.openPanel() },
         // Settings › Menus: the screen is as tall as the panel's content area, so this shows whether every row still fits.
@@ -137,7 +137,8 @@ enum SnapshotRunner {
     ]
 
     private static let screenStates: [State] = [
-        State("01-idle", .notch),
+        // The prototype's plain notch: the buddy states (BuddyStates) draw it with the ear.
+        State("01-idle", .notch) { $0.setBuddy(BuddyPrefs(on: false)) },
         // The prototype's peek is claudex's; Settings › Peek has it off by default.
         State("02-peek-pool", .notch) {
             $0.setPeekEnabled(.claudex, true)

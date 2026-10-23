@@ -46,6 +46,8 @@ struct NotchContainer: View {
                 .shadow(color: .black.opacity(shadowOpacity), radius: Geo.shadow.blur / 2, x: 0, y: Geo.shadow.y)
                 .overlay { calibrationOutline(g, mode) }
                 .frame(width: g.width, height: g.height)
+                .overlay(alignment: .topLeading) { buddy(g) }
+                .overlay(alignment: .topLeading) { buddyHint(g) }
 
             content(mode, g)
                 .animation(reduceMotion ? nil : .easeOut(duration: Geo.fadeOut), value: mode)
@@ -60,6 +62,7 @@ struct NotchContainer: View {
             if let check = model.checkForUpdates { Button("Check for Updates…", action: check) }
             Button("Quit MyWorkDock") { NSApp.terminate(nil) }
             #if DEBUG
+            Button("Debug: show buddy hint again", action: model.resetBuddyHint)
             Button(model.bootingOverride == nil ? "Debug: simulate boot" : "Debug: stop boot") {
                 model.bootingOverride = model.bootingOverride == nil ? SampleData.bootingSim : nil
             }
@@ -81,6 +84,27 @@ struct NotchContainer: View {
             NotchShape(bottomRadius: g.radius, shoulder: g.shoulder).stroke(.red, lineWidth: 0.5)
         }
         #endif
+    }
+
+    /// The buddy, centred in the ear and moved by its state's offset. Outside the shell's clip, so a custom buddy can hang out of the
+    /// notch; below the shell clicks fall through to what is under it, as for the hint. Gone at once when the notch is hovered.
+    @ViewBuilder private func buddy(_ g: ShellGeometry) -> some View {
+        if model.buddyShown(on: screen.id) {
+            BuddyView(prefs: model.buddy, set: model.buddySet, bobbing: model.hintShown(on: screen.id), paused: !model.screenAwake,
+                      lastActive: model.lastActive)
+                .position(x: g.width - Geo.Buddy.ear / 2, y: g.height / 2)
+                .transition(.identity)
+        }
+    }
+
+    /// First launch: "I live in your notch. Hover me." under the buddy, outside the shell's clip (the panel window is much bigger
+    /// than the shell, and clicks outside the shell fall through it). Its arrow points at the buddy, centred in the ear.
+    @ViewBuilder private func buddyHint(_ g: ShellGeometry) -> some View {
+        if model.hintShown(on: screen.id) {
+            BuddyHint()
+                .offset(x: g.width - Geo.Buddy.ear / 2 - Geo.Buddy.Hint.arrowCentre, y: g.height + Geo.Buddy.Hint.gap)
+                .transition(Self.contentSwap)
+        }
     }
 
     /// Incoming content brings its own delayed fade (`Entrance`); outgoing content fades out while the shell moves.

@@ -1,0 +1,134 @@
+import Lottie
+import SwiftUI
+
+extension LottieColor {
+    /// A SwiftUI colour as the sRGB numbers the app's tints are defined in (Lottie reads device RGB unless told otherwise).
+    init(_ color: Color) {
+        let c = NSColor(color).usingColorSpace(.sRGB) ?? .black
+        self.init(r: c.redComponent, g: c.greenComponent, b: c.blueComponent, a: c.alphaComponent)
+    }
+}
+
+enum BuddyLottieConfig {
+    static let srgb = CGColorSpace(name: CGColorSpace.sRGB)!
+    /// The render server runs the animation: the app does nothing between frames (unlike SwiftUI, which wakes it for every one).
+    static let live = LottieConfiguration(renderingEngine: .coreAnimation, colorSpace: srgb, reducedMotionOption: .standardMotion)
+    /// Draws one frame into a bitmap; the Core Animation engine's layers only show while they play.
+    static let still = LottieConfiguration(renderingEngine: .mainThread, colorSpace: srgb, reducedMotionOption: .standardMotion)
+    static let tintKeypath = AnimationKeypath(keypath: "**.tint.Color")
+}
+
+/// A buddy animation playing, drawn by Lottie's Core Animation engine. Tint, speed and loop mode follow the SwiftUI side.
+struct LottieBuddy: NSViewRepresentable {
+    var asset: BuddyAsset
+    var tint: Color
+    var speed = 1.0
+    var loops = LottieLoopMode.loop
+
+    func makeNSView(context: Context) -> Host { Host(size: asset.size) }
+
+    func updateNSView(_ host: Host, context: Context) { host.show(self) }
+
+    /// The composition's own size: without this SwiftUI sizes the view before the animation is loaded, to nothing.
+    func sizeThatFits(_ proposal: ProposedViewSize, nsView: Host, context: Context) -> CGSize? { asset.size }
+
+    final class Host: NSView {
+        private var animationView: LottieAnimationView?
+        private var shown: LottieBuddy?
+        private var size: CGSize
+
+        init(size: CGSize) {
+            self.size = size
+            super.init(frame: NSRect(origin: .zero, size: size))
+            wantsLayer = true
+        }
+
+        required init?(coder: NSCoder) { nil }
+
+        override var intrinsicContentSize: NSSize { size }
+
+        /// Clicks fall through to the notch's own tap gesture.
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+        /// The animation fills this view. (An autoresizing mask would grow it by the whole new size when SwiftUI sizes this view up
+        /// from nothing, and the buddy would sit in the corner at twice its size.)
+        override func resizeSubviews(withOldSize oldSize: NSSize) { animationView?.frame = bounds }
+
+        func show(_ buddy: LottieBuddy) {
+            if shown?.asset != buddy.asset || shown?.loops != buddy.loops { replace(with: buddy) }
+            if shown?.tint != buddy.tint {
+                animationView?.setValueProvider(ColorValueProvider(LottieColor(buddy.tint)), keypath: BuddyLottieConfig.tintKeypath)
+            }
+            if shown?.speed != buddy.speed { animationView?.animationSpeed = buddy.speed }
+            shown = buddy
+        }
+
+        private func replace(with buddy: LottieBuddy) {
+            animationView?.removeFromSuperview()
+            animationView = nil
+            shown = nil // the new view takes tint and speed again
+            guard let animation = buddy.asset.animation else { return }
+            let view = LottieAnimationView(animation: animation, configuration: BuddyLottieConfig.live)
+            view.loopMode = buddy.loops
+            view.contentMode = .scaleAspectFit
+            view.frame = bounds
+            view.setValueProvider(ColorValueProvider(LottieColor(buddy.tint)), keypath: BuddyLottieConfig.tintKeypath)
+            addSubview(view)
+            view.play()
+            animationView = view
+            size = buddy.asset.size
+            invalidateIntrinsicContentSize()
+        }
+    }
+}
+
+/// A buddy at rest: the first frame of its animation, drawn once into an image. Still, Reduce Motion, a sleeping screen and snapshots
+/// show this (ImageRenderer cannot draw AppKit views, and nothing needs to run for a frame that does not move).
+@MainActor
+enum BuddyStill {
+    private static var images: [String: NSImage] = [:]
+
+    static func image(_ asset: BuddyAsset, tint: Color) -> NSImage? {
+        let c = NSColor(tint).usingColorSpace(.sRGB) ?? .black
+        // A custom file can be replaced under the same name: its age is part of the key.
+        let age = asset.url.flatMap { try? $0.resourceValues(forKeys: [.contentModificationDateKey]).contentModificationDate }?.timeIntervalSince1970 ?? 0
+        let key = "\(asset.file) \(age) \(c.redComponent) \(c.greenComponent) \(c.blueComponent) \(c.alphaComponent)"
+        if let image = images[key] { return image }
+        guard let animation = asset.animation else { return nil }
+        let size = asset.size
+        let view = LottieAnimationView(animation: animation, configuration: BuddyLottieConfig.still)
+        view.contentMode = .scaleAspectFit
+        view.frame = CGRect(origin: .zero, size: size)
+        view.setValueProvider(ColorValueProvider(LottieColor(tint)), keypath: BuddyLottieConfig.tintKeypath)
+        view.currentProgress = 0
+        view.layoutSubtreeIfNeeded()
+        let scale = 3 // sharp on a 2x display and on a 3x one
+        guard let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(size.width.rounded()) * scale, pixelsHigh: Int(size.height.rounded()) * scale,
+                                         bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB,
+                                         bytesPerRow: 0, bitsPerPixel: 0) else { return nil }
+        rep.size = size
+        view.cacheDisplay(in: view.bounds, to: rep)
+        let image = NSImage(size: size)
+        image.addRepresentation(rep)
+        images[key] = image
+        return image
+    }
+}
+
+/// `BuddyStill` as a view.
+struct BuddyStillView: View {
+    var asset: BuddyAsset
+    var tint: Color
+    /// Shrunk to fit this box (Settings' tiles); nil draws it at its own size.
+    var fit: CGSize?
+
+    var body: some View {
+        if let image = BuddyStill.image(asset, tint: tint) {
+            if let fit, image.size.width > fit.width || image.size.height > fit.height {
+                Image(nsImage: image).resizable().scaledToFit().frame(maxWidth: fit.width, maxHeight: fit.height)
+            } else {
+                Image(nsImage: image)
+            }
+        }
+    }
+}

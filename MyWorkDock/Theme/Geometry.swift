@@ -179,4 +179,72 @@ enum Geo {
         static let textSize: CGFloat = 12.5
         static let barHeight: CGFloat = 6
     }
+
+    // MARK: Notch buddy (v3 change 8: design/Buddy-States.dc.html, px = pt)
+
+    enum Buddy {
+        /// Idle shell grows by this on the right of the notch; the buddy is centred in it. The left edge stays on the hardware's.
+        static let ear: CGFloat = 36
+        /// The Lottie compositions are this tall (scripts/bake-buddies.py: COMP); the shell centres them.
+        static let height: CGFloat = 28
+        static let eyeRadius: CGFloat = 2
+        /// CSS `margin-top: -1px` on a flex-centred item raises it by half that.
+        static let eyeRaise: CGFloat = 0.5
+        static let dot: CGFloat = 8
+        static let emoji: CGFloat = 15
+        /// The first-launch bob: up this far and back every `bobPeriod` seconds.
+        static let bob: CGFloat = 1
+        static let bobPeriod = 3.0
+        /// Back from a hover or the open panel, the buddy waits until the shell has shrunk back to idle, then fades in gently.
+        static let fadeIn = (duration: 0.5, delay: Geo.shellCloseDuration)
+        /// The hint stays until the first hover, however long: its bob runs this many seconds (three bobs), then rests, and its wave
+        /// waves `Hint.waveLoops` times (7.2 s).
+        static let bobFor = 9.0
+
+        /// First-launch hint under the buddy: bubble `8 12`, radius 12, arrow 14 × 7 whose centre is 115 pt from the bubble's left edge.
+        enum Hint {
+            static let gap: CGFloat = 10
+            static let padX: CGFloat = 12
+            static let padY: CGFloat = 8
+            static let radius: CGFloat = 12
+            static let font: CGFloat = 12.5
+            static let contentGap: CGFloat = 8
+            static let arrow = CGSize(width: 14, height: 7)
+            static let arrowCentre: CGFloat = 115
+            static let enter = (duration: 0.5, curve: (x1: 0.2, y1: 0.9, x2: 0.3, y2: 1.3))
+            static let waveLoops: Float = 3
+            /// Points around the 👋 in its Lottie file (scripts/bake-buddies.py: HELLO_MARGIN).
+            static let waveMargin: CGFloat = 3
+            static let text = "I live in your notch. Hover me."
+        }
+
+        /// A custom buddy's three states (BuddyState): when they come, how they swap, and where they may sit.
+        enum States {
+            /// Seconds between glances, picked at random each time; Calm doubles it.
+            static let glanceEvery: ClosedRange<Double> = 40...50
+            /// The buddy naps after this long without a hover or an open panel.
+            static let napAfter = 600.0
+            /// One state fades out while the next fades in.
+            static let fade = 0.4
+            /// A custom file draws at its own size, 1 unit = 1 pt, scaled down to fit this.
+            static let maxSize = CGSize(width: 120, height: 120)
+            /// Settings › a custom buddy's state row: file line over offset line.
+            static let rowGap: CGFloat = 8
+            /// Settings › the offset preview: a strip of screen under a hardware-sized notch (a 14" MacBook's), drawn 1:1.
+            static let previewNotch = CGSize(width: 156, height: 28)
+            static let previewHeight: CGFloat = 100
+            static let previewRadius: CGFloat = 9
+        }
+
+        // Settings › Appearance › Notch buddy
+        static let styleCardPad = (top: CGFloat(6), side: CGFloat(6), bottom: CGFloat(8))
+        static let styleCardRadius: CGFloat = 13
+        static let stylePreviewHeight: CGFloat = 40
+        static let stylePreviewRadius: CGFloat = 8
+        static let styleFace: CGFloat = 16
+        static let emojiTile: CGFloat = 36
+        static let emojiTileRadius: CGFloat = 10
+        static let emojiTileFont: CGFloat = 17
+        static let dimmed = 0.4
+    }
 }

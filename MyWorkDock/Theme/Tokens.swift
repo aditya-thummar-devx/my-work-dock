@@ -33,6 +33,12 @@ enum Tint: String, CaseIterable, Identifiable {
     var name: String { rawValue.capitalized }
     var color: Color { Color(hex: hex) }
 
+    /// The tint darkened, for a light surface: lime or yellow at full strength all but vanish on it.
+    var shade: Color {
+        func channel(_ shift: UInt32) -> Double { Double((hex >> shift) & 0xFF) / 255 * 0.55 }
+        return Color(.sRGB, red: channel(16), green: channel(8), blue: channel(0))
+    }
+
     var hex: UInt32 {
         switch self {
         case .lime: 0xD4FF3A
@@ -72,6 +78,8 @@ struct Tokens {
     var accent: Color { tint.color }
     /// `$` prompts, + icons, edit ring: the tint is unreadable on the light panel.
     var ink: Color { isDark ? tint.color : Color(hex: 0x111114) }
+    /// The notch buddy, drawn on the shell: the tint on the black one, its darker shade on the light one.
+    var buddy: Color { isDark ? tint.color : tint.shade }
     /// Text and icons on top of `accent`.
     static let onTint = Color.black
 

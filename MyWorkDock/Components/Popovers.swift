@@ -92,6 +92,8 @@ struct SettingsScreen: View {
     var disabledSubs: Set<SubMenu> = []
     var peekOn = PeekSource.defaultOn
     var allDisplays = false
+    var buddy = BuddyPrefs()
+    var customBuddies = CustomBuddies()
     var clipboardLimit = ClipboardStore.defaultLimit
     var version = ""
     var updatedAt: Date?
@@ -104,11 +106,12 @@ struct SettingsScreen: View {
     var onSub: (SubMenu, Bool) -> Void = { _, _ in }
     var onPeek: (PeekSource, Bool) -> Void = { _, _ in }
     var onAllDisplays: (Bool) -> Void = { _ in }
+    var onBuddy: (BuddyPrefs) -> Void = { _ in }
     var onClipboardLimit: (Int) -> Void = { _ in }
     @State private var page: Page
     @Environment(\.tokens) private var t
 
-    init(theme: ThemeMode, systemIsDark: Bool = true, tint: Tint, panelSize: PanelSize = .medium, disabled: Set<Feature> = [], disabledSubs: Set<SubMenu> = [], peekOn: Set<PeekSource> = PeekSource.defaultOn, allDisplays: Bool = false, page: Page = .appearance,
+    init(theme: ThemeMode, systemIsDark: Bool = true, tint: Tint, panelSize: PanelSize = .medium, disabled: Set<Feature> = [], disabledSubs: Set<SubMenu> = [], peekOn: Set<PeekSource> = PeekSource.defaultOn, allDisplays: Bool = false, buddy: BuddyPrefs = BuddyPrefs(), customBuddies: CustomBuddies = CustomBuddies(), page: Page = .appearance,
          clipboardLimit: Int = ClipboardStore.defaultLimit, version: String = "", updatedAt: Date? = nil,
          onCheckForUpdates: (() -> Void)? = nil,
          onTheme: @escaping (ThemeMode) -> Void = { _ in }, onTint: @escaping (Tint) -> Void = { _ in },
@@ -116,6 +119,7 @@ struct SettingsScreen: View {
          onFeature: @escaping (Feature, Bool) -> Void = { _, _ in }, onSub: @escaping (SubMenu, Bool) -> Void = { _, _ in },
          onPeek: @escaping (PeekSource, Bool) -> Void = { _, _ in },
          onAllDisplays: @escaping (Bool) -> Void = { _ in },
+         onBuddy: @escaping (BuddyPrefs) -> Void = { _ in },
          onClipboardLimit: @escaping (Int) -> Void = { _ in }) {
         self.theme = theme
         self.systemIsDark = systemIsDark
@@ -125,6 +129,8 @@ struct SettingsScreen: View {
         self.disabledSubs = disabledSubs
         self.peekOn = peekOn
         self.allDisplays = allDisplays
+        self.buddy = buddy
+        self.customBuddies = customBuddies
         self.clipboardLimit = clipboardLimit
         self.version = version
         self.updatedAt = updatedAt
@@ -137,6 +143,7 @@ struct SettingsScreen: View {
         self.onSub = onSub
         self.onPeek = onPeek
         self.onAllDisplays = onAllDisplays
+        self.onBuddy = onBuddy
         _page = State(initialValue: page)
     }
 
@@ -165,8 +172,8 @@ struct SettingsScreen: View {
     @ViewBuilder private var section: some View {
         switch page {
         case .appearance:
-            AppearanceSection(theme: theme, systemIsDark: systemIsDark, tint: tint, panelSize: panelSize,
-                              onTheme: onTheme, onTint: onTint, onPanelSize: onPanelSize)
+            AppearanceSection(theme: theme, systemIsDark: systemIsDark, tint: tint, panelSize: panelSize, buddy: buddy, customBuddies: customBuddies,
+                              onTheme: onTheme, onTint: onTint, onPanelSize: onPanelSize, onBuddy: onBuddy)
         case .menus:
             MenusSection(disabled: disabled, disabledSubs: disabledSubs, allDisplays: allDisplays,
                          onFeature: onFeature, onSub: onSub, onAllDisplays: onAllDisplays)
@@ -374,7 +381,7 @@ private struct MenusSection: View {
 }
 
 /// The card around one menu's switches (and around Show on all displays).
-private struct MenuCard: ViewModifier {
+struct MenuCard: ViewModifier {
     @Environment(\.tokens) private var t
 
     func body(content: Content) -> some View {
@@ -418,7 +425,7 @@ private struct PeekSection: View {
 }
 
 /// A settings row with a switch. `locked` dims it and ignores clicks (its menu is off), keeping the stored choice.
-private struct SwitchRow: View {
+struct SwitchRow: View {
     var label: String
     var glyph: Glyph?
     var on: Bool
@@ -475,9 +482,12 @@ private struct AppearanceSection: View {
     var systemIsDark = true
     var tint: Tint
     var panelSize = PanelSize.medium
+    var buddy = BuddyPrefs()
+    var customBuddies = CustomBuddies()
     var onTheme: (ThemeMode) -> Void = { _ in }
     var onTint: (Tint) -> Void = { _ in }
     var onPanelSize: (PanelSize) -> Void = { _ in }
+    var onBuddy: (BuddyPrefs) -> Void = { _ in }
     @Environment(\.tokens) private var t
 
     var body: some View {
@@ -518,6 +528,9 @@ private struct AppearanceSection: View {
                 SubTabs(items: PanelSize.allCases.map { SubTabItem($0.rawValue, $0.label) },
                         selection: panelSize.rawValue) { onPanelSize(PanelSize(rawValue: $0) ?? .medium) }
             }
+
+            BuddySettings(prefs: buddy, customs: customBuddies, onChange: onBuddy)
+                .padding(.top, Geo.Chrome.popoverGap)
         }
     }
 

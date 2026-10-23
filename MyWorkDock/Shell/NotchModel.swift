@@ -1,5 +1,6 @@
 import SwiftUI
 import Observation
+import UniformTypeIdentifiers
 
 typealias DisplayID = CGDirectDisplayID
 
@@ -147,6 +148,8 @@ final class NotchModel {
     let calendar: CalendarStore
     let agents: AgentStore
     let sessions: SessionsStore
+    /// Settings › Appearance › Notch buddy › Custom: the Lottie files the user added.
+    let customBuddies: CustomBuddyStore
     /// The user's choice; `resolvedTheme` is what is drawn.
     private(set) var theme: ThemeMode = .dark
     let appearance: AppearanceObserver
@@ -170,6 +173,17 @@ final class NotchModel {
     private(set) var peekEvents: PeekEvents?
     /// Settings › Menus: also draw the shell on every other display. Off = one shell on the notch (or pointer) display.
     private(set) var showOnAllDisplays = false
+    /// Settings › Appearance › Notch buddy.
+    private(set) var buddy = BuddyPrefs()
+    /// The first-launch hint ("I live in your notch. Hover me.") ends for good at the first hover or open.
+    private(set) var buddyHintSeen = false
+    /// Displays with no menu bar showing (a full-screen app, or an auto-hidden menu bar): the buddy hides on them while
+    /// `buddy.hideInFullScreen` is on. Fed by the window layer.
+    private(set) var menuBarHidden: Set<DisplayID> = []
+    /// False while the display sleeps or the session is switched out: the buddy stops moving.
+    private(set) var screenAwake = true
+    /// The last hover or panel open (or the launch): a custom buddy naps `Geo.Buddy.States.napAfter` after it.
+    private(set) var lastActive = Date()
     /// Settings › Version: "1.0 (1)", and when this version first ran here (an install or an update). nil in snapshots and tests.
     let version = NotchModel.versionLabel
     private(set) var updatedAt: Date?
@@ -197,6 +211,8 @@ final class NotchModel {
     private(set) var picking = false
     /// Asks for a folder, opening at `start` when given; nil when cancelled. Injected by tests.
     @ObservationIgnored var pickFolder: (URL?) async -> URL? = NotchModel.chooseFolder
+    /// Asks for a custom buddy's Lottie file; nil when cancelled. Injected by tests.
+    @ObservationIgnored var pickBuddyFile: () async -> URL? = NotchModel.chooseBuddyFile
     /// Touch ID / password prompt for an unlock is open.
     private(set) var authenticating = false
     /// Why this Mac cannot check its owner, nil when it can; the prompt itself. Injected by tests.
@@ -209,7 +225,7 @@ final class NotchModel {
     /// `sample: true` keeps every store in memory with the designs' sample data (snapshots, tests).
     @ObservationIgnored private let defaults: UserDefaults?
 
-    init(sample: Bool = false) {
+    init(sample: Bool = false, customBuddies: CustomBuddyStore? = nil) {
         defaults = sample ? nil : .standard
         appearance = sample ? AppearanceObserver(isDark: true) : .live()
         if let defaults {
@@ -224,11 +240,15 @@ final class NotchModel {
             defaults.set(saved.subs.filter { SubMenu(rawValue: $0) != nil }.sorted(), forKey: "disabledSubMenus")
             if let saved = defaults.stringArray(forKey: "peekSources") { peekOn = PeekSource.restored(saved) }
             showOnAllDisplays = defaults.bool(forKey: "showOnAllDisplays")
+            buddy = BuddyPrefs(defaults: defaults)
+            buddyHintSeen = defaults.bool(forKey: "buddyHintSeen")
             if defaults.string(forKey: "seenVersion") != version {
                 defaults.set(version, forKey: "seenVersion")
                 defaults.set(Date(), forKey: "updatedAt")
             }
             updatedAt = defaults.object(forKey: "updatedAt") as? Date
+        } else {
+            buddyHintSeen = true // snapshots and tests start without the hint; the buddy states ask for it
         }
         clipboard = sample ? .sample() : .live()
         notes = sample ? .sample() : NotesStore()
@@ -246,6 +266,7 @@ final class NotchModel {
         calendar = sample ? .sample() : .live(confirmer: confirmer)
         agents = sample ? .sample() : .live()
         sessions = sample ? .sample() : .live()
+        self.customBuddies = customBuddies ?? (sample ? .sample() : .live())
         if !sample { peek = claudex.peekData } // snapshots keep the prototype's POOL sample
         peekExtents = PeekMetrics.measure(peek)
         claudex.onData = { [weak self] in self?.refreshPeek() }
@@ -345,11 +366,7 @@ final class NotchModel {
     func geometry(notch: CGSize? = nil, on display: DisplayID? = nil, screen: CGSize? = nil) -> ShellGeometry {
         switch mode(on: display) {
         case .idle:
-            if let notch {
-                Geo.hardwareNotchShell(notch)
-            } else {
-                ShellGeometry(width: Geo.idle.width, height: Geo.idle.height, radius: Geo.idle.radius)
-            }
+            idleGeometry(notch: notch, on: display)
         case .peek:
             // The events row hangs under the ears: the shell grows by its height and is wide enough for a title. The extra width is
             // split evenly, so the ears stay where they were against the notch.
@@ -363,6 +380,36 @@ final class NotchModel {
         }
     }
 
+    /// The idle shell, whatever the mode is now (the window layer asks while a peek is open): the hardware notch's own size (a pill
+    /// without one). With the buddy wanted the shell grows by its ear on the right, and moves half of that over, so the left edge
+    /// stays on the hardware's.
+    func idleGeometry(notch: CGSize?, on display: DisplayID?) -> ShellGeometry {
+        var g = notch.map(Geo.hardwareNotchShell) ?? ShellGeometry(width: Geo.idle.width, height: Geo.idle.height, radius: Geo.idle.radius)
+        if buddyWanted(on: display) {
+            g.width += Geo.Buddy.ear
+            g.centerOffset = Geo.Buddy.ear / 2
+        }
+        return g
+    }
+
+    /// The buddy would sit on `display`'s idle notch: it is on, and no full-screen app has taken the menu bar there.
+    private func buddyWanted(on display: DisplayID?) -> Bool {
+        buddy.on && !(buddy.hideInFullScreen && display.map(menuBarHidden.contains) == true)
+    }
+
+    /// What the buddy plays: the style Settings picked, through the library for a custom one.
+    var buddyAsset: BuddyAsset { BuddyAsset(buddy, library: customBuddies) }
+    /// The same with a custom buddy's glance, nap and offsets.
+    var buddySet: BuddySet { BuddySet(buddy, library: customBuddies) }
+
+    /// The buddy is drawn on `display`'s idle shell: wanted there, and nothing else is showing.
+    func buddyShown(on display: DisplayID? = nil) -> Bool { buddyWanted(on: display) && mode(on: display) == .idle }
+
+    /// The first-launch hint hangs under the buddy that sits on the display the pointer is on (any, in snapshots).
+    func hintShown(on display: DisplayID? = nil) -> Bool {
+        !buddyHintSeen && buddyShown(on: display) && (display == nil || activeDisplay == nil || display == activeDisplay)
+    }
+
     // MARK: Pointer
 
     /// Fed by the window layer on every mouse move with "is the pointer over the shape".
@@ -373,7 +420,11 @@ final class NotchModel {
             guard !hover || cancelLeave != nil else { return }
             clearLeaveTimer()
             if !hover, isPeekEnabled(.claudex), isEnabled(.claudex) { Task { await claudex.refresh() } } // reads are cached for 60 s
-            if !hover { loadPeekEvents() }
+            if !hover {
+                loadPeekEvents()
+                endBuddyHint()
+                lastActive = Date()
+            }
             hover = true
             changed()
         } else if hover, cancelLeave == nil {
@@ -588,6 +639,23 @@ final class NotchModel {
         }
     }
 
+    /// One Lottie file (`.json`, the only kind a buddy can be). Same level as the folder picker, for the same reason; the message says
+    /// what the check will ask of it.
+    static func chooseBuddyFile() async -> URL? {
+        NSApp.activate()
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.json]
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.prompt = "Add Buddy"
+        panel.message = BuddyFileCheck.Limits.summary
+        panel.level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 1)
+        return await withCheckedContinuation { cont in
+            panel.begin { cont.resume(returning: $0 == .OK ? panel.url : nil) }
+        }
+    }
+
     /// Nothing on screen or in flight that a relaunch would interrupt; the updater waits for this before installing.
     var isIdle: Bool {
         !open && !hover && confirmer.pending == nil && emulator.bootingName == nil && emulator.pendingBoot.isEmpty && claudex.busyMember == nil && !calendar.isSigningIn
@@ -596,6 +664,8 @@ final class NotchModel {
 
     func openPanel() {
         if isEnabled(.localIP) { localIP.refresh() }
+        endBuddyHint()
+        lastActive = Date()
         open = true
         changed()
     }
@@ -665,6 +735,79 @@ final class NotchModel {
     func setTint(_ t: Tint) {
         tint = t
         defaults?.set(t.rawValue, forKey: "tint")
+        changed()
+    }
+
+    /// Settings › Appearance › Notch buddy: applies at once (the idle shell grows or shrinks by the ear) and survives a relaunch.
+    func setBuddy(_ prefs: BuddyPrefs) {
+        guard prefs != buddy else { return }
+        buddy = prefs
+        if let defaults { prefs.save(to: defaults) }
+        changed()
+    }
+
+    /// Settings › Notch buddy › +: asks for a Lottie file (the panel stays open meanwhile), checks it, keeps it and shows it. A file that
+    /// is turned down changes nothing; the library says why.
+    func addCustomBuddy() {
+        guard !picking else { return }
+        picking = true
+        Task {
+            let file = await pickBuddyFile()
+            picking = false
+            changed() // the picker took key status; the panel takes it back
+            guard let file, let id = customBuddies.add(from: file) else { return }
+            var next = buddy
+            next.style = .custom
+            next.custom = id
+            setBuddy(next)
+        }
+    }
+
+    /// Deletes a custom buddy. If it was the one showing, the newest one left takes over, or the face when there is none.
+    func removeCustomBuddy(_ id: String) {
+        customBuddies.remove(id)
+        guard buddy.custom == id else { return }
+        var next = buddy
+        next.custom = customBuddies.entries.last?.id
+        if next.custom == nil, next.style == .custom { next.style = .face }
+        setBuddy(next)
+    }
+
+    /// Settings › Notch buddy › a custom buddy's Idle, Every ~45 s or After 10 min file: asks for a Lottie file (the panel stays open
+    /// meanwhile), checks it and puts it in that buddy's set. A file that is turned down changes nothing; the library says why.
+    func setCustomBuddyFile(_ state: BuddyState, of id: String) {
+        guard !picking else { return }
+        picking = true
+        Task {
+            let file = await pickBuddyFile()
+            picking = false
+            changed()
+            guard let file else { return }
+            customBuddies.setFile(state, of: id, from: file)
+        }
+    }
+
+    /// The window layer: which displays have no menu bar showing right now.
+    func setMenuBarHidden(_ displays: Set<DisplayID>) {
+        guard displays != menuBarHidden else { return }
+        menuBarHidden = displays
+        changed()
+    }
+
+    /// No `changed()`: only the buddy reads it, and Observation redraws that.
+    func setScreenAwake(_ awake: Bool) { screenAwake = awake }
+
+    /// The first hover or open ends the hint for good. Only while the buddy is on: one that was never shown has not said hello.
+    private func endBuddyHint() {
+        guard buddy.on, !buddyHintSeen else { return }
+        buddyHintSeen = true
+        defaults?.set(true, forKey: "buddyHintSeen")
+    }
+
+    /// DEBUG menu and snapshots: say hello again.
+    func resetBuddyHint() {
+        buddyHintSeen = false
+        defaults?.set(false, forKey: "buddyHintSeen")
         changed()
     }
 
