@@ -230,6 +230,10 @@ enum Geo {
             static let maxSize = CGSize(width: 120, height: 120)
             /// Settings › a custom buddy's state row: file line over offset line.
             static let rowGap: CGFloat = 8
+            /// Settings › the offset preview: a strip of screen under a hardware-sized notch (a 14" MacBook's), drawn 1:1.
+            static let previewNotch = CGSize(width: 156, height: 28)
+            static let previewHeight: CGFloat = 100
+            static let previewRadius: CGFloat = 9
         }
 
         // Settings › Appearance › Notch buddy

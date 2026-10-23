@@ -31,7 +31,7 @@ enum BuddyStates {
     private static func customSettings(_ name: String, theme: ThemeMode = .dark, tint: Tint = .lime, prefs: BuddyPrefs, library: [String] = ["Cat", "Round", "Spark"],
                                        rejection: [String] = []) -> SnapshotRunner.State {
         let files = ["Cat": "buddy-emoji-cat", "Round": "buddy-face", "Spark": "buddy-emoji-sparkle"]
-        let rect = CGRect(x: settingsBlock.minX, y: settingsBlock.minY, width: settingsBlock.width, height: 820)
+        let rect = CGRect(x: settingsBlock.minX, y: settingsBlock.minY, width: settingsBlock.width, height: 1000)
         return .fragment(name, .artboard, theme: theme, tint: tint, settings: true, rect: rect) {
             MainActor.assumeIsolated {
                 func url(_ file: String) -> URL? { Bundle.main.url(forResource: file, withExtension: "json") }

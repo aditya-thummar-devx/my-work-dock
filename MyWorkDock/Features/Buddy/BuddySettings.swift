@@ -218,7 +218,7 @@ struct BuddySettings: View {
                 }
             }
             if has {
-                OffsetEditor(value: entry.offsets[state]) { library.setOffset(state, of: entry.id, to: $0) }
+                OffsetEditor(value: entry.offsets[state], asset: .custom(entry, state)) { library.setOffset(state, of: entry.id, to: $0) }
             }
         }
         .padding(Geo.Menu.rowPadX)
@@ -293,25 +293,36 @@ struct BuddySettings: View {
 /// writing the store on every key would redraw the panel under the cursor and drop the field's focus.
 struct OffsetEditor: View {
     var value: CGPoint
+    /// What the preview draws.
+    var asset: BuddyAsset
     var onApply: (CGPoint) -> Void
     @State private var x: String
     @State private var y: String
     @Environment(\.tokens) private var t
 
-    init(value: CGPoint, onApply: @escaping (CGPoint) -> Void) {
+    init(value: CGPoint, asset: BuddyAsset, onApply: @escaping (CGPoint) -> Void) {
         self.value = value
+        self.asset = asset
         self.onApply = onApply
         _x = State(initialValue: String(Int(value.x)))
         _y = State(initialValue: String(Int(value.y)))
     }
 
+    /// What the fields say now, before Apply: the preview follows the typing. A blank or lone minus is the number that was there.
+    private var typed: CGPoint { CGPoint(x: Int(x) ?? Int(value.x), y: Int(y) ?? Int(value.y)) }
+
     var body: some View {
-        HStack(spacing: Geo.Menu.rowGap) {
-            Text("Offset").font(Typo.ui(Geo.Appearance.noteFont)).foregroundStyle(t.faint)
-            field("X", $x)
-            field("Y", $y)
-            Spacer(minLength: 0)
-            DockButton(title: "Apply", glyph: nil, metrics: .save, tone: .tint, weight: .bold, action: apply)
+        VStack(alignment: .leading, spacing: Geo.Buddy.States.rowGap) {
+            OffsetPreview(asset: asset, offset: typed)
+            Text("Preview at real size. The dashed box is the ear, the cross its centre; it follows X and Y as you type.")
+                .font(Typo.ui(Geo.Appearance.noteFont)).foregroundStyle(t.faint).fixedSize(horizontal: false, vertical: true)
+            HStack(spacing: Geo.Menu.rowGap) {
+                Text("Offset").font(Typo.ui(Geo.Appearance.noteFont)).foregroundStyle(t.faint)
+                field("X", $x)
+                field("Y", $y)
+                Spacer(minLength: 0)
+                DockButton(title: "Apply", glyph: nil, metrics: .save, tone: .tint, weight: .bold, action: apply)
+            }
         }
         .onChange(of: x) { x = Self.clean(x) }
         .onChange(of: y) { y = Self.clean(y) }
@@ -348,6 +359,46 @@ struct OffsetEditor: View {
         x = String(Int(point.x))
         y = String(Int(point.y))
         onApply(point)
+    }
+}
+
+/// Where a state's buddy lands: the notch's idle shell (hardware notch plus the ear) on a strip of screen, at the real size (1 pt is
+/// 1 pt), with the buddy at the typed offset from the ear's centre. The dashed box is the ear, the cross its centre. Anything past the
+/// edge of the strip is cut off, as it is on screen.
+struct OffsetPreview: View {
+    var asset: BuddyAsset
+    var offset: CGPoint
+    @Environment(\.tokens) private var t
+
+    var body: some View {
+        let notch = Geo.Buddy.States.previewNotch
+        GeometryReader { geo in
+            let shellWidth = notch.width + Geo.Buddy.ear
+            let shell = CGRect(x: (geo.size.width - shellWidth) / 2, y: 0, width: shellWidth, height: notch.height)
+            let centre = CGPoint(x: shell.maxX - Geo.Buddy.ear / 2, y: shell.midY)
+            ZStack(alignment: .topLeading) {
+                Rectangle().fill(t.text.opacity(0.16)) // the screen: lighter than the shell in both themes
+                UnevenRoundedRectangle(bottomLeadingRadius: Geo.Buddy.States.previewRadius, bottomTrailingRadius: Geo.Buddy.States.previewRadius)
+                    .fill(t.panel)
+                    .frame(width: shell.width, height: shell.height)
+                    .offset(x: shell.minX)
+                RoundedRectangle(cornerRadius: 4)
+                    .strokeBorder(t.faint.opacity(0.7), style: StrokeStyle(lineWidth: 1, dash: [2, 2]))
+                    .frame(width: Geo.Buddy.ear, height: Geo.Buddy.height)
+                    .position(centre)
+                Path { p in
+                    p.move(to: CGPoint(x: centre.x - 3, y: centre.y)); p.addLine(to: CGPoint(x: centre.x + 3, y: centre.y))
+                    p.move(to: CGPoint(x: centre.x, y: centre.y - 3)); p.addLine(to: CGPoint(x: centre.x, y: centre.y + 3))
+                }
+                .stroke(t.faint, lineWidth: 1)
+                BuddyStillView(asset: asset, tint: t.buddy)
+                    .position(x: centre.x + offset.x, y: centre.y + offset.y)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: Geo.Buddy.emojiTileRadius))
+            .overlay(RoundedRectangle(cornerRadius: Geo.Buddy.emojiTileRadius).strokeBorder(t.border, lineWidth: 1))
+        }
+        .frame(height: Geo.Buddy.States.previewHeight)
+        .accessibilityHidden(true)
     }
 }
 
