@@ -68,7 +68,15 @@ struct NotchContainer: View {
             }
             #endif
         }
-        .offset(x: g.centerOffset)
+        .offset(x: g.centerOffset, y: model.missionControlActive ? -(g.height + 18) : 0)
+        .opacity(model.missionControlActive ? 0 : 1)
+        .animation(
+            reduceMotion ? .easeInOut(duration: 0.15) :
+                model.missionControlActive ?
+                    .easeIn(duration: 0.22) :
+                    .easeOut(duration: 0.25),
+            value: model.missionControlActive
+        )
         .animation(reduceMotion ? .easeInOut(duration: 0.12) : model.shrinking ? Self.shellCloseCurve : Self.shellCurve, value: g)
         .animation(.easeOut(duration: 0.4), value: shadowOpacity)
         .animation(.easeInOut(duration: 0.3), value: model.isLight)

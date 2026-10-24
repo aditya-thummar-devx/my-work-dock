@@ -188,6 +188,7 @@ final class NotchWindowController {
     }
 
     private func pointerMoved() {
+        if model.missionControlActive { return }
         let p = NSEvent.mouseLocation
         // Until the pointer has entered a shell, the display it is on decides which one peeks and opens.
         if !model.hover, model.mode != .open, let s = shells.values.first(where: { $0.owns(p) }) { model.setActiveDisplay(s.id) }
@@ -207,9 +208,35 @@ final class NotchWindowController {
     }
 
     private func modelChanged() {
+        let inMissionControl = model.missionControlActive
+        if inMissionControl, model.open {
+            model.closePanel()
+        }
+
         // No notch anywhere: follow the pointer to another display, but never move a panel that is open or hovered.
         if model.mode == .idle || model.mode == .live || model.showOnAllDisplays != allShown { syncShells() }
-        updateMouse()
+
+        // Smoothly hide every panel while Mission Control / Show Desktop / Exposé is active so the notch
+        // tucks away cleanly, and animates back smoothly when returning.
+        for s in shells.values {
+            if inMissionControl {
+                s.panel.ignoresMouseEvents = true
+                NSAnimationContext.runAnimationGroup { ctx in
+                    ctx.duration = 0.22
+                    ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
+                    s.panel.animator().alphaValue = 0
+                }
+            } else {
+                NSAnimationContext.runAnimationGroup { ctx in
+                    ctx.duration = 0.25
+                    ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                    s.panel.animator().alphaValue = 1
+                }
+            }
+        }
+
+        if !inMissionControl { updateMouse() }
+
         for s in shells.values {
             if model.mode == .open, s.id == model.activeDisplay {
                 if !s.panel.isKeyWindow { s.panel.makeKey() }
