@@ -189,6 +189,8 @@ final class NotchModel {
     private(set) var menuBarHidden: Set<DisplayID> = []
     /// False while the display sleeps or the session is switched out: the buddy stops moving.
     private(set) var screenAwake = true
+    /// True while Mission Control (or Show Desktop / Exposé) is active: all notch panels hide until it exits.
+    private(set) var missionControlActive = false
     /// The last hover or panel open (or the launch): a custom buddy naps `Geo.Buddy.States.napAfter` after it.
     private(set) var lastActive = Date()
     /// Settings › Version: "1.0 (1)", and when this version first ran here (an install or an update). nil in snapshots and tests.
@@ -823,6 +825,13 @@ final class NotchModel {
 
     /// No `changed()`: only the buddy reads it, and Observation redraws that.
     func setScreenAwake(_ awake: Bool) { screenAwake = awake }
+
+    /// The window layer: Mission Control (or Show Desktop) just became active or exited.
+    func setMissionControlActive(_ active: Bool) {
+        guard active != missionControlActive else { return }
+        missionControlActive = active
+        changed()
+    }
 
     /// The first hover or open ends the hint for good. Only while the buddy is on: one that was never shown has not said hello.
     private func endBuddyHint() {

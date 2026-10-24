@@ -5,11 +5,14 @@ import AppKit
 ///    sits in the menu bar's strip, so there it would float over the app (Settings › Notch buddy › Hide in full-screen apps). Read
 ///    from the Window Server's menu-bar windows, one per display on layer 24: owner, layer and bounds need no permission;
 ///  - whether the screen is awake. A sleeping display or a switched-out session shows nothing, so nothing should wake the app to
-///    animate a face no one can see.
+///    animate a face no one can see;
+///  - whether Mission Control (or Show Desktop / Exposé) is active: the Dock creates overview windows
+///    (layer 18/19 or offscreen flag), and the notch panel smoothly slides out and hides until it exits.
 @MainActor
 final class ScreenWatcher {
     private let model: NotchModel
     private var settle: DispatchWorkItem?
+    private var missionControlTimer: DispatchSourceTimer?
 
     init(model: NotchModel) {
         self.model = model
@@ -17,9 +20,39 @@ final class ScreenWatcher {
         let workspace = NSWorkspace.shared.notificationCenter
         watch(workspace, [NSWorkspace.activeSpaceDidChangeNotification, NSWorkspace.didActivateApplicationNotification,
                           NSWorkspace.screensDidWakeNotification]) { $0.changed() }
-        watch(workspace, [NSWorkspace.screensDidSleepNotification, NSWorkspace.sessionDidResignActiveNotification]) { $0.model.setScreenAwake(false) }
-        watch(workspace, [NSWorkspace.screensDidWakeNotification, NSWorkspace.sessionDidBecomeActiveNotification]) { $0.model.setScreenAwake(true) }
+        watch(workspace, [NSWorkspace.screensDidSleepNotification, NSWorkspace.sessionDidResignActiveNotification]) {
+            $0.stopMissionControlPolling()
+            $0.model.setScreenAwake(false)
+        }
+        watch(workspace, [NSWorkspace.screensDidWakeNotification, NSWorkspace.sessionDidBecomeActiveNotification]) {
+            $0.model.setScreenAwake(true)
+            $0.startMissionControlPolling()
+        }
         watch(.default, [NSApplication.didChangeScreenParametersNotification]) { $0.changed() }
+
+        startMissionControlPolling()
+    }
+
+    private func startMissionControlPolling() {
+        stopMissionControlPolling()
+        let timer = DispatchSource.makeTimerSource(queue: DispatchQueue.global(qos: .userInteractive))
+        timer.schedule(deadline: .now(), repeating: .milliseconds(150))
+        timer.setEventHandler { [weak self] in
+            let active = Self.isMissionControlActive()
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                if active != self.model.missionControlActive {
+                    self.model.setMissionControlActive(active)
+                }
+            }
+        }
+        timer.resume()
+        missionControlTimer = timer
+    }
+
+    private func stopMissionControlPolling() {
+        missionControlTimer?.cancel()
+        missionControlTimer = nil
     }
 
     /// Lives as long as the app: the observers are never removed.
@@ -42,8 +75,22 @@ final class ScreenWatcher {
 
     /// Nothing is read while the buddy is off or may show in full screen: no one is waiting for the answer.
     func refresh() {
+        // Mission Control / Show Desktop hides all panels regardless of any other state.
+        model.setMissionControlActive(Self.isMissionControlActive())
+
         guard model.buddy.on, model.buddy.hideInFullScreen else { return model.setMenuBarHidden([]) }
         model.setMenuBarHidden(Self.displaysWithoutMenuBar())
+    }
+
+    /// True while Mission Control, Show Desktop, or Exposé is active.
+    /// The Dock creates windows at layer 18 (Exposé overview) or flags kSLWindowIsActiveOffscreen during these modes.
+    static func isMissionControlActive() -> Bool {
+        let windows = CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID) as? [[String: Any]] ?? []
+        return windows.contains {
+            guard $0[kCGWindowOwnerName as String] as? String == "Dock" else { return false }
+            let layer = $0[kCGWindowLayer as String] as? Int ?? 0
+            return layer == 18 || layer == 19 || ($0["kSLWindowIsActiveOffscreen"] as? Int == 1)
+        }
     }
 
     /// Displays whose top strip shows no menu bar right now.
