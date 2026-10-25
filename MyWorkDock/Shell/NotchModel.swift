@@ -699,6 +699,102 @@ final class NotchModel {
         changed()
     }
 
+    /// Whether any modal sheet, confirmation popup, or dropdown menu is currently visible over the panel.
+    var hasOpenPopup: Bool {
+        confirmer.pending != nil
+            || calendar.selected != nil
+            || claudex.detailName != nil
+            || runner.sheetOpen
+            || calendar.calendarsMenuOpen
+            || clipboard.tagMenuOpen
+            || notes.tagMenuOpen || notes.filterMenuOpen || notes.editTagMenuOpen || notes.tagManageOpen || notes.tagFormOpen
+            || claudex.sortOpen
+            || emulator.targetMenuOpen
+    }
+
+    /// Esc key: cancels or closes any open popup, sheet, or menu first, keeping the panel open.
+    /// Closes the panel only when no popup is open (or shrinks calendar peek if active).
+    func handleEscape() {
+        if calendarPeekState != nil && !open {
+            shrinkCalendarPeek()
+            return
+        }
+
+        if confirmer.pending != nil {
+            confirmer.cancel()
+            changed()
+            return
+        }
+
+        if calendar.selected != nil {
+            calendar.closeDetail()
+            changed()
+            return
+        }
+
+        if claudex.detailName != nil {
+            claudex.closeDetail()
+            changed()
+            return
+        }
+
+        if runner.sheetOpen {
+            runner.dismiss()
+            changed()
+            return
+        }
+
+        if calendar.calendarsMenuOpen {
+            calendar.calendarsMenuOpen = false
+            changed()
+            return
+        }
+
+        if clipboard.tagMenuOpen {
+            clipboard.closeMenus()
+            changed()
+            return
+        }
+
+        if notes.tagMenuOpen || notes.filterMenuOpen || notes.editTagMenuOpen || notes.tagManageOpen || notes.tagFormOpen {
+            notes.closeMenus()
+            changed()
+            return
+        }
+
+        if claudex.sortOpen {
+            claudex.sortOpen = false
+            changed()
+            return
+        }
+
+        if emulator.targetMenuOpen {
+            emulator.targetMenuOpen = false
+            changed()
+            return
+        }
+
+        if mainTab == .clipboard && clipboard.searchOpen {
+            clipboard.closeSearch()
+            changed()
+            return
+        }
+
+        if mainTab == .notes && notesTab == .todo && notes.searchOpen {
+            notes.closeSearch()
+            changed()
+            return
+        }
+
+        if mainTab == .notes, let active = activeSnippets, active.searchOpen {
+            active.closeSearch()
+            changed()
+            return
+        }
+
+        closePanel()
+    }
+
     /// Footer "Collapse": closes and unpins.
     func closePanel() {
         clearLeaveTimer()
