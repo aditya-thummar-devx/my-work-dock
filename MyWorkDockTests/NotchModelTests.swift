@@ -879,4 +879,71 @@ final class NotchModelTests: XCTestCase {
         XCTAssertEqual(timing(65 * 60), "in 1 h 5 min")
         XCTAssertEqual(timing(8 * 3600 + 120), "in 8 h 2 min")
     }
+
+    // MARK: - Notch Position Customization
+
+    func testNotchPositionDefaultIsTop() {
+        XCTAssertEqual(model.notchPosition, .top)
+        let g = model.geometry()
+        XCTAssertNil(g.cornerAnchor)
+    }
+
+    func testSetNotchPositionUpdatesAndNotifies() {
+        var notified = false
+        model.onChange = { notified = true }
+        model.setNotchPosition(.bottomLeft)
+        XCTAssertEqual(model.notchPosition, .bottomLeft)
+        XCTAssertTrue(notified)
+
+        let g = model.geometry()
+        XCTAssertEqual(g.cornerAnchor, .bottomLeft)
+        XCTAssertEqual(g.width, Geo.Corner.idle.size)
+        XCTAssertEqual(g.height, Geo.Corner.idle.size)
+        XCTAssertEqual(g.radius, Geo.Corner.idle.radius)
+    }
+
+    func testCornerGeometryInDifferentModes() {
+        model.setNotchPosition(.bottomRight)
+        // Idle
+        let idleG = model.geometry()
+        XCTAssertEqual(idleG.cornerAnchor, .bottomRight)
+        XCTAssertEqual(idleG.width, Geo.Corner.idle.size)
+        XCTAssertEqual(idleG.height, Geo.Corner.idle.size)
+
+        // Hover / Peek (matches default top notch peek style)
+        model.pointer(inside: true)
+        XCTAssertEqual(model.mode, .peek)
+        let peekG = model.geometry()
+        XCTAssertEqual(peekG.cornerAnchor, .bottomRight)
+        XCTAssertEqual(peekG.height, Geo.peek.height)
+        XCTAssertEqual(peekG.radius, Geo.peek.radius)
+        XCTAssertGreaterThanOrEqual(peekG.width, Geo.keepOutWidth)
+
+        // Open
+        model.openPanel()
+        XCTAssertEqual(model.mode, .open)
+        let openG = model.geometry()
+        XCTAssertEqual(openG.cornerAnchor, .bottomRight)
+        XCTAssertEqual(openG.width, Geo.open.width)
+        XCTAssertEqual(openG.height, Geo.open.height)
+        XCTAssertEqual(openG.radius, Geo.open.radius)
+    }
+
+    func testBuddyShownInCornerPositions() {
+        XCTAssertTrue(model.buddy.on)
+        XCTAssertTrue(model.buddyShown())
+
+        model.setNotchPosition(.bottomLeft)
+        XCTAssertTrue(model.buddyShown())
+
+        model.setNotchPosition(.bottomRight)
+        XCTAssertTrue(model.buddyShown())
+
+        model.setBuddy(BuddyPrefs(on: false))
+        XCTAssertFalse(model.buddyShown())
+
+        model.setBuddy(BuddyPrefs(on: true))
+        model.setNotchPosition(.top)
+        XCTAssertTrue(model.buddyShown())
+    }
 }

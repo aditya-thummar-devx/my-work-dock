@@ -94,6 +94,7 @@
 		84DCD0505ECD9D502C695EFD /* CalendarLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 346CBEB1381DFE585C8DCA50 /* CalendarLayout.swift */; };
 		853C425250BA5227D79C9118 /* CalendarStates.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0211C0B515A7FC9B70AD26C3 /* CalendarStates.swift */; };
 		8A8E9BB9566E873909AB62E8 /* BuddyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 174DA180C8C55A169C206321 /* BuddyView.swift */; };
+		8DCA88441C0851EECB12BBAB /* CornerShape.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BFF7E4A9DDBC5340B310CC5 /* CornerShape.swift */; };
 		8E0397F41B2792D54ADDCADE /* MyWorkDockApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C2C70119ECAE4541292A380 /* MyWorkDockApp.swift */; };
 		8E6F30254BAB9122F79D0BD5 /* TextArea.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB340316832145AEAB961B07 /* TextArea.swift */; };
 		8F3B7440D3A1A5FF2841147F /* SessionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02AB700C2D8E41E2F8F837D2 /* SessionsView.swift */; };
@@ -234,6 +235,7 @@
 		23A00F3978AF0B6A67D99157 /* BricolageGrotesque[opsz,wdth,wght].ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "BricolageGrotesque[opsz,wdth,wght].ttf"; sourceTree = "<group>"; };
 		25D456883C688E4D2A8DF726 /* CalendarScreen.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarScreen.swift; sourceTree = "<group>"; };
 		2A9E9C219E5402A514BBCFDE /* ClaudexStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudexStore.swift; sourceTree = "<group>"; };
+		2BFF7E4A9DDBC5340B310CC5 /* CornerShape.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CornerShape.swift; sourceTree = "<group>"; };
 		2D21F01F7B75E6C071654F53 /* StreamingProcess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamingProcess.swift; sourceTree = "<group>"; };
 		2DAEEB0F70FC3DF502D62B82 /* AgentCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentCore.swift; sourceTree = "<group>"; };
 		2FB94351C3A7770A376EF1F0 /* CalendarPeekState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarPeekState.swift; sourceTree = "<group>"; };
@@ -401,6 +403,7 @@
 			isa = PBXGroup;
 			children = (
 				D03E22ACFABA20FB0AE0F7DF /* AppearanceObserver.swift */,
+				2BFF7E4A9DDBC5340B310CC5 /* CornerShape.swift */,
 				9560B277AF811CBA16AF9406 /* NotchContainer.swift */,
 				DDA07AAA166DB6B5B045DF1D /* NotchModel.swift */,
 				20E785AE8A7FC410EAE0E333 /* NotchShape.swift */,
@@ -982,6 +985,7 @@
 				B98A18F746BF9A6D3D2CE088 /* Compositions.swift in Sources */,
 				DD771BD93CA700637914D1B4 /* ConfirmSheet.swift in Sources */,
 				DCA4CA1F099434CB7AE546A0 /* Confirmer.swift in Sources */,
+				8DCA88441C0851EECB12BBAB /* CornerShape.swift in Sources */,
 				39EA79E020C3DF24FC1E385E /* CustomBuddyStore.swift in Sources */,
 				7C679061703A73B09F202BD5 /* EmulatorParsers.swift in Sources */,
 				19986EB9684ACA99C191102D /* EmulatorStore.swift in Sources */,
