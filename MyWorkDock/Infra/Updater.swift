@@ -1,33 +1,54 @@
 import Foundation
 import Sparkle
 
-/// OTA updates via Sparkle: checks hourly, downloads quietly, then relaunches into the new build once `isIdle`.
-/// A menu-bar app rarely quits, so Sparkle's default "install on quit" would leave updates staged for weeks.
+/// OTA updates via Sparkle: checks daily, prompts the user to review and install, and asks before relaunching.
 @MainActor
-final class Updater: NSObject, SPUUpdaterDelegate {
+final class Updater: NSObject, SPUUpdaterDelegate, SPUStandardUserDriverDelegate {
     private let isIdle: () -> Bool
+    private let closePanel: () -> Void
     private var controller: SPUStandardUpdaterController!
 
-    init(isIdle: @escaping () -> Bool) {
+    init(isIdle: @escaping () -> Bool, closePanel: @escaping () -> Void = {}, automaticallyChecksForUpdates: Bool = true) {
         self.isIdle = isIdle
+        self.closePanel = closePanel
         super.init()
-        controller = SPUStandardUpdaterController(startingUpdater: false, updaterDelegate: self, userDriverDelegate: nil)
-        // Set in code, not Info.plist: also skips Sparkle's "check automatically?" prompt on the second launch.
+        controller = SPUStandardUpdaterController(startingUpdater: false, updaterDelegate: self, userDriverDelegate: self)
         let updater = controller.updater
-        updater.automaticallyChecksForUpdates = true
-        updater.automaticallyDownloadsUpdates = true
-        updater.updateCheckInterval = 3600
+        updater.automaticallyChecksForUpdates = automaticallyChecksForUpdates
+        updater.automaticallyDownloadsUpdates = false
+        updater.updateCheckInterval = 86400
         controller.startUpdater()
     }
 
-    /// Menu item: unlike the scheduled checks, this one shows Sparkle's own window (up to date / error / release notes).
+    var automaticallyChecksForUpdates: Bool {
+        get { controller.updater.automaticallyChecksForUpdates }
+        set { controller.updater.automaticallyChecksForUpdates = newValue }
+    }
+
+    /// Menu item: shows Sparkle's own window (up to date / error / release notes).
     func checkForUpdates() { controller.checkForUpdates(nil) }
 
-    /// The update is downloaded and staged; install it as soon as nothing would be interrupted. Quitting first installs it too.
-    func updater(_ updater: SPUUpdater, willInstallUpdateOnQuit item: SUAppcastItem, immediateInstallationBlock install: @escaping () -> Void) -> Bool {
+    // MARK: - SPUStandardUserDriverDelegate
+
+    nonisolated func standardUserDriverWillShowModalAlert() {
         Task { @MainActor in
-            while !isIdle() { try? await Task.sleep(for: .seconds(30)) }
-            install()
+            self.closePanel()
+        }
+    }
+
+    // MARK: - SPUUpdaterDelegate
+
+    /// Sparkle will not install quietly in the background; user is always asked.
+    func updater(_ updater: SPUUpdater, willInstallUpdateOnQuit item: SUAppcastItem, immediateInstallationBlock install: @escaping () -> Void) -> Bool {
+        false
+    }
+
+    /// Delay relaunch until the dock is idle (no ongoing terminal run, sign-in, etc.) when the user confirms install.
+    func updater(_ updater: SPUUpdater, shouldPostponeRelaunchForUpdate item: SUAppcastItem, untilInvokingBlock installHandler: @escaping () -> Void) -> Bool {
+        guard !isIdle() else { return false }
+        Task { @MainActor in
+            while !isIdle() { try? await Task.sleep(for: .seconds(5)) }
+            installHandler()
         }
         return true
     }

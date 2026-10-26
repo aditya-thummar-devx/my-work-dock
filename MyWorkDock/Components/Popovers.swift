@@ -102,6 +102,8 @@ struct SettingsScreen: View {
     var calendarAutoPeekThreshold = 5
     var version = ""
     var updatedAt: Date?
+    var autoCheckUpdates = true
+    var onAutoCheckUpdates: (Bool) -> Void = { _ in }
     /// nil in debug builds (no updater): the Version page then says so instead of showing the button.
     var onCheckForUpdates: (() -> Void)?
     var onTheme: (ThemeMode) -> Void = { _ in }
@@ -123,6 +125,7 @@ struct SettingsScreen: View {
          notchPosition: NotchPosition = .top,
          disabled: Set<Feature> = [], disabledSubs: Set<SubMenu> = [], peekOn: Set<PeekSource> = PeekSource.defaultOn, allDisplays: Bool = false, buddy: BuddyPrefs = BuddyPrefs(), customBuddies: CustomBuddies = CustomBuddies(), shortcuts: ShortcutStore = ShortcutStore(), page: Page = .appearance,
          clipboardLimit: Int = ClipboardStore.defaultLimit, calendarAutoPeek: Bool = false, calendarAutoPeekThreshold: Int = 5, version: String = "", updatedAt: Date? = nil,
+         autoCheckUpdates: Bool = true,
          onCheckForUpdates: (() -> Void)? = nil,
          onTheme: @escaping (ThemeMode) -> Void = { _ in }, onTint: @escaping (Tint) -> Void = { _ in },
          onPanelSize: @escaping (PanelSize) -> Void = { _ in },
@@ -133,7 +136,8 @@ struct SettingsScreen: View {
          onCalendarAutoPeekThreshold: @escaping (Int) -> Void = { _ in },
          onAllDisplays: @escaping (Bool) -> Void = { _ in },
          onBuddy: @escaping (BuddyPrefs) -> Void = { _ in },
-         onClipboardLimit: @escaping (Int) -> Void = { _ in }) {
+         onClipboardLimit: @escaping (Int) -> Void = { _ in },
+         onAutoCheckUpdates: @escaping (Bool) -> Void = { _ in }) {
         self.theme = theme
         self.systemIsDark = systemIsDark
         self.tint = tint
@@ -151,6 +155,7 @@ struct SettingsScreen: View {
         self.calendarAutoPeekThreshold = calendarAutoPeekThreshold
         self.version = version
         self.updatedAt = updatedAt
+        self.autoCheckUpdates = autoCheckUpdates
         self.onCheckForUpdates = onCheckForUpdates
         self.onClipboardLimit = onClipboardLimit
         self.onTheme = onTheme
@@ -164,6 +169,7 @@ struct SettingsScreen: View {
         self.onCalendarAutoPeekThreshold = onCalendarAutoPeekThreshold
         self.onAllDisplays = onAllDisplays
         self.onBuddy = onBuddy
+        self.onAutoCheckUpdates = onAutoCheckUpdates
         _page = State(initialValue: page)
     }
 
@@ -211,7 +217,8 @@ struct SettingsScreen: View {
         case .clipboard:
             ClipboardSection(limit: clipboardLimit, onLimit: onClipboardLimit)
         case .version:
-            VersionSection(version: version, updatedAt: updatedAt, onCheck: onCheckForUpdates)
+            VersionSection(version: version, updatedAt: updatedAt, autoCheckUpdates: autoCheckUpdates,
+                           onAutoCheckUpdates: onAutoCheckUpdates, onCheck: onCheckForUpdates)
         }
     }
 
@@ -346,10 +353,12 @@ private struct ShortcutsSection: View {
     }
 }
 
-/// Settings › Version: what is installed, when it arrived, and a manual update check (Sparkle shows its own window).
+/// Settings › Version: what is installed, when it arrived, an automatic update check toggle, and a manual update check.
 private struct VersionSection: View {
     var version: String
     var updatedAt: Date?
+    var autoCheckUpdates = true
+    var onAutoCheckUpdates: (Bool) -> Void = { _ in }
     var onCheck: (() -> Void)?
     @Environment(\.tokens) private var t
 
@@ -361,11 +370,23 @@ private struct VersionSection: View {
                 row("Last updated", updatedAt?.formatted(date: .abbreviated, time: .shortened) ?? "—")
             }
             .padding(.top, Geo.Appearance.pullUp)
+
+            Text("Updates").font(Typo.ui(Geo.Appearance.sectionFont, .semibold)).foregroundStyle(t.faint)
+                .padding(.top, 8)
+            VStack(spacing: 0) {
+                SwitchRow(label: "Automatically check for updates", glyph: .refresh, on: autoCheckUpdates, locked: onCheck == nil) {
+                    onAutoCheckUpdates(!autoCheckUpdates)
+                }
+            }
+            .padding(.top, Geo.Appearance.pullUp)
+
             if let onCheck {
                 DockButton(title: "Check for updates", glyph: .refresh, metrics: .save, tone: .tint, weight: .bold, action: onCheck)
             }
             Text(onCheck == nil ? "Update checks are off in debug builds."
-                                : "Updates are checked every hour, downloaded quietly and installed when the dock is idle.")
+                                : autoCheckUpdates
+                                    ? "Updates are checked daily. When a new version is available, you will be prompted to review and install it."
+                                    : "Automatic update checks are off. You can check manually at any time.")
                 .font(Typo.ui(Geo.Appearance.noteFont))
                 .foregroundStyle(t.faint)
                 .lineSpacing(Typo.lineSpacing(size: Geo.Appearance.noteFont, lineHeight: 1.4))

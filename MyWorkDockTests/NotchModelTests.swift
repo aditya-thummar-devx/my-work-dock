@@ -225,6 +225,18 @@ final class NotchModelTests: XCTestCase {
         XCTAssertTrue(model.showOnAllDisplays)
     }
 
+    func testAutoCheckUpdatesDefaultsOnAndTogglesAndNotifies() {
+        XCTAssertTrue(model.autoCheckUpdates)
+        var notified: Bool?
+        model.onAutoCheckUpdates = { notified = $0 }
+        model.setAutoCheckUpdates(false)
+        XCTAssertFalse(model.autoCheckUpdates)
+        XCTAssertEqual(notified, false)
+        model.setAutoCheckUpdates(true)
+        XCTAssertTrue(model.autoCheckUpdates)
+        XCTAssertEqual(notified, true)
+    }
+
     func testPeekHugsItsEarsAroundTheCentredKeepOut() {
         model.setPeekEnabled(.claudex, true)
         model.pointer(inside: true)

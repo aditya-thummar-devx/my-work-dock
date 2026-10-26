@@ -26,5 +26,11 @@
 	<string>https://github.com/aditya-thummar-devx/my-work-dock/releases/latest/download/appcast.xml</string>
 	<key>SUPublicEDKey</key>
 	<string>HKw1PhCjx1ETFWAtSS179yk9rDpuHWp0oVLMZtO1EOg=</string>
+	<key>SUScheduledCheckInterval</key>
+	<real>86400</real>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUAutomaticallyUpdate</key>
+	<false/>
 </dict>
 </plist>

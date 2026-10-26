@@ -56,6 +56,9 @@ targets:
       properties:
         SUFeedURL: https://github.com/aditya-thummar-devx/my-work-dock/releases/latest/download/appcast.xml
         SUPublicEDKey: HKw1PhCjx1ETFWAtSS179yk9rDpuHWp0oVLMZtO1EOg=
+        SUScheduledCheckInterval: 86400
+        SUEnableAutomaticChecks: true
+        SUAutomaticallyUpdate: false
         # My Calendar's Google OAuth client, filled from Config/GoogleOAuth.xcconfig at build time; empty = "sign-in not configured".
         GoogleClientID: $(GOOGLE_CLIENT_ID)
         GoogleClientSecret: $(GOOGLE_CLIENT_SECRET)

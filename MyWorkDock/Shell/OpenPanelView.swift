@@ -23,13 +23,16 @@ struct OpenPanelView: View {
                                    shortcuts: model.shortcuts,
                                    clipboardLimit: model.clipboard.limit,
                                    calendarAutoPeek: model.calendarAutoPeekEnabled, calendarAutoPeekThreshold: model.calendarAutoPeekThreshold,
-                                   version: model.version, updatedAt: model.updatedAt, onCheckForUpdates: model.checkForUpdates,
+                                   version: model.version, updatedAt: model.updatedAt,
+                                   autoCheckUpdates: model.autoCheckUpdates,
+                                   onCheckForUpdates: model.checkForUpdates,
                                    onTheme: model.setTheme, onTint: model.setTint, onPanelSize: model.setPanelSize,
                                    onNotchPosition: model.setNotchPosition,
                                    onFeature: model.setEnabled, onSub: model.setEnabled, onPeek: model.setPeekEnabled,
                                    onCalendarAutoPeek: model.setCalendarAutoPeekEnabled, onCalendarAutoPeekThreshold: model.setCalendarAutoPeekThreshold,
                                    onAllDisplays: model.setShowOnAllDisplays,
-                                   onBuddy: model.setBuddy, onClipboardLimit: model.setClipboardLimit)
+                                   onBuddy: model.setBuddy, onClipboardLimit: model.setClipboardLimit,
+                                   onAutoCheckUpdates: model.setAutoCheckUpdates)
                         .transition(.opacity)
                 } else if model.enabledTabs.isEmpty {
                     MenusOffGuide(onOpenSettings: model.toggleSettings).transition(.opacity)
