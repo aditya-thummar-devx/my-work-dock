@@ -946,4 +946,98 @@ final class NotchModelTests: XCTestCase {
         model.setNotchPosition(.top)
         XCTAssertTrue(model.buddyShown())
     }
+
+    // MARK: - Escape Key Handling
+
+    func testHandleEscapeCancelsConfirmationPopupAndKeepsPanelOpen() {
+        model.openPanel()
+        XCTAssertTrue(model.open)
+
+        model.confirmer.ask(ConfirmRequest(title: "Clear all?", command: "rm -f clips", note: "Cannot undo", confirmTitle: "Clear", danger: true) {})
+        XCTAssertNotNil(model.confirmer.pending)
+        XCTAssertTrue(model.hasOpenPopup)
+
+        // First Esc: cancels confirmation popup only, panel stays open
+        model.handleEscape()
+        XCTAssertNil(model.confirmer.pending)
+        XCTAssertFalse(model.hasOpenPopup)
+        XCTAssertTrue(model.open)
+
+        // Second Esc: no popup open, so it closes the panel
+        model.handleEscape()
+        XCTAssertFalse(model.open)
+    }
+
+    func testHandleEscapeClosesPanelWhenNoPopupIsOpen() {
+        model.openPanel()
+        XCTAssertTrue(model.open)
+        XCTAssertFalse(model.hasOpenPopup)
+
+        model.handleEscape()
+        XCTAssertFalse(model.open)
+    }
+
+    func testHandleEscapeClosesCalendarDetailAndKeepsPanelOpen() throws {
+        enableEvents()
+        model.openPanel()
+        let hotfix = try XCTUnwrap(model.peekEvents?.rows.last).event
+        model.showEvent(hotfix)
+        XCTAssertTrue(model.open)
+        XCTAssertNotNil(model.calendar.selected)
+        XCTAssertTrue(model.hasOpenPopup)
+
+        // First Esc: closes calendar detail, panel stays open
+        model.handleEscape()
+        XCTAssertNil(model.calendar.selected)
+        XCTAssertTrue(model.open)
+
+        // Second Esc: closes panel
+        model.handleEscape()
+        XCTAssertFalse(model.open)
+    }
+
+    func testHandleEscapeClosesClaudexDetailAndKeepsPanelOpen() throws {
+        model.openPanel()
+        let name = try XCTUnwrap(model.claudex.members.data?.first?.name)
+        model.claudex.openDetail(name)
+        XCTAssertTrue(model.open)
+        XCTAssertNotNil(model.claudex.detailName)
+        XCTAssertTrue(model.hasOpenPopup)
+
+        model.handleEscape()
+        XCTAssertNil(model.claudex.detailName)
+        XCTAssertTrue(model.open)
+
+        model.handleEscape()
+        XCTAssertFalse(model.open)
+    }
+
+    func testHandleEscapeDismissesRunnerSheetAndKeepsPanelOpen() {
+        model.openPanel()
+        model.runner.showSample(command: "ls", folder: URL(fileURLWithPath: "/tmp"), output: "sample", state: .finished(0))
+        XCTAssertTrue(model.open)
+        XCTAssertTrue(model.runner.sheetOpen)
+        XCTAssertTrue(model.hasOpenPopup)
+
+        model.handleEscape()
+        XCTAssertFalse(model.runner.sheetOpen)
+        XCTAssertTrue(model.open)
+
+        model.handleEscape()
+        XCTAssertFalse(model.open)
+    }
+
+    func testHandleEscapeClosesPopoversAndKeepsPanelOpen() {
+        model.openPanel()
+        model.clipboard.openTagManage()
+        XCTAssertTrue(model.clipboard.tagMenuOpen)
+        XCTAssertTrue(model.hasOpenPopup)
+
+        model.handleEscape()
+        XCTAssertFalse(model.clipboard.tagMenuOpen)
+        XCTAssertTrue(model.open)
+
+        model.handleEscape()
+        XCTAssertFalse(model.open)
+    }
 }

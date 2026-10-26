@@ -38,11 +38,7 @@ final class NotchWindowController {
             host.sizingOptions = []
             panel.contentView = host
             panel.onEscape = { [weak model] in
-                if model?.calendarPeekState != nil && !(model?.open ?? false) {
-                    model?.shrinkCalendarPeek()
-                } else {
-                    model?.closePanel()
-                }
+                model?.handleEscape()
             }
         }
 
