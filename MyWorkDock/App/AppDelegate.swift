@@ -3,7 +3,7 @@ import Carbon.HIToolbox
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var controller: NotchWindowController?
-    private var hotKeys: [HotKey] = []
+    private var hotKeyManager: HotKeyManager?
     private var statusItem: NSStatusItem?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -33,20 +33,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // No automatic login item: "Open at login" in the right-click menu is the only way to turn it on.
         let controller = NotchWindowController(model: model)
         self.controller = controller
-        let cmdShift = cmdKey | shiftKey
-        // A combo another app already owns gives nil and is skipped.
-        let keys: [HotKey?] = [
-            HotKey(keyCode: kVK_Space, modifiers: optionKey) { [weak controller] in controller?.model.togglePanel() },
-            HotKey(keyCode: kVK_ANSI_V, modifiers: cmdShift) { [weak controller] in controller?.model.show(.clipboard) },
-            HotKey(keyCode: kVK_ANSI_M, modifiers: cmdShift) { [weak controller] in controller?.model.show(.calendar) },
-            HotKey(keyCode: kVK_ANSI_D, modifiers: cmdShift) { [weak controller] in controller?.model.show(.notes, notes: .todo) },
-            HotKey(keyCode: kVK_ANSI_C, modifiers: cmdShift) { [weak controller] in controller?.model.show(.notes, notes: .commands) },
-            HotKey(keyCode: kVK_ANSI_P, modifiers: cmdShift) { [weak controller] in controller?.model.show(.notes, notes: .prompts) },
-            HotKey(keyCode: kVK_ANSI_L, modifiers: cmdShift) { [weak controller] in controller?.model.show(.notes, notes: .links) },
-            HotKey(keyCode: kVK_ANSI_E, modifiers: cmdShift) { [weak controller] in controller?.model.show(.emulator) },
-            HotKey(keyCode: kVK_ANSI_X, modifiers: cmdShift) { [weak controller] in controller?.model.show(.claudex) },
-        ]
-        hotKeys = keys.compactMap { $0 }
+        let hotKeyManager = HotKeyManager(model: model, controller: controller)
+        self.hotKeyManager = hotKeyManager
+        model.onShortcutsChange = { [weak hotKeyManager] in
+            hotKeyManager?.sync()
+        }
         addStatusItem()
     }
 

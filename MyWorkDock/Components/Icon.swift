@@ -8,7 +8,7 @@ enum Glyph {
     case wifi, arrows, chevronDown, play, stop, power, warning, monitor, arrowLeft, moon, sun, triangle, funnel, tag, globe, ring, chat
     case calendar
     case clock, mapPin, video, users, bell, link, text, paperclip, recur, question, lock, folder
-    case gear, eye, info
+    case gear, eye, info, keyboard
 
     fileprivate enum Part {
         case path(String)
@@ -67,6 +67,7 @@ enum Glyph {
         case .info: [.circle(cx: 12, cy: 12, r: 10), .path("M12 16v-4M12 8h.01")]
         case .chat: [.path("M4 5h16v11H9l-5 4z"), .path("M8 10h8M8 13h5")]
         case .folder: [.path("M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z")]
+        case .keyboard: [.rect(x: 2, y: 5, w: 20, h: 14, rx: 2.5), .path("M6 10h.01M10 10h.01M14 10h.01M18 10h.01M8 14h8")]
         }
     }
 

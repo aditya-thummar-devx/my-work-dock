@@ -68,7 +68,7 @@ extension Geo {
 /// Appearance (theme, tint, panel size), Menus (which features are on), Peek, Clipboard (history size) and Version. Applies everywhere.
 struct SettingsScreen: View {
     enum Page: String, CaseIterable, Identifiable {
-        case appearance, menus, peek, clipboard, version
+        case appearance, menus, peek, shortcuts, clipboard, version
 
         var id: String { rawValue }
         var label: String { rawValue.capitalized }
@@ -77,6 +77,7 @@ struct SettingsScreen: View {
             case .appearance: .sun
             case .menus: .sliders
             case .peek: .eye
+            case .shortcuts: .keyboard
             case .clipboard: .clipboard
             case .version: .info
             }
@@ -94,6 +95,7 @@ struct SettingsScreen: View {
     var allDisplays = false
     var buddy = BuddyPrefs()
     var customBuddies = CustomBuddies()
+    var shortcuts = ShortcutStore()
     var clipboardLimit = ClipboardStore.defaultLimit
     var calendarAutoPeek = false
     var calendarAutoPeekThreshold = 5
@@ -115,7 +117,7 @@ struct SettingsScreen: View {
     @State private var page: Page
     @Environment(\.tokens) private var t
 
-    init(theme: ThemeMode, systemIsDark: Bool = true, tint: Tint, panelSize: PanelSize = .medium, disabled: Set<Feature> = [], disabledSubs: Set<SubMenu> = [], peekOn: Set<PeekSource> = PeekSource.defaultOn, allDisplays: Bool = false, buddy: BuddyPrefs = BuddyPrefs(), customBuddies: CustomBuddies = CustomBuddies(), page: Page = .appearance,
+    init(theme: ThemeMode, systemIsDark: Bool = true, tint: Tint, panelSize: PanelSize = .medium, disabled: Set<Feature> = [], disabledSubs: Set<SubMenu> = [], peekOn: Set<PeekSource> = PeekSource.defaultOn, allDisplays: Bool = false, buddy: BuddyPrefs = BuddyPrefs(), customBuddies: CustomBuddies = CustomBuddies(), shortcuts: ShortcutStore = ShortcutStore(), page: Page = .appearance,
          clipboardLimit: Int = ClipboardStore.defaultLimit, calendarAutoPeek: Bool = false, calendarAutoPeekThreshold: Int = 5, version: String = "", updatedAt: Date? = nil,
          onCheckForUpdates: (() -> Void)? = nil,
          onTheme: @escaping (ThemeMode) -> Void = { _ in }, onTint: @escaping (Tint) -> Void = { _ in },
@@ -137,6 +139,7 @@ struct SettingsScreen: View {
         self.allDisplays = allDisplays
         self.buddy = buddy
         self.customBuddies = customBuddies
+        self.shortcuts = shortcuts
         self.clipboardLimit = clipboardLimit
         self.calendarAutoPeek = calendarAutoPeek
         self.calendarAutoPeekThreshold = calendarAutoPeekThreshold
@@ -194,6 +197,8 @@ struct SettingsScreen: View {
                         onPeek: onPeek,
                         onCalendarAutoPeek: onCalendarAutoPeek,
                         onCalendarAutoPeekThreshold: onCalendarAutoPeekThreshold)
+        case .shortcuts:
+            ShortcutsSection(store: shortcuts, disabled: disabled, disabledSubs: disabledSubs)
         case .clipboard:
             ClipboardSection(limit: clipboardLimit, onLimit: onClipboardLimit)
         case .version:
@@ -220,6 +225,115 @@ struct SettingsScreen: View {
         }
         .buttonStyle(.plain)
         .accessibilityAddTraits(on ? .isSelected : [])
+    }
+}
+
+/// Settings › Shortcuts: master toggle for all shortcuts, individual toggles, and edit key recording.
+private struct ShortcutsSection: View {
+    var store: ShortcutStore
+    var disabled: Set<Feature> = []
+    var disabledSubs: Set<SubMenu> = []
+    @State private var recordingAction: ShortcutAction?
+    @Environment(\.tokens) private var t
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Geo.Chrome.popoverGap) {
+            Text("Shortcuts").font(Typo.ui(Geo.Appearance.sectionFont, .semibold)).foregroundStyle(t.faint)
+
+            SwitchRow(label: "Enable keyboard shortcuts", glyph: .power, on: store.masterEnabled) {
+                store.setMasterEnabled(!store.masterEnabled)
+            }
+            .modifier(MenuCard())
+
+            Text("When turned off, all global hotkeys are released and do nothing from any app.")
+                .font(Typo.ui(Geo.Appearance.noteFont))
+                .foregroundStyle(t.faint)
+                .lineSpacing(Typo.lineSpacing(size: Geo.Appearance.noteFont, lineHeight: 1.4))
+                .fixedSize(horizontal: false, vertical: true)
+
+            ForEach(ShortcutCategory.allCases) { category in
+                let actions = ShortcutAction.allCases.filter { $0.category == category }
+                Text(category.label).font(Typo.ui(Geo.Appearance.sectionFont, .semibold)).foregroundStyle(t.faint)
+                    .padding(.top, 4)
+
+                VStack(spacing: 0) {
+                    ForEach(Array(actions.enumerated()), id: \.element.id) { index, action in
+                        if index > 0 {
+                            Rectangle().fill(t.line).frame(height: 1).padding(.horizontal, Geo.Menu.rowPadX)
+                        }
+                        actionRow(action)
+                    }
+                }
+                .modifier(MenuCard())
+            }
+
+            Text("Click Edit on any shortcut to change its keys by pressing them on your keyboard (must include ⌘, ⌥, or ⌃). Press Esc to cancel.")
+                .font(Typo.ui(Geo.Appearance.noteFont))
+                .foregroundStyle(t.faint)
+                .lineSpacing(Typo.lineSpacing(size: Geo.Appearance.noteFont, lineHeight: 1.4))
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack {
+                Spacer(minLength: 0)
+                DockButton(title: "Reset all to defaults", glyph: .refresh, metrics: .save, tone: .secondary, weight: .semibold) {
+                    store.resetAll()
+                }
+            }
+            .padding(.top, 4)
+        }
+    }
+
+    private func isLocked(_ action: ShortcutAction) -> Bool {
+        guard store.masterEnabled else { return true }
+        switch action {
+        case .togglePanel:
+            return false
+        case .clipboard:
+            return disabled.contains(.clipboard)
+        case .calendar:
+            return disabled.contains(.calendar)
+        case .notesTodo:
+            return disabled.contains(.notes) || disabledSubs.contains(.notesTodo)
+        case .notesCommands:
+            return disabled.contains(.notes) || disabledSubs.contains(.notesCommands)
+        case .notesPrompts:
+            return disabled.contains(.notes) || disabledSubs.contains(.notesPrompts)
+        case .notesLinks:
+            return disabled.contains(.notes) || disabledSubs.contains(.notesLinks)
+        case .emulator:
+            return disabled.contains(.emulator)
+        case .claudex:
+            return disabled.contains(.claudex)
+        }
+    }
+
+    private func actionRow(_ action: ShortcutAction) -> some View {
+        let locked = isLocked(action)
+        let isSwitchedOn = store.isActionSwitchedOn(action)
+        return HStack(spacing: Geo.Menu.rowGap) {
+            Icon(action.glyph, size: Geo.Appearance.themeIcon)
+                .foregroundStyle((store.masterEnabled && isSwitchedOn && !locked) ? t.text : t.muted)
+
+            Text(action.label)
+                .font(Typo.ui(Geo.Menu.font, .medium))
+                .foregroundStyle((store.masterEnabled && isSwitchedOn && !locked) ? t.text : t.text2)
+
+            Spacer(minLength: 8)
+
+            KeyRecorder(action: action, store: store, recordingAction: $recordingAction, locked: locked || !store.masterEnabled)
+
+            Button {
+                guard store.masterEnabled && !locked else { return }
+                store.setActionSwitchedOn(action, !isSwitchedOn)
+            } label: {
+                SwitchPill(on: store.masterEnabled && isSwitchedOn && !locked)
+            }
+            .buttonStyle(.plain)
+            .disabled(locked || !store.masterEnabled)
+        }
+        .padding(.horizontal, Geo.Menu.rowPadX)
+        .frame(height: Geo.Appearance.menuRowHeight)
+        .opacity(locked ? 0.45 : 1)
     }
 }
 
