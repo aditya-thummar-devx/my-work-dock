@@ -65,6 +65,39 @@ final class CalendarAutoPeekTests: XCTestCase {
         model.dismissCalendarPeek()
         XCTAssertNil(model.calendarPeekState)
         XCTAssertEqual(model.mode, .idle)
+
+        // Dismiss from live clears peek
+        model.setCalendarPeekState(.live(item: item, minutesLeft: 10))
+        XCTAssertEqual(model.mode, .peek)
+        model.dismissCalendarPeek()
+        XCTAssertNil(model.calendarPeekState)
+        XCTAssertEqual(model.mode, .idle)
+    }
+
+    func testSchedulerShrinkAndDismiss() {
+        let item = CalendarPeekItem(eventID: "ev1", title: "Standup", start: Date(), end: Date().addingTimeInterval(900),
+                                    meetURL: URL(string: "https://meet.google.com/abc")!,
+                                    meetName: "Meet")
+        var recordedState: CalendarPeekState?
+        let scheduler = CalendarAutoPeekScheduler(calendar: model.calendar, threshold: 5) { state in
+            recordedState = state
+        }
+
+        // Shrinking from headsUp sets shrunk(reExpanded: false)
+        scheduler.shrinkCurrent(currentState: .headsUp(item: item, minutesLeft: 3))
+        XCTAssertEqual(recordedState, .shrunk(item: item, reExpanded: false))
+
+        // Shrinking from live sets shrunk(reExpanded: false)
+        scheduler.shrinkCurrent(currentState: .live(item: item, minutesLeft: 10))
+        XCTAssertEqual(recordedState, .shrunk(item: item, reExpanded: false))
+
+        // Shrinking from re-expanded shrunk collapses back to shrunk(reExpanded: false)
+        scheduler.shrinkCurrent(currentState: .shrunk(item: item, reExpanded: true))
+        XCTAssertEqual(recordedState, .shrunk(item: item, reExpanded: false))
+
+        // Dismissing sets state to nil
+        scheduler.dismissCurrent()
+        XCTAssertNil(recordedState)
     }
 
     func testThresholdClamping() {

@@ -38,22 +38,19 @@ final class CalendarAutoPeekScheduler {
         timer = nil
     }
 
-    /// Called by NotchModel when the user dismisses (✕ / Esc from visible bar, or second Esc from shrunk).
+    /// Called by NotchModel when the user dismisses (✕ from visible bar, or second Esc from shrunk).
     func dismissCurrent() {
         if let id = trackedEventID { dismissedEventIDs.insert(id) }
         trackedEventID = nil
         onState(nil)
     }
 
-    /// Called by NotchModel when the user shrinks (first Esc / ✕ from visible bar).
+    /// Called by NotchModel when the user shrinks (first Esc from visible bar).
     func shrinkCurrent(currentState: CalendarPeekState) {
-        guard case .headsUp(let item, _) = currentState else {
-            if case .live(let item, _) = currentState {
-                onState(.shrunk(item: item, reExpanded: false))
-            }
-            return
+        switch currentState {
+        case .headsUp(let item, _), .live(let item, _), .shrunk(let item, _):
+            onState(.shrunk(item: item, reExpanded: false))
         }
-        onState(.shrunk(item: item, reExpanded: false))
     }
 
     /// Called by NotchModel when the user hovers while shrunk (re-expand) or un-hovers (collapse back).

@@ -182,7 +182,7 @@ struct NotchContainer: View {
             if let calState = model.calendarPeekState {
                 CalendarPeekView(state: calState,
                                  onJoin: model.joinMeeting,
-                                 onDismiss: model.shrinkCalendarPeek,
+                                 onDismiss: model.dismissCalendarPeek,
                                  onExpand: model.expandCalendarPeek)
                     .modifier(Entrance(timing: Geo.fadePeekLive))
                     .transition(Self.contentSwap)

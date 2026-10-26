@@ -617,7 +617,7 @@ private struct PeekSection: View {
                 }
             }
             .padding(.top, Geo.Appearance.pullUp)
-            Text("Opens the meeting heads-up bar automatically in the notch before events that have a Google Meet or video conference link. Pressing Esc or ✕ shrinks it to a dot beside the notch.")
+            Text("Opens the meeting heads-up bar automatically in the notch before events that have a Google Meet or video conference link. Pressing Esc shrinks it to a dot beside the notch, or click ✕ to dismiss.")
                 .font(Typo.ui(Geo.Appearance.noteFont))
                 .foregroundStyle(t.faint)
                 .lineSpacing(Typo.lineSpacing(size: Geo.Appearance.noteFont, lineHeight: 1.4))

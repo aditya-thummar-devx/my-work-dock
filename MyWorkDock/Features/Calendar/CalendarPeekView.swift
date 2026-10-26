@@ -114,7 +114,8 @@ struct CalendarPeekView: View {
                         Icon(.close, size: 9, stroke: 3)
                             .foregroundStyle(Self.closeFg)
                     }
-                    .contentShape(Circle())
+                    .frame(width: 28, height: 28)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Dismiss meeting peek")
