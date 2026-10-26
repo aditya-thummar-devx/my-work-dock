@@ -50,6 +50,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         addStatusItem()
     }
 
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        MainActor.assumeIsolated { controller?.model.openPanel() }
+        return true
+    }
+
     func applicationWillTerminate(_ notification: Notification) {
         MainActor.assumeIsolated { controller?.model.runner.killNow() }
     }

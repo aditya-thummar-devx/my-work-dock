@@ -88,6 +88,7 @@ struct SettingsScreen: View {
     var systemIsDark = true
     var tint: Tint
     var panelSize = PanelSize.medium
+    var notchPosition = NotchPosition.top
     var disabled: Set<Feature> = []
     var disabledSubs: Set<SubMenu> = []
     var peekOn = PeekSource.defaultOn
@@ -104,6 +105,7 @@ struct SettingsScreen: View {
     var onTheme: (ThemeMode) -> Void = { _ in }
     var onTint: (Tint) -> Void = { _ in }
     var onPanelSize: (PanelSize) -> Void = { _ in }
+    var onNotchPosition: (NotchPosition) -> Void = { _ in }
     var onFeature: (Feature, Bool) -> Void = { _, _ in }
     var onSub: (SubMenu, Bool) -> Void = { _, _ in }
     var onPeek: (PeekSource, Bool) -> Void = { _, _ in }
@@ -115,11 +117,14 @@ struct SettingsScreen: View {
     @State private var page: Page
     @Environment(\.tokens) private var t
 
-    init(theme: ThemeMode, systemIsDark: Bool = true, tint: Tint, panelSize: PanelSize = .medium, disabled: Set<Feature> = [], disabledSubs: Set<SubMenu> = [], peekOn: Set<PeekSource> = PeekSource.defaultOn, allDisplays: Bool = false, buddy: BuddyPrefs = BuddyPrefs(), customBuddies: CustomBuddies = CustomBuddies(), page: Page = .appearance,
+    init(theme: ThemeMode, systemIsDark: Bool = true, tint: Tint, panelSize: PanelSize = .medium,
+         notchPosition: NotchPosition = .top,
+         disabled: Set<Feature> = [], disabledSubs: Set<SubMenu> = [], peekOn: Set<PeekSource> = PeekSource.defaultOn, allDisplays: Bool = false, buddy: BuddyPrefs = BuddyPrefs(), customBuddies: CustomBuddies = CustomBuddies(), page: Page = .appearance,
          clipboardLimit: Int = ClipboardStore.defaultLimit, calendarAutoPeek: Bool = false, calendarAutoPeekThreshold: Int = 5, version: String = "", updatedAt: Date? = nil,
          onCheckForUpdates: (() -> Void)? = nil,
          onTheme: @escaping (ThemeMode) -> Void = { _ in }, onTint: @escaping (Tint) -> Void = { _ in },
          onPanelSize: @escaping (PanelSize) -> Void = { _ in },
+         onNotchPosition: @escaping (NotchPosition) -> Void = { _ in },
          onFeature: @escaping (Feature, Bool) -> Void = { _, _ in }, onSub: @escaping (SubMenu, Bool) -> Void = { _, _ in },
          onPeek: @escaping (PeekSource, Bool) -> Void = { _, _ in },
          onCalendarAutoPeek: @escaping (Bool) -> Void = { _ in },
@@ -131,6 +136,7 @@ struct SettingsScreen: View {
         self.systemIsDark = systemIsDark
         self.tint = tint
         self.panelSize = panelSize
+        self.notchPosition = notchPosition
         self.disabled = disabled
         self.disabledSubs = disabledSubs
         self.peekOn = peekOn
@@ -147,6 +153,7 @@ struct SettingsScreen: View {
         self.onTheme = onTheme
         self.onTint = onTint
         self.onPanelSize = onPanelSize
+        self.onNotchPosition = onNotchPosition
         self.onFeature = onFeature
         self.onSub = onSub
         self.onPeek = onPeek
@@ -182,8 +189,10 @@ struct SettingsScreen: View {
     @ViewBuilder private var section: some View {
         switch page {
         case .appearance:
-            AppearanceSection(theme: theme, systemIsDark: systemIsDark, tint: tint, panelSize: panelSize, buddy: buddy, customBuddies: customBuddies,
-                              onTheme: onTheme, onTint: onTint, onPanelSize: onPanelSize, onBuddy: onBuddy)
+            AppearanceSection(theme: theme, systemIsDark: systemIsDark, tint: tint, panelSize: panelSize,
+                              notchPosition: notchPosition, buddy: buddy, customBuddies: customBuddies,
+                              onTheme: onTheme, onTint: onTint, onPanelSize: onPanelSize,
+                              onNotchPosition: onNotchPosition, onBuddy: onBuddy)
         case .menus:
             MenusSection(disabled: disabled, disabledSubs: disabledSubs, allDisplays: allDisplays,
                          onFeature: onFeature, onSub: onSub, onAllDisplays: onAllDisplays)
@@ -561,11 +570,13 @@ private struct AppearanceSection: View {
     var systemIsDark = true
     var tint: Tint
     var panelSize = PanelSize.medium
+    var notchPosition = NotchPosition.top
     var buddy = BuddyPrefs()
     var customBuddies = CustomBuddies()
     var onTheme: (ThemeMode) -> Void = { _ in }
     var onTint: (Tint) -> Void = { _ in }
     var onPanelSize: (PanelSize) -> Void = { _ in }
+    var onNotchPosition: (NotchPosition) -> Void = { _ in }
     var onBuddy: (BuddyPrefs) -> Void = { _ in }
     @Environment(\.tokens) private var t
 
@@ -607,6 +618,9 @@ private struct AppearanceSection: View {
                 SubTabs(items: PanelSize.allCases.map { SubTabItem($0.rawValue, $0.label) },
                         selection: panelSize.rawValue) { onPanelSize(PanelSize(rawValue: $0) ?? .medium) }
             }
+
+            NotchPositionPicker(position: notchPosition, onChange: onNotchPosition)
+                .padding(.top, 2)
 
             BuddySettings(prefs: buddy, customs: customBuddies, onChange: onBuddy)
                 .padding(.top, Geo.Chrome.popoverGap)
@@ -688,6 +702,94 @@ private struct AppearanceSection: View {
         .buttonStyle(.plain)
         .accessibilityLabel(s.name)
         .accessibilityAddTraits(on ? .isSelected : [])
+    }
+}
+
+/// Settings › Appearance › Notch position: three small screen-preview cards showing where the shell sits.
+struct NotchPositionPicker: View {
+    var position: NotchPosition
+    var onChange: (NotchPosition) -> Void
+    @Environment(\.tokens) private var t
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Geo.Chrome.popoverGap) {
+            Text("Position").font(Typo.ui(Geo.Appearance.sectionFont, .semibold)).foregroundStyle(t.faint)
+            HStack(spacing: Geo.Appearance.themeGap) {
+                ForEach(NotchPosition.allCases) { pos in
+                    positionCard(pos)
+                }
+            }
+            .padding(.top, Geo.Appearance.pullUp)
+            Text("Top uses the hardware notch or a pill at the top centre. Corner positions show a small square that expands to a fan on hover.")
+                .font(Typo.ui(Geo.Appearance.noteFont))
+                .foregroundStyle(t.faint)
+                .lineSpacing(Typo.lineSpacing(size: Geo.Appearance.noteFont, lineHeight: 1.4))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    private func positionCard(_ pos: NotchPosition) -> some View {
+        let on = position == pos
+        return Button { onChange(pos) } label: {
+            VStack(alignment: .leading, spacing: Geo.Appearance.themeCardGap) {
+                positionMiniature(pos)
+                Text(pos.label)
+                    .font(Typo.ui(Geo.Appearance.themeLabelFont, .semibold))
+                    .padding(.leading, 2)
+            }
+            .foregroundStyle(t.text)
+            .padding(.top, Geo.Appearance.themeCardPad.top)
+            .padding(.horizontal, Geo.Appearance.themeCardPad.side)
+            .padding(.bottom, Geo.Appearance.themeCardPad.bottom)
+            .padding(.top, on ? Geo.Appearance.selectedBorder : 1)
+            .padding(.horizontal, on ? Geo.Appearance.selectedBorder : 1)
+            .padding(.bottom, 2 * Geo.Appearance.selectedBorder - (on ? Geo.Appearance.selectedBorder : 1))
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .overlay(RoundedRectangle(cornerRadius: Geo.Appearance.themeCardRadius)
+                .strokeBorder(on ? t.text : t.border, lineWidth: on ? Geo.Appearance.selectedBorder : 1))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(pos.label)
+        .accessibilityAddTraits(on ? .isSelected : [])
+    }
+
+    /// A tiny screen silhouette with the shell indicator dot in the right position.
+    private func positionMiniature(_ pos: NotchPosition) -> some View {
+        let r = Geo.Appearance.previewRadius
+        return GeometryReader { geo in
+            ZStack(alignment: .topLeading) {
+                // Screen background
+                RoundedRectangle(cornerRadius: r - 1)
+                    .fill(Fixed.shell)
+                // Shell position indicator: small filled capsule/dot
+                switch pos {
+                case .top:
+                    // Top-centre notch shape
+                    UnevenRoundedRectangle(bottomLeadingRadius: 4, bottomTrailingRadius: 4)
+                        .fill(t.accent)
+                        .frame(width: 28, height: 7)
+                        .offset(x: (geo.size.width - 28) / 2, y: 0)
+                case .bottomLeft:
+                    // Small square in bottom-left corner
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(t.accent)
+                        .frame(width: 10, height: 10)
+                        .offset(x: 5, y: geo.size.height - 15)
+                case .bottomRight:
+                    // Small square in bottom-right corner
+                    RoundedRectangle(cornerRadius: 3)
+                        .fill(t.accent)
+                        .frame(width: 10, height: 10)
+                        .offset(x: geo.size.width - 15, y: geo.size.height - 15)
+                }
+            }
+        }
+        .frame(height: Geo.Appearance.previewHeight)
+        .clipShape(RoundedRectangle(cornerRadius: r - 1))
+        .padding(1)
+        .background(RoundedRectangle(cornerRadius: r).fill(Fixed.shell))
+        .overlay(RoundedRectangle(cornerRadius: r).strokeBorder(t.border, lineWidth: 1))
     }
 }
 

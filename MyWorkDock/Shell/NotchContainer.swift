@@ -23,7 +23,7 @@ final class ShellScreen {
 }
 
 /// Draws the shell for the current mode: silhouette + shadow, mode content clipped to the body.
-/// Fills its parent and pins the shell to the top centre, so it works in the real panel and in snapshots.
+/// Fills its parent and pins the shell to the top centre (top mode) or a bottom corner (corner modes).
 struct NotchContainer: View {
     var model: NotchModel
     var screen = ShellScreen()
@@ -38,6 +38,20 @@ struct NotchContainer: View {
         let mode = model.mode(on: screen.id)
         let g = model.geometry(notch: screen.idleNotch, on: screen.id, screen: screen.size)
         let t = model.tokens
+
+        Group {
+            if let anchor = g.cornerAnchor {
+                cornerShell(mode: mode, g: g, anchor: anchor, t: t)
+            } else {
+                topShell(mode: mode, g: g, t: t)
+            }
+        }
+        .environment(\.tokens, t)
+    }
+
+    // MARK: — Top (notch) shell
+
+    @ViewBuilder private func topShell(mode: NotchMode, g: ShellGeometry, t: Tokens) -> some View {
         let shadowOpacity = mode == .idle ? 0 : (model.isLight ? Geo.shadow.lightOpenOpacity : Geo.shadow.opacity)
 
         ZStack(alignment: .top) {
@@ -49,40 +63,60 @@ struct NotchContainer: View {
                 .overlay(alignment: .topLeading) { buddy(g) }
                 .overlay(alignment: .topLeading) { buddyHint(g) }
 
-            content(mode, g)
+            topContent(mode, g)
                 .animation(reduceMotion ? nil : .easeOut(duration: Geo.fadeOut), value: mode)
-            .frame(width: g.width, height: g.height, alignment: .top)
-            .clipShape(UnevenRoundedRectangle(bottomLeadingRadius: g.radius, bottomTrailingRadius: g.radius))
+                .frame(width: g.width, height: g.height, alignment: .top)
+                .clipShape(UnevenRoundedRectangle(bottomLeadingRadius: g.radius, bottomTrailingRadius: g.radius))
         }
         .contentShape(Rectangle())
-        .contextMenu {
-            Button(SMAppService.mainApp.status == .enabled ? "✓ Open at login" : "Open at login") {
-                if SMAppService.mainApp.status == .enabled { try? SMAppService.mainApp.unregister() } else { try? SMAppService.mainApp.register() }
-            }
-            if let check = model.checkForUpdates { Button("Check for Updates…", action: check) }
-            Button("Quit MyWorkDock") { NSApp.terminate(nil) }
-            #if DEBUG
-            Button("Debug: show buddy hint again", action: model.resetBuddyHint)
-            Button(model.bootingOverride == nil ? "Debug: simulate boot" : "Debug: stop boot") {
-                model.bootingOverride = model.bootingOverride == nil ? SampleData.bootingSim : nil
-            }
-            #endif
-        }
+        .contextMenu { shellContextMenu() }
         .offset(x: g.centerOffset, y: model.missionControlActive ? -(g.height + 18) : 0)
         .opacity(model.missionControlActive ? 0 : 1)
         .animation(
             reduceMotion ? .easeInOut(duration: 0.15) :
-                model.missionControlActive ?
-                    .easeIn(duration: 0.22) :
-                    .easeOut(duration: 0.25),
+                model.missionControlActive ? .easeIn(duration: 0.22) : .easeOut(duration: 0.25),
             value: model.missionControlActive
         )
         .animation(reduceMotion ? .easeInOut(duration: 0.12) : model.shrinking ? Self.shellCloseCurve : Self.shellCurve, value: g)
         .animation(.easeOut(duration: 0.4), value: shadowOpacity)
         .animation(.easeInOut(duration: 0.3), value: model.isLight)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .environment(\.tokens, t)
     }
+
+    // MARK: — Corner shell
+
+    @ViewBuilder private func cornerShell(mode: NotchMode, g: ShellGeometry, anchor: CornerAnchor, t: Tokens) -> some View {
+        let shadowOpacity = mode == .idle ? 0 : (model.isLight ? Geo.shadow.lightOpenOpacity : Geo.shadow.opacity)
+        let frameAlignment: Alignment = anchor == .bottomLeft ? .bottomLeading : .bottomTrailing
+
+        ZStack(alignment: frameAlignment) {
+            RoundedRectangle(cornerRadius: g.radius)
+                .fill(t.panel)
+                .shadow(color: .black.opacity(shadowOpacity), radius: Geo.shadow.blur / 2, x: 0, y: 0)
+                .frame(width: g.width, height: g.height)
+                .overlay { buddy(g) }
+
+            topContent(mode, g)
+                .animation(reduceMotion ? nil : .easeOut(duration: Geo.fadeOut), value: mode)
+                .frame(width: g.width, height: g.height, alignment: frameAlignment)
+                .clipShape(RoundedRectangle(cornerRadius: g.radius))
+        }
+        .contentShape(RoundedRectangle(cornerRadius: g.radius))
+        .contextMenu { shellContextMenu() }
+        .offset(y: model.missionControlActive ? (g.height + 18) : 0)
+        .opacity(model.missionControlActive ? 0 : 1)
+        .animation(
+            reduceMotion ? .easeInOut(duration: 0.15) :
+                model.missionControlActive ? .easeIn(duration: 0.22) : .easeOut(duration: 0.25),
+            value: model.missionControlActive
+        )
+        .animation(reduceMotion ? .easeInOut(duration: 0.12) : model.shrinking ? Self.shellCloseCurve : Self.shellCurve, value: g)
+        .animation(.easeOut(duration: 0.4), value: shadowOpacity)
+        .animation(.easeInOut(duration: 0.3), value: model.isLight)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: frameAlignment)
+    }
+
+    // MARK: — Shared helpers
 
     /// DEBUG calibration aid: `defaults write <bundle id> notchCalibrate -bool YES` strokes the idle silhouette in red so it can be
     /// compared with the real cutout. Empty in release builds.
@@ -94,13 +128,14 @@ struct NotchContainer: View {
         #endif
     }
 
-    /// The buddy, centred in the ear and moved by its state's offset. Outside the shell's clip, so a custom buddy can hang out of the
-    /// notch; below the shell clicks fall through to what is under it, as for the hint. Gone at once when the notch is hovered.
+    /// The buddy, centred in the ear (top notch) or inside the corner element (corner mode). Outside the shell's clip,
+    /// so a custom buddy can hang out of the notch; below the shell clicks fall through to what is under it.
     @ViewBuilder private func buddy(_ g: ShellGeometry) -> some View {
         if model.buddyShown(on: screen.id) {
             BuddyView(prefs: model.buddy, set: model.buddySet, bobbing: model.hintShown(on: screen.id), paused: !model.screenAwake,
                       lastActive: model.lastActive)
-                .position(x: g.width - Geo.Buddy.ear / 2, y: g.height / 2)
+                .position(x: g.cornerAnchor != nil ? g.width / 2 : g.width - Geo.Buddy.ear / 2,
+                          y: g.height / 2)
                 .transition(.identity)
         }
     }
@@ -115,10 +150,24 @@ struct NotchContainer: View {
         }
     }
 
+    @ViewBuilder private func shellContextMenu() -> some View {
+        Button(SMAppService.mainApp.status == .enabled ? "✓ Open at login" : "Open at login") {
+            if SMAppService.mainApp.status == .enabled { try? SMAppService.mainApp.unregister() } else { try? SMAppService.mainApp.register() }
+        }
+        if let check = model.checkForUpdates { Button("Check for Updates…", action: check) }
+        Button("Quit MyWorkDock") { NSApp.terminate(nil) }
+        #if DEBUG
+        Button("Debug: show buddy hint again", action: model.resetBuddyHint)
+        Button(model.bootingOverride == nil ? "Debug: simulate boot" : "Debug: stop boot") {
+            model.bootingOverride = model.bootingOverride == nil ? SampleData.bootingSim : nil
+        }
+        #endif
+    }
+
     /// Incoming content brings its own delayed fade (`Entrance`); outgoing content fades out while the shell moves.
     private static let contentSwap = AnyTransition.asymmetric(insertion: .identity, removal: .opacity)
 
-    @ViewBuilder private func content(_ mode: NotchMode, _ g: ShellGeometry) -> some View {
+    @ViewBuilder private func topContent(_ mode: NotchMode, _ g: ShellGeometry) -> some View {
         switch mode {
         case .idle:
             Color.clear

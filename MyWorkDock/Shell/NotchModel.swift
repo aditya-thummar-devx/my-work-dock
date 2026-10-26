@@ -109,13 +109,33 @@ enum SubMenu: String, CaseIterable, Identifiable {
     }
 }
 
+/// Where the dock shell sits on screen. Raw values are stored in UserDefaults.
+enum NotchPosition: String, CaseIterable, Identifiable {
+    case top           // default — sits over the hardware notch / top-centre
+    case bottomLeft    // corner anchor, bottom-left of the screen
+    case bottomRight   // corner anchor, bottom-right of the screen
+
+    var id: String { rawValue }
+    var label: String {
+        switch self {
+        case .top:         "Top (notch)"
+        case .bottomLeft:  "Bottom left"
+        case .bottomRight: "Bottom right"
+        }
+    }
+}
+
 /// Everything the shell animates: size, bottom radius and horizontal offset from the hardware-notch centre.
+/// Which corner (bottom-left or bottom-right) anchors a corner-mode shell; nil means top-centre (default).
+enum CornerAnchor: Equatable { case bottomLeft, bottomRight }
+
 struct ShellGeometry: Equatable {
     var width: CGFloat
     var height: CGFloat
     var radius: CGFloat
     var centerOffset: CGFloat = 0
     var shoulder: CGFloat = Geo.shoulder
+    var cornerAnchor: CornerAnchor? = nil
 }
 
 /// idle ──hover──▶ peek ──click──▶ open; leaving starts a 350 ms timer (DESIGN_SPEC §1).
@@ -182,6 +202,8 @@ final class NotchModel {
     private(set) var showOnAllDisplays = false
     /// Settings › Appearance › Notch buddy.
     private(set) var buddy = BuddyPrefs()
+    /// Settings › Appearance › Notch position: where on screen the shell sits.
+    private(set) var notchPosition: NotchPosition = .top
     /// The first-launch hint ("I live in your notch. Hover me.") ends for good at the first hover or open.
     private(set) var buddyHintSeen = false
     /// Displays with no menu bar showing (a full-screen app, or an auto-hidden menu bar): the buddy hides on them while
@@ -259,6 +281,7 @@ final class NotchModel {
                 defaults.set(Date(), forKey: "updatedAt")
             }
             updatedAt = defaults.object(forKey: "updatedAt") as? Date
+            notchPosition = defaults.string(forKey: "notchPosition").flatMap(NotchPosition.init(rawValue:)) ?? .top
         } else {
             buddyHintSeen = true // snapshots and tests start without the hint; the buddy states ask for it
         }
@@ -379,27 +402,64 @@ final class NotchModel {
     /// Shell size on `display`. `notch` is that display's hardware notch size in points (nil: none); idle is drawn at exactly it.
     /// `screen` is the display's size in points; the open panel scales with it when `panelSize` is large.
     func geometry(notch: CGSize? = nil, on display: DisplayID? = nil, screen: CGSize? = nil) -> ShellGeometry {
-        switch mode(on: display) {
+        let m = mode(on: display)
+        switch notchPosition {
+        case .top:
+            switch m {
+            case .idle:
+                return idleGeometry(notch: notch, on: display)
+            case .peek:
+                // Calendar auto-peek: uses a fixed wide bar matching the design (610 pt from HTML spec)
+                // or shrunk width (300 pt) when in shrunk state and not re-expanded.
+                if let calPeek = calendarPeekState {
+                    if calPeek.isShrunk && !calPeek.isVisible {
+                        return ShellGeometry(width: Geo.calendarPeekShrunk.width, height: Geo.calendarPeekShrunk.height, radius: Geo.calendarPeekShrunk.radius)
+                    }
+                    return ShellGeometry(width: Geo.calendarPeek.width, height: Geo.peek.height, radius: Geo.peek.radius)
+                }
+                // The events row hangs under the ears: the shell grows by its height and is wide enough for a title. The extra width is
+                // split evenly, so the ears stay where they were against the notch.
+                return ShellGeometry(width: max(Geo.keepOutWidth + shownPeekExtents.left + shownPeekExtents.right, peekEvents == nil ? 0 : Geo.Peek.eventsMinWidth),
+                                     height: Geo.peek.height + (peekEvents?.height ?? 0), radius: Geo.peek.radius,
+                                     centerOffset: (shownPeekExtents.right - shownPeekExtents.left) / 2)
+            case .live:
+                return ShellGeometry(width: Geo.live.width, height: Geo.live.height, radius: Geo.live.radius)
+            case .open:
+                return ShellGeometry(width: panelSize.size(on: screen).width, height: panelSize.size(on: screen).height, radius: Geo.open.radius)
+            }
+        case .bottomLeft:
+            return cornerGeometry(anchor: .bottomLeft, mode: m, screen: screen)
+        case .bottomRight:
+            return cornerGeometry(anchor: .bottomRight, mode: m, screen: screen)
+        }
+    }
+
+    /// Shell geometry when the dock lives in a bottom corner.
+    private func cornerGeometry(anchor: CornerAnchor, mode: NotchMode, screen: CGSize?) -> ShellGeometry {
+        switch mode {
         case .idle:
-            return idleGeometry(notch: notch, on: display)
+            return ShellGeometry(width: Geo.Corner.idle.size, height: Geo.Corner.idle.size,
+                                 radius: Geo.Corner.idle.radius, shoulder: 0, cornerAnchor: anchor)
         case .peek:
-            // Calendar auto-peek: uses a fixed wide bar matching the design (610 pt from HTML spec)
-            // or shrunk width (300 pt) when in shrunk state and not re-expanded.
             if let calPeek = calendarPeekState {
                 if calPeek.isShrunk && !calPeek.isVisible {
-                    return ShellGeometry(width: Geo.calendarPeekShrunk.width, height: Geo.calendarPeekShrunk.height, radius: Geo.calendarPeekShrunk.radius)
+                    return ShellGeometry(width: Geo.calendarPeekShrunk.width, height: Geo.calendarPeekShrunk.height,
+                                         radius: Geo.calendarPeekShrunk.radius, shoulder: 0, cornerAnchor: anchor)
                 }
-                return ShellGeometry(width: Geo.calendarPeek.width, height: Geo.peek.height, radius: Geo.peek.radius)
+                return ShellGeometry(width: Geo.calendarPeek.width, height: Geo.peek.height,
+                                     radius: Geo.peek.radius, shoulder: 0, cornerAnchor: anchor)
             }
-            // The events row hangs under the ears: the shell grows by its height and is wide enough for a title. The extra width is
-            // split evenly, so the ears stay where they were against the notch.
             return ShellGeometry(width: max(Geo.keepOutWidth + shownPeekExtents.left + shownPeekExtents.right, peekEvents == nil ? 0 : Geo.Peek.eventsMinWidth),
                                  height: Geo.peek.height + (peekEvents?.height ?? 0), radius: Geo.peek.radius,
-                                 centerOffset: (shownPeekExtents.right - shownPeekExtents.left) / 2)
+                                 shoulder: 0, cornerAnchor: anchor)
         case .live:
-            return ShellGeometry(width: Geo.live.width, height: Geo.live.height, radius: Geo.live.radius)
+            // Live activity bar appears in the corner (same bar, anchored to corner edge)
+            return ShellGeometry(width: Geo.live.width, height: Geo.live.height,
+                                 radius: Geo.live.radius, shoulder: 0, cornerAnchor: anchor)
         case .open:
-            return ShellGeometry(width: panelSize.size(on: screen).width, height: panelSize.size(on: screen).height, radius: Geo.open.radius)
+            let sz = panelSize.size(on: screen)
+            return ShellGeometry(width: sz.width, height: sz.height,
+                                 radius: Geo.open.radius, shoulder: 0, cornerAnchor: anchor)
         }
     }
 
@@ -415,7 +475,7 @@ final class NotchModel {
         return g
     }
 
-    /// The buddy would sit on `display`'s idle notch: it is on, and no full-screen app has taken the menu bar there.
+    /// The buddy would sit on `display`'s idle notch/corner: it is on, and no full-screen app has taken the menu bar there.
     private func buddyWanted(on display: DisplayID?) -> Bool {
         buddy.on && !(buddy.hideInFullScreen && display.map(menuBarHidden.contains) == true)
     }
@@ -1134,6 +1194,14 @@ final class NotchModel {
 
     func toggleSettings() {
         settings.toggle()
+        changed()
+    }
+
+    /// Settings › Appearance: moves the shell to a corner or back to the top notch. Survives a relaunch.
+    func setNotchPosition(_ p: NotchPosition) {
+        guard p != notchPosition else { return }
+        notchPosition = p
+        defaults?.set(p.rawValue, forKey: "notchPosition")
         changed()
     }
 
