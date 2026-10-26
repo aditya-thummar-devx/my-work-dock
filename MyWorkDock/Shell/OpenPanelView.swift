@@ -14,15 +14,20 @@ struct OpenPanelView: View {
             // ZStack so outgoing and incoming screens overlap during the crossfade instead of sharing the VStack's height.
             ZStack(alignment: .top) {
                 if model.settings {
-                    SettingsScreen(theme: model.theme, systemIsDark: model.appearance.isDark, tint: model.tint, panelSize: model.panelSize, disabled: model.disabled, disabledSubs: model.disabledSubs, peekOn: model.peekOn,
+                    SettingsScreen(theme: model.theme, systemIsDark: model.appearance.isDark, tint: model.tint, panelSize: model.panelSize,
+                                   notchPosition: model.notchPosition,
+                                   disabled: model.disabled, disabledSubs: model.disabledSubs, peekOn: model.peekOn,
                                    allDisplays: model.showOnAllDisplays, buddy: model.buddy,
                                    customBuddies: CustomBuddies(library: model.customBuddies, add: model.addCustomBuddy, remove: model.removeCustomBuddy,
-                                                                 setFile: { model.setCustomBuddyFile($0, of: $1) }), clipboardLimit: model.clipboard.limit,
+                                                                 setFile: { model.setCustomBuddyFile($0, of: $1) }),
+                                   shortcuts: model.shortcuts,
+                                   clipboardLimit: model.clipboard.limit,
                                    calendarAutoPeek: model.calendarAutoPeekEnabled, calendarAutoPeekThreshold: model.calendarAutoPeekThreshold,
                                    version: model.version, updatedAt: model.updatedAt,
                                    autoCheckUpdates: model.autoCheckUpdates,
                                    onCheckForUpdates: model.checkForUpdates,
                                    onTheme: model.setTheme, onTint: model.setTint, onPanelSize: model.setPanelSize,
+                                   onNotchPosition: model.setNotchPosition,
                                    onFeature: model.setEnabled, onSub: model.setEnabled, onPeek: model.setPeekEnabled,
                                    onCalendarAutoPeek: model.setCalendarAutoPeekEnabled, onCalendarAutoPeekThreshold: model.setCalendarAutoPeekThreshold,
                                    onAllDisplays: model.setShowOnAllDisplays,

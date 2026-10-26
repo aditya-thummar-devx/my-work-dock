@@ -891,4 +891,165 @@ final class NotchModelTests: XCTestCase {
         XCTAssertEqual(timing(65 * 60), "in 1 h 5 min")
         XCTAssertEqual(timing(8 * 3600 + 120), "in 8 h 2 min")
     }
+
+    // MARK: - Notch Position Customization
+
+    func testNotchPositionDefaultIsTop() {
+        XCTAssertEqual(model.notchPosition, .top)
+        let g = model.geometry()
+        XCTAssertNil(g.cornerAnchor)
+    }
+
+    func testSetNotchPositionUpdatesAndNotifies() {
+        var notified = false
+        model.onChange = { notified = true }
+        model.setNotchPosition(.bottomLeft)
+        XCTAssertEqual(model.notchPosition, .bottomLeft)
+        XCTAssertTrue(notified)
+
+        let g = model.geometry()
+        XCTAssertEqual(g.cornerAnchor, .bottomLeft)
+        XCTAssertEqual(g.width, Geo.Corner.idle.size)
+        XCTAssertEqual(g.height, Geo.Corner.idle.size)
+        XCTAssertEqual(g.radius, Geo.Corner.idle.radius)
+    }
+
+    func testCornerGeometryInDifferentModes() {
+        model.setNotchPosition(.bottomRight)
+        // Idle
+        let idleG = model.geometry()
+        XCTAssertEqual(idleG.cornerAnchor, .bottomRight)
+        XCTAssertEqual(idleG.width, Geo.Corner.idle.size)
+        XCTAssertEqual(idleG.height, Geo.Corner.idle.size)
+
+        // Hover / Peek (matches default top notch peek style)
+        model.pointer(inside: true)
+        XCTAssertEqual(model.mode, .peek)
+        let peekG = model.geometry()
+        XCTAssertEqual(peekG.cornerAnchor, .bottomRight)
+        XCTAssertEqual(peekG.height, Geo.peek.height)
+        XCTAssertEqual(peekG.radius, Geo.peek.radius)
+        XCTAssertGreaterThanOrEqual(peekG.width, Geo.keepOutWidth)
+
+        // Open
+        model.openPanel()
+        XCTAssertEqual(model.mode, .open)
+        let openG = model.geometry()
+        XCTAssertEqual(openG.cornerAnchor, .bottomRight)
+        XCTAssertEqual(openG.width, Geo.open.width)
+        XCTAssertEqual(openG.height, Geo.open.height)
+        XCTAssertEqual(openG.radius, Geo.open.radius)
+    }
+
+    func testBuddyShownInCornerPositions() {
+        XCTAssertTrue(model.buddy.on)
+        XCTAssertTrue(model.buddyShown())
+
+        model.setNotchPosition(.bottomLeft)
+        XCTAssertTrue(model.buddyShown())
+
+        model.setNotchPosition(.bottomRight)
+        XCTAssertTrue(model.buddyShown())
+
+        model.setBuddy(BuddyPrefs(on: false))
+        XCTAssertFalse(model.buddyShown())
+
+        model.setBuddy(BuddyPrefs(on: true))
+        model.setNotchPosition(.top)
+        XCTAssertTrue(model.buddyShown())
+    }
+
+    // MARK: - Escape Key Handling
+
+    func testHandleEscapeCancelsConfirmationPopupAndKeepsPanelOpen() {
+        model.openPanel()
+        XCTAssertTrue(model.open)
+
+        model.confirmer.ask(ConfirmRequest(title: "Clear all?", command: "rm -f clips", note: "Cannot undo", confirmTitle: "Clear", danger: true) {})
+        XCTAssertNotNil(model.confirmer.pending)
+        XCTAssertTrue(model.hasOpenPopup)
+
+        // First Esc: cancels confirmation popup only, panel stays open
+        model.handleEscape()
+        XCTAssertNil(model.confirmer.pending)
+        XCTAssertFalse(model.hasOpenPopup)
+        XCTAssertTrue(model.open)
+
+        // Second Esc: no popup open, so it closes the panel
+        model.handleEscape()
+        XCTAssertFalse(model.open)
+    }
+
+    func testHandleEscapeClosesPanelWhenNoPopupIsOpen() {
+        model.openPanel()
+        XCTAssertTrue(model.open)
+        XCTAssertFalse(model.hasOpenPopup)
+
+        model.handleEscape()
+        XCTAssertFalse(model.open)
+    }
+
+    func testHandleEscapeClosesCalendarDetailAndKeepsPanelOpen() throws {
+        enableEvents()
+        model.openPanel()
+        let hotfix = try XCTUnwrap(model.peekEvents?.rows.last).event
+        model.showEvent(hotfix)
+        XCTAssertTrue(model.open)
+        XCTAssertNotNil(model.calendar.selected)
+        XCTAssertTrue(model.hasOpenPopup)
+
+        // First Esc: closes calendar detail, panel stays open
+        model.handleEscape()
+        XCTAssertNil(model.calendar.selected)
+        XCTAssertTrue(model.open)
+
+        // Second Esc: closes panel
+        model.handleEscape()
+        XCTAssertFalse(model.open)
+    }
+
+    func testHandleEscapeClosesClaudexDetailAndKeepsPanelOpen() throws {
+        model.openPanel()
+        let name = try XCTUnwrap(model.claudex.members.data?.first?.name)
+        model.claudex.openDetail(name)
+        XCTAssertTrue(model.open)
+        XCTAssertNotNil(model.claudex.detailName)
+        XCTAssertTrue(model.hasOpenPopup)
+
+        model.handleEscape()
+        XCTAssertNil(model.claudex.detailName)
+        XCTAssertTrue(model.open)
+
+        model.handleEscape()
+        XCTAssertFalse(model.open)
+    }
+
+    func testHandleEscapeDismissesRunnerSheetAndKeepsPanelOpen() {
+        model.openPanel()
+        model.runner.showSample(command: "ls", folder: URL(fileURLWithPath: "/tmp"), output: "sample", state: .finished(0))
+        XCTAssertTrue(model.open)
+        XCTAssertTrue(model.runner.sheetOpen)
+        XCTAssertTrue(model.hasOpenPopup)
+
+        model.handleEscape()
+        XCTAssertFalse(model.runner.sheetOpen)
+        XCTAssertTrue(model.open)
+
+        model.handleEscape()
+        XCTAssertFalse(model.open)
+    }
+
+    func testHandleEscapeClosesPopoversAndKeepsPanelOpen() {
+        model.openPanel()
+        model.clipboard.openTagManage()
+        XCTAssertTrue(model.clipboard.tagMenuOpen)
+        XCTAssertTrue(model.hasOpenPopup)
+
+        model.handleEscape()
+        XCTAssertFalse(model.clipboard.tagMenuOpen)
+        XCTAssertTrue(model.open)
+
+        model.handleEscape()
+        XCTAssertFalse(model.open)
+    }
 }

@@ -25,6 +25,8 @@ final class NotchWindowController {
         var centerX: CGFloat = 0
         var topY: CGFloat = 0
         var frame: CGRect = .zero
+        /// Non-nil while in a corner mode; the hit rect is then anchored to a corner of `frame`.
+        var cornerAnchor: CornerAnchor?
 
         init(id: DisplayID, model: NotchModel) {
             self.id = id
@@ -36,11 +38,7 @@ final class NotchWindowController {
             host.sizingOptions = []
             panel.contentView = host
             panel.onEscape = { [weak model] in
-                if model?.calendarPeekState != nil && !(model?.open ?? false) {
-                    model?.shrinkCalendarPeek()
-                } else {
-                    model?.closePanel()
-                }
+                model?.handleEscape()
             }
         }
 
@@ -98,10 +96,14 @@ final class NotchWindowController {
     // MARK: Placement
 
     /// The screen with a notch; with none, the screen the pointer is on (so an external display works), else the main one.
+    /// In corner mode the notch is irrelevant, so fall straight to pointer/main.
     private var targetScreen: NSScreen? {
-        NSScreen.screens.first { $0.safeAreaInsets.top > 0 }
-            ?? NSScreen.screens.first { $0.frame.contains(NSEvent.mouseLocation) }
-            ?? NSScreen.main
+        if model.notchPosition == .top {
+            return NSScreen.screens.first { $0.safeAreaInsets.top > 0 }
+                ?? NSScreen.screens.first { $0.frame.contains(NSEvent.mouseLocation) }
+                ?? NSScreen.main
+        }
+        return NSScreen.screens.first { $0.frame.contains(NSEvent.mouseLocation) } ?? NSScreen.main
     }
 
     private var activeShell: Shell? { model.activeDisplay.flatMap { shells[$0] } }
@@ -149,34 +151,77 @@ final class NotchWindowController {
 
     private func place(_ shell: Shell, on screen: NSScreen) {
         let hardware = Self.hardwareNotch(of: screen)
-        let cx = hardware?.centerX ?? screen.frame.midX
         let notch = hardware?.size
         if notch != shell.screen.notch {
             shell.screen.notch = notch
             if let notch {
-                NSLog("MyWorkDock: hardware notch %.0f pt wide, %.0f pt tall, centre x %.1f", notch.width, notch.height, cx)
+                NSLog("MyWorkDock: hardware notch %.0f pt wide, %.0f pt tall, centre x %.1f", notch.width, notch.height, hardware!.centerX)
             } else {
                 NSLog("MyWorkDock: no hardware notch on this screen")
             }
         }
+
+        switch model.notchPosition {
+        case .top:
+            placeTop(shell, on: screen, hardware: hardware)
+        case .bottomLeft:
+            placeCorner(shell, on: screen, anchor: .bottomLeft)
+        case .bottomRight:
+            placeCorner(shell, on: screen, anchor: .bottomRight)
+        }
+    }
+
+    /// Place the shell at the top centre (existing logic).
+    private func placeTop(_ shell: Shell, on screen: NSScreen, hardware: (centerX: CGFloat, size: CGSize)?) {
+        let cx = hardware?.centerX ?? screen.frame.midX
         // No notch here: idle mirrors another display's notch; the pill only when no display has one.
-        let borrowed = notch == nil ? NSScreen.screens.lazy.compactMap(Self.hardwareNotch).first?.size : nil
+        let borrowed = shell.screen.notch == nil ? NSScreen.screens.lazy.compactMap(Self.hardwareNotch).first?.size : nil
         if borrowed != shell.screen.borrowedNotch { shell.screen.borrowedNotch = borrowed }
         shell.centerX = cx
         shell.topY = screen.frame.maxY
         shell.frame = screen.frame
+        shell.cornerAnchor = nil
         shell.screen.size = screen.frame.size
         let size = Self.panelSize(on: screen.frame.size)
         let frame = NSRect(x: cx - size.width / 2, y: shell.topY - size.height, width: size.width, height: size.height)
         if shell.panel.frame != frame { shell.panel.setFrame(frame, display: true) }
     }
 
+    /// Place the shell anchored to a bottom corner with a margin from the screen edges (matching the macOS Dock).
+    private func placeCorner(_ shell: Shell, on screen: NSScreen, anchor: CornerAnchor) {
+        // Corner mode has no hardware notch relevance; borrow nothing.
+        if shell.screen.borrowedNotch != nil { shell.screen.borrowedNotch = nil }
+        shell.cornerAnchor = anchor
+        shell.frame = screen.frame
+        shell.screen.size = screen.frame.size
+        let size = Self.panelSize(on: screen.frame.size)
+        let margin = Geo.Corner.margin
+        // The panel window sits at the chosen corner, offset by margin, large enough for the biggest open panel.
+        let x: CGFloat = anchor == .bottomLeft
+            ? screen.frame.minX + margin
+            : screen.frame.maxX - size.width - margin
+        let panelFrame = NSRect(x: x, y: screen.frame.minY + margin, width: size.width, height: size.height)
+        if shell.panel.frame != panelFrame { shell.panel.setFrame(panelFrame, display: true) }
+        // centerX / topY are unused for corner mode but keep them sensible.
+        shell.centerX = anchor == .bottomLeft ? screen.frame.minX + margin : screen.frame.maxX - margin
+        shell.topY = screen.frame.minY + margin
+    }
+
     // MARK: Pointer and key status
 
     /// Screen-space rect of the shell on `shell` for `g`.
     private func rect(_ g: ShellGeometry, _ shell: Shell) -> NSRect {
-        NSRect(x: shell.centerX + g.centerOffset - g.width / 2, y: shell.topY - g.height,
-               width: g.width, height: g.height + Self.topSlop)
+        if let anchor = g.cornerAnchor {
+            // Corner mode: the shell is pinned to the bottom corner of the screen frame with margin.
+            let margin = Geo.Corner.margin
+            let x: CGFloat = anchor == .bottomLeft
+                ? shell.frame.minX + margin
+                : shell.frame.maxX - g.width - margin
+            return NSRect(x: x, y: shell.frame.minY + margin, width: g.width, height: g.height)
+        }
+        // Top-centre mode (existing logic).
+        return NSRect(x: shell.centerX + g.centerOffset - g.width / 2, y: shell.topY - g.height,
+                      width: g.width, height: g.height + Self.topSlop)
     }
 
     private func geometry(_ shell: Shell) -> ShellGeometry { model.geometry(notch: shell.screen.idleNotch, on: shell.id, screen: shell.screen.size) }
@@ -188,6 +233,7 @@ final class NotchWindowController {
     }
 
     private func pointerMoved() {
+        if model.missionControlActive { return }
         let p = NSEvent.mouseLocation
         // Until the pointer has entered a shell, the display it is on decides which one peeks and opens.
         if !model.hover, model.mode != .open, let s = shells.values.first(where: { $0.owns(p) }) { model.setActiveDisplay(s.id) }
@@ -207,9 +253,35 @@ final class NotchWindowController {
     }
 
     private func modelChanged() {
+        let inMissionControl = model.missionControlActive
+        if inMissionControl, model.open {
+            model.closePanel()
+        }
+
         // No notch anywhere: follow the pointer to another display, but never move a panel that is open or hovered.
         if model.mode == .idle || model.mode == .live || model.showOnAllDisplays != allShown { syncShells() }
-        updateMouse()
+
+        // Smoothly hide every panel while Mission Control / Show Desktop / Exposé is active so the notch
+        // tucks away cleanly, and animates back smoothly when returning.
+        for s in shells.values {
+            if inMissionControl {
+                s.panel.ignoresMouseEvents = true
+                NSAnimationContext.runAnimationGroup { ctx in
+                    ctx.duration = 0.22
+                    ctx.timingFunction = CAMediaTimingFunction(name: .easeIn)
+                    s.panel.animator().alphaValue = 0
+                }
+            } else {
+                NSAnimationContext.runAnimationGroup { ctx in
+                    ctx.duration = 0.25
+                    ctx.timingFunction = CAMediaTimingFunction(name: .easeOut)
+                    s.panel.animator().alphaValue = 1
+                }
+            }
+        }
+
+        if !inMissionControl { updateMouse() }
+
         for s in shells.values {
             if model.mode == .open, s.id == model.activeDisplay {
                 if !s.panel.isKeyWindow { s.panel.makeKey() }

@@ -18,7 +18,7 @@ final class NotchPanel: NSPanel {
         animationBehavior = .none
     }
 
-    /// Called for an Esc nothing in the responder chain handled (inline edits, search and the confirm sheet take theirs first).
+    /// Called for an Esc nothing in the responder chain handled (inline edits and search fields take theirs first).
     var onEscape: (() -> Void)?
 
     override func keyDown(with event: NSEvent) {

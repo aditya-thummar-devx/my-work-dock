@@ -249,4 +249,21 @@ enum Geo {
         static let emojiTileFont: CGFloat = 17
         static let dimmed = 0.4
     }
+
+    // MARK: Corner mode (bottom-left or bottom-right anchor)
+
+    enum Corner {
+        /// Margin from the screen edges (matches the macOS Dock margin).
+        static let margin: CGFloat = 10
+        /// Idle: a small rounded square.
+        static let idle = (size: CGFloat(28), radius: CGFloat(10))
+        /// Hover: a quarter-circle arc fan expanding from the corner.
+        /// `hoverArcRadius` is the inner (hollow) radius; the filled band is `hoverThickness` deep.
+        static let hoverArcRadius: CGFloat = 62
+        static let hoverThickness: CGFloat = 56
+        /// The minimum inner radius when morphing from idle (idle size → hoverArcRadius).
+        static let idleInnerRadius: CGFloat = 0
+        /// Open: corners use the same panel radius as the top mode.
+        static let openRadius: CGFloat = 36
+    }
 }
