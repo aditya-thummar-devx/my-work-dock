@@ -168,6 +168,8 @@ final class NotchModel {
     let calendar: CalendarStore
     let agents: AgentStore
     let sessions: SessionsStore
+    /// Settings › Shortcuts: global hotkeys and their custom bindings.
+    let shortcuts: ShortcutStore
     /// Settings › Appearance › Notch buddy › Custom: the Lottie files the user added.
     let customBuddies: CustomBuddyStore
     /// The user's choice; `resolvedTheme` is what is drawn.
@@ -223,6 +225,8 @@ final class NotchModel {
 
     /// Called after every state change so the window layer can update hit-testing and key status.
     @ObservationIgnored var onChange: (() -> Void)?
+    /// Called when shortcuts or feature availability changes so registered hotkeys can re-sync.
+    @ObservationIgnored var onShortcutsChange: (() -> Void)?
     /// Set by the app delegate once the updater runs (release builds only); nil hides "Check for Updates…".
     @ObservationIgnored var checkForUpdates: (() -> Void)?
     static let usageGuideURL = URL(string: "https://aditya-thummar-devx.github.io/my-work-dock/usage.html")!
@@ -301,6 +305,7 @@ final class NotchModel {
         calendar = sample ? .sample() : .live(confirmer: confirmer)
         agents = sample ? .sample() : .live()
         sessions = sample ? .sample() : .live()
+        shortcuts = ShortcutStore(defaults: sample ? nil : .standard)
         self.customBuddies = customBuddies ?? (sample ? .sample() : .live())
         if !sample { peek = claudex.peekData } // snapshots keep the prototype's POOL sample
         peekExtents = PeekMetrics.measure(peek)
@@ -318,6 +323,10 @@ final class NotchModel {
             guard let self else { return }
             self.sessions.ensureTitles(self.agents.sessions.map(\.transcriptID))
             self.showNewRequests()
+        }
+        shortcuts.onChange = { [weak self] in
+            self?.onShortcutsChange?()
+            self?.changed()
         }
         if let first = enabledTabs.first, !enabledTabs.contains(mainTab) { mainTab = first }
         syncSubMenus()
@@ -1014,6 +1023,7 @@ final class NotchModel {
             settings = inSettings
         }
         applyServices(only: feature)
+        onShortcutsChange?()
         changed()
     }
 
@@ -1031,6 +1041,7 @@ final class NotchModel {
         syncSubMenus()
         if sub.parent == .claude { applyServices(only: .claude) } // the hook server and the transcript scan follow their tabs
         if sub == .notesTodo { applyServices(only: .notes) } // so does the todo socket
+        onShortcutsChange?()
         changed()
     }
 
