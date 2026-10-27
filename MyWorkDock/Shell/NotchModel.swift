@@ -639,9 +639,11 @@ final class NotchModel {
         guard !claudeRefreshing else { return }
         claudeRefreshing = true
         defer { claudeRefreshing = false }
-        async let board: Void = sessions.refresh(fresh: true)
-        async let live: Void = agents.refresh()
-        async let usage: Void = claudeUsage.refresh()
+        // Tabs switched off in Settings › Menus stay off: no transcript scan for a hidden Tokens & cost.
+        let tabs = enabledClaudeTabs
+        async let board: Void = tabs.contains(.sessions) ? sessions.refresh(fresh: true) : ()
+        async let live: Void = tabs.contains(.agents) ? agents.refresh() : ()
+        async let usage: Void = tabs.contains(.tokens) ? claudeUsage.refresh() : ()
         async let seen: Void = Self.pause(0.6) // long enough to see the spinner when everything is already current
         _ = await (board, live, usage, seen)
         sessions.ensureTitles(agents.sessions.map(\.transcriptID))

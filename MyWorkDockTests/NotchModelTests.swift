@@ -271,6 +271,13 @@ final class NotchModelTests: XCTestCase {
         XCTAssertFalse(model.claudeUsage.loading)
     }
 
+    func testClaudeRefreshLeavesSwitchedOffTabsAlone() async {
+        model.setEnabled(SubMenu.claudeAgents, false)
+        await model.refreshClaude()
+        XCTAssertFalse(model.agents.checked, "Agents is off, so its hook setup isn't read")
+        XCTAssertNotNil(model.claudeRefreshedAt)
+    }
+
     func testShowOnBoardOpensClaudeSessionsFocusedOnTheSession() {
         model.showOnBoard("abc")
         XCTAssertEqual(model.mainTab, .claude)
