@@ -73,13 +73,15 @@ struct PillButton: View {
     var glyph: Glyph
     var iconSize: CGFloat = 14
     var stroke: CGFloat?
+    /// Swaps the icon for a spinner and disables the button.
+    var busy = false
     var action: () -> Void = {}
     @Environment(\.tokens) private var t
 
     var body: some View {
         Button(action: action) {
             HStack(spacing: Geo.Btn.pillGap) {
-                Icon(glyph, size: iconSize, stroke: stroke)
+                if busy { Spinner(size: iconSize, stroke: stroke) } else { Icon(glyph, size: iconSize, stroke: stroke) }
                 Text(title).font(Typo.ui(Geo.Btn.pillFont, .semibold))
             }
             .foregroundStyle(t.text)
@@ -90,6 +92,7 @@ struct PillButton: View {
             .contentShape(Capsule())
         }
         .buttonStyle(.plain)
+        .disabled(busy)
     }
 }
 

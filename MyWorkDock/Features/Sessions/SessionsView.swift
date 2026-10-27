@@ -9,17 +9,24 @@ struct SessionsScreen: View {
 
     var body: some View {
         let store = model.sessions
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             SessionsToolbar(store: store)
             if let m = store.message {
                 Text(m.text).font(Typo.ui(11.5)).foregroundStyle(m.error ? t.red : t.muted).padding(.horizontal, 4)
             }
-            if store.transcripts.isEmpty {
-                EmptyHint(text: store.loading ? "Reading your Claude Code sessions…" : "No Claude Code sessions in the last 30 days.")
+            if !store.loaded {
+                ClaudePlaceholder(glyph: .terminal, title: "Loading sessions",
+                                  message: "Reading your Claude Code sessions. The first look can take a few seconds.", loading: true)
+            } else if store.transcripts.isEmpty {
+                ClaudePlaceholder(glyph: .terminal, title: "No sessions yet",
+                                  message: "Claude Code sessions from the last 30 days show up here, ready to group and resume.")
+            } else if store.searching && store.columns.isEmpty {
+                ClaudePlaceholder(glyph: .search, title: "No matching sessions",
+                                  message: "Nothing matches “\(store.search.trimmingCharacters(in: .whitespaces))”. Try another word or a wider date range.")
             } else {
                 let board = HStack(alignment: .top, spacing: 10) {
                     ForEach(store.columns) { col in BoardColumn(store: store, column: col) }
-                    if store.groupFilter == .all { NewGroupColumn(store: store) }
+                    if store.groupFilter == .all && !store.searching { NewGroupColumn(store: store) }
                 }
                 if staticRender {
                     // Snapshots can't draw a ScrollView's content (see DockScroll).
@@ -38,7 +45,48 @@ struct SessionsScreen: View {
                 }
             }
         }
+        .overlay { if store.choosing != nil { TerminalChooser(store: store) } }
         .task { await store.refresh() }
+    }
+}
+
+/// First Resume: asks which installed app sessions open in, once.
+private struct TerminalChooser: View {
+    var store: SessionsStore
+    @Environment(\.tokens) private var t
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 16).fill(t.scrim).onTapGesture(perform: store.cancelChoosing)
+            Card(radius: 16, padding: EdgeInsets(top: 14, leading: 14, bottom: 12, trailing: 14)) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Open Claude sessions in…").font(Typo.ui(13, .semibold))
+                    Text("Apps found on this Mac. Your pick is remembered; change it any time from Open in or Settings › Claude.")
+                        .font(Typo.ui(11)).foregroundStyle(t.muted).fixedSize(horizontal: false, vertical: true)
+                    VStack(spacing: 2) {
+                        ForEach(store.installedTerminals) { app in
+                            Button { Task { await store.choose(app) } } label: {
+                                HStack(spacing: 8) {
+                                    Icon(.terminal, size: 12).foregroundStyle(t.muted)
+                                    Text(app.name).font(Typo.ui(12, .medium))
+                                    if let note = app.note { Text(note).font(Typo.ui(10.5)).foregroundStyle(t.faint) }
+                                    Spacer(minLength: 0)
+                                }
+                                .padding(.horizontal, 8).frame(height: 28)
+                                .background(RoundedRectangle(cornerRadius: 8).fill(t.inset))
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    HStack {
+                        Spacer()
+                        DockButton(title: "Cancel", glyph: nil, metrics: .card, tone: .ctrl, action: store.cancelChoosing)
+                    }
+                }
+            }
+            .frame(width: 300)
+        }
     }
 }
 
@@ -67,12 +115,12 @@ private struct SessionsToolbar: View {
             Spacer(minLength: 0)
             DockButton(title: "Auto-group", glyph: .tag, metrics: .card, tone: .ctrl, action: store.autoGroup)
                 .help("Put every ungrouped session into a group named after its project")
-            MenuChip(label: "Open in \(store.openIn.name)") {
+            MenuChip(label: store.openIn.map { "Open in \($0.name)" } ?? "Pick terminal") {
                 ForEach(store.installedTerminals) { app in
-                    Button("\(app.name)\(app.realPrompts ? "" : " — messages as notes")") { store.setOpenIn(app) }
+                    Button("\(store.openIn == app ? "✓ " : "")\(app.name)\(app.note.map { " — \($0)" } ?? "")") { store.setOpenIn(app) }
                 }
             }
-            IconButton(glyph: .refresh, label: "Refresh", size: 28) { Task { await store.refresh() } }
+            .help("Where Resume opens sessions")
         }
     }
 
@@ -232,6 +280,21 @@ private struct SessionCard: View {
                 DockButton(title: "Resume", glyph: .play, iconSize: 9, metrics: .card, tone: .tint, enabled: tx.cwd != nil, busy: busy) {
                     busy = true
                     Task { await store.resume(tx); busy = false }
+                }
+                if store.installedTerminals.count > 1 {
+                    Menu {
+                        Section("Open this session in") {
+                            ForEach(store.installedTerminals) { app in
+                                Button(app.name) { busy = true; Task { await store.resume(tx, in: app); busy = false } }
+                            }
+                        }
+                    } label: {
+                        Icon(.chevronDown, size: 9).foregroundStyle(t.text2)
+                            .frame(width: 24, height: 24).background(RoundedRectangle(cornerRadius: 8).fill(t.ctrl))
+                    }
+                    .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden).fixedSize()
+                    .disabled(tx.cwd == nil)
+                    .help("Open with…")
                 }
                 if let cwd = tx.cwd, let cmd = try? TerminalLauncher.resumeCommand(cwd: cwd, id: tx.id) {
                     DockButton(title: "Copy", glyph: .copy, metrics: .card, tone: .ctrl) {

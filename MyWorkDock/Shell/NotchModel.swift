@@ -151,6 +151,10 @@ final class NotchModel {
     var notesTab: NotesTab = .todo
     /// Claude's sub-tab; it stays where it was when you leave the menu and come back.
     var claudeTab: ClaudeTab = .agents
+    /// Claude › Refresh is running.
+    private(set) var claudeRefreshing = false
+    /// When Claude › Refresh last finished, for "Updated just now".
+    private(set) var claudeRefreshedAt: Date?
     let clipboard: ClipboardStore
     let notes: NotesStore
     /// Claude Code adds todos through it (`mwd-mcp`); runs while Notes › TODO is on.
@@ -628,6 +632,31 @@ final class NotchModel {
               enabledClaudeTabs.contains(.agents) else { return }
         claudeTab = .agents
         changed()
+    }
+
+    /// Claude › Refresh: sessions, the agents' hook setup and Tokens & cost, all at once.
+    func refreshClaude() async {
+        guard !claudeRefreshing else { return }
+        claudeRefreshing = true
+        defer { claudeRefreshing = false }
+        // Tabs switched off in Settings › Menus stay off: no transcript scan for a hidden Tokens & cost.
+        let tabs = enabledClaudeTabs
+        async let board: Void = tabs.contains(.sessions) ? sessions.refresh(fresh: true) : ()
+        async let live: Void = tabs.contains(.agents) ? agents.refresh() : ()
+        async let usage: Void = tabs.contains(.tokens) ? claudeUsage.refresh() : ()
+        async let seen: Void = Self.pause(0.6) // long enough to see the spinner when everything is already current
+        _ = await (board, live, usage, seen)
+        sessions.ensureTitles(agents.sessions.map(\.transcriptID))
+        claudeRefreshedAt = Date()
+    }
+
+    private static func pause(_ seconds: Double) async { try? await Task.sleep(for: .seconds(seconds)) }
+
+    /// "just now" / "42s ago" / "3m ago" after Claude › Refresh; empty before the first one.
+    var claudeFreshLabel: String {
+        guard let at = claudeRefreshedAt else { return "" }
+        let age = Int(Date().timeIntervalSince(at))
+        return "Updated " + (age < 5 ? "just now" : age < 60 ? "\(age)s ago" : "\(age / 60)m ago")
     }
 
     func setEmulatorTab(_ tab: EmulatorTab) {

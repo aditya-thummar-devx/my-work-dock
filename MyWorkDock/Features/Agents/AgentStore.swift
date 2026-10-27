@@ -14,6 +14,8 @@ final class AgentStore {
     private(set) var notes: [String: (text: String, error: Bool)] = [:]
     private(set) var sending: Set<String> = []
     private(set) var installing = false
+    /// False until the hook setup has been read once: the tab shows a loading state until then.
+    private(set) var checked = false
 
     @ObservationIgnored private let core: AgentCore
     @ObservationIgnored private var server: AgentServer?
@@ -61,12 +63,20 @@ final class AgentStore {
                      "options": .array([.object(["label": .string("SQLite")]), .object(["label": .string("JSON files")]), .object(["label": .string("Core Data")])])])
         ])])], id: "q1", reply: true)) { _ in }
         hooks = .init(installed: true, stale: false)
+        checked = true
+    }
+
+    /// Snapshots: set up, nothing running.
+    func showSampleEmpty() {
+        hooks = .init(installed: true, stale: false)
+        checked = true
     }
     #endif
 
     var waitingCount: Int { pending.count }
 
     var footer: String {
+        guard checked else { return "Connecting to Claude Code…" }
         let n = sessions.count, w = pending.count
         let live = n == 1 ? "1 live session" : "\(n) live sessions"
         return w > 0 ? "\(live) · \(w) waiting for you" : live
@@ -83,8 +93,7 @@ final class AgentStore {
             serverError = error.localizedDescription
         }
         // Keep the stable hook copy current (app updates, moved bundles) once the user has set it up.
-        if let installer, installer.status().installed { try? installer.deployHook() }
-        refreshHooks()
+        Task { await refreshHooks(deploy: true) }
     }
 
     func stop() {
@@ -99,9 +108,21 @@ final class AgentStore {
         onData()
     }
 
-    func refreshHooks() {
-        guard let installer else { return }
-        hooks = installer.status()
+    /// Refresh: the hook setup, then drops sessions whose `claude` has gone and finds missing terminals.
+    func refresh() async {
+        await refreshHooks()
+        await core.recheck()
+    }
+
+    /// Reads the hook setup off the main thread. `deploy` also keeps the stable hook copy current (app updates, moved bundles) once
+    /// the user has set it up.
+    func refreshHooks(deploy: Bool = false) async {
+        guard let installer else { checked = true; return }
+        hooks = await Task.detached {
+            if deploy, installer.status().installed { try? installer.deployHook() }
+            return installer.status()
+        }.value
+        checked = true
     }
 
     func decide(_ id: String, _ d: AgentDecision) { core.decide(id, d) }
@@ -114,7 +135,7 @@ final class AgentStore {
         installing = true
         defer { installing = false }
         do { try installer.install() } catch { serverError = error.localizedDescription }
-        refreshHooks()
+        hooks = installer.status()
     }
 
     /// Typed into the session's terminal when it allows it (a real prompt), otherwise delivered

@@ -4,11 +4,15 @@ import Foundation
 enum TerminalLookup {
     /// Walks up from `pid` to the first ancestor with a terminal: Claude Code runs hooks through a
     /// shell that has none, the `claude` process above it does. `info(pid)` → (parent, tty).
-    static func walk(_ pid: Int32, info: (Int32) -> (Int32, String?)?) -> String? {
+    static func walk(_ pid: Int32, info: (Int32) -> (Int32, String?)?) -> String? { owner(pid, info: info)?.tty }
+
+    /// Like `walk`, plus the process that owns the terminal: the `claude` process itself, which the Agents tab watches to drop
+    /// sessions whose terminal was closed.
+    static func owner(_ pid: Int32, info: (Int32) -> (Int32, String?)?) -> (pid: Int32, tty: String)? {
         var pid = pid
         for _ in 0..<8 {
             guard let (parent, tty) = info(pid) else { return nil }
-            if let tty { return tty }
+            if let tty { return (pid, tty) }
             if parent <= 1 || parent == pid { return nil }
             pid = parent
         }
@@ -16,12 +20,15 @@ enum TerminalLookup {
     }
 
     /// One `ps` for the whole process table, then the walk is in memory.
-    static func tty(_ pid: Int32) async -> String? {
+    static func tty(_ pid: Int32) async -> (pid: Int32, tty: String)? {
         let r = await ProcessRunner.run("/bin/ps", ["-A", "-o", "pid=,ppid=,tty="], timeout: 5)
         guard r.ok else { return nil }
         let table = parsePS(r.out)
-        return walk(pid) { table[$0] }
+        return owner(pid) { table[$0] }
     }
+
+    /// The process still exists (signal 0 only checks; EPERM means it exists but belongs to someone else).
+    static func isAlive(_ pid: Int32) -> Bool { kill(pid, 0) == 0 || errno == EPERM }
 
     /// `ps -A -o pid=,ppid=,tty=` → pid → (parent, tty or nil for "??").
     static func parsePS(_ out: String) -> [Int32: (Int32, String?)] {

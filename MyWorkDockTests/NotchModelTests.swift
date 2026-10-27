@@ -262,6 +262,22 @@ final class NotchModelTests: XCTestCase {
         XCTAssertEqual(model.enabledTabs, [.clipboard, .calendar, .notes, .claudex, .emulator])
     }
 
+    func testClaudeRefreshReloadsEverySubTab() async {
+        XCTAssertFalse(model.agents.checked)
+        await model.refreshClaude()
+        XCTAssertTrue(model.agents.checked) // the hook setup was read again
+        XCTAssertFalse(model.claudeRefreshing)
+        XCTAssertFalse(model.sessions.loading)
+        XCTAssertFalse(model.claudeUsage.loading)
+    }
+
+    func testClaudeRefreshLeavesSwitchedOffTabsAlone() async {
+        model.setEnabled(SubMenu.claudeAgents, false)
+        await model.refreshClaude()
+        XCTAssertFalse(model.agents.checked, "Agents is off, so its hook setup isn't read")
+        XCTAssertNotNil(model.claudeRefreshedAt)
+    }
+
     func testShowOnBoardOpensClaudeSessionsFocusedOnTheSession() {
         model.showOnBoard("abc")
         XCTAssertEqual(model.mainTab, .claude)

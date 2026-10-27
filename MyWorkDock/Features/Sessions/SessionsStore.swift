@@ -48,6 +48,8 @@ final class SessionsStore {
     private(set) var groups: [SessionGroup] = []
     private(set) var assignments: [String: String] = [:]
     private(set) var loading = false
+    /// False until the first look at the transcripts has finished: the board shows a loading state until then.
+    private(set) var loaded = false
     private(set) var message: (text: String, error: Bool)?
     /// Real titles for live sessions (session id → title), filled for the Agents tab.
     private(set) var titles: [String: String] = [:]
@@ -57,7 +59,10 @@ final class SessionsStore {
     /// Session to reveal on the board (from Agents › Show on board).
     var focusID: String?
     private(set) var installedTerminals: [OpenIn] = [.terminal]
-    private(set) var openIn: OpenIn
+    /// nil until the user picks one; the first Resume asks.
+    private(set) var openIn: OpenIn?
+    /// Waiting on that first pick.
+    private(set) var choosing: Transcript?
 
     @ObservationIgnored private let reader: TranscriptReader?
     @ObservationIgnored private let store: SessionGroups
@@ -67,19 +72,29 @@ final class SessionsStore {
         self.reader = reader
         self.store = groups
         self.defaults = defaults
-        openIn = defaults?.string(forKey: "sessionsOpenIn").flatMap(OpenIn.init(rawValue:)) ?? .terminal
+        // Terminal used to be the silent default, so only a different pick carries over from the old key.
+        let legacy = defaults?.string(forKey: "sessionsOpenIn").flatMap(OpenIn.init(rawValue:))
+        openIn = defaults?.string(forKey: "sessionsTerminal").flatMap(OpenIn.init(rawValue:)) ?? (legacy == .terminal ? nil : legacy)
+        if reader != nil { installedTerminals = TerminalLauncher.detect() }
         syncGroups()
     }
 
     static func live() -> SessionsStore { SessionsStore(reader: TranscriptReader(TranscriptIndex()), groups: .live(), defaults: .standard) }
     static func sample() -> SessionsStore { SessionsStore(reader: nil, groups: SessionGroups(file: nil), defaults: nil) }
 
-    func refresh() async {
+    /// Every changed transcript is read again (unchanged ones cannot have changed). `fresh` (Refresh) also looks the Agents
+    /// titles up again, which are otherwise read once.
+    func refresh(fresh: Bool = false) async {
         guard let reader else { return }
         loading = true
         defer { loading = false }
         transcripts = await reader.scan()
+        if fresh {
+            let ids = Array(titles.keys)
+            titles = await reader.titles(ids)
+        }
         installedTerminals = TerminalLauncher.detect()
+        loaded = true
     }
 
     /// Looks up titles for live sessions the board hasn't loaded yet.
@@ -93,7 +108,10 @@ final class SessionsStore {
     }
 
     #if DEBUG
-    func setTranscriptsForTesting(_ t: [Transcript]) { transcripts = t }
+    func setTranscriptsForTesting(_ t: [Transcript]) {
+        transcripts = t
+        loaded = true
+    }
 
     /// Snapshots: a board with two groups.
     func loadSample() {
@@ -115,6 +133,7 @@ final class SessionsStore {
         }
         installedTerminals = [.terminal, .warp]
         message = nil
+        loaded = true
     }
     #endif
 
@@ -139,6 +158,9 @@ final class SessionsStore {
         var isGroup: Bool { id != SessionsStore.ungroupedID }
     }
 
+    var searching: Bool { !search.trimmingCharacters(in: .whitespaces).isEmpty }
+
+    /// While searching, columns with no matches are hidden.
     var columns: [Column] {
         let v = visible
         let all = groups.map { (id: $0.id, name: $0.name) } + [(id: Self.ungroupedID, name: "Ungrouped")]
@@ -150,6 +172,7 @@ final class SessionsStore {
             }
         }
         .map { c in Column(id: c.id, name: c.name, items: v.filter { groupID(of: $0) == c.id }) }
+        .filter { !searching || !$0.items.isEmpty }
     }
 
     /// Clears filters so `id` is visible, and marks it for the board to scroll to.
@@ -190,20 +213,34 @@ final class SessionsStore {
 
     func setOpenIn(_ app: OpenIn) {
         openIn = app
-        defaults?.set(app.rawValue, forKey: "sessionsOpenIn")
+        defaults?.set(app.rawValue, forKey: "sessionsTerminal")
     }
 
-    func resume(_ t: Transcript) async {
+    /// Saves the first pick and resumes the session that asked.
+    func choose(_ app: OpenIn) async {
+        setOpenIn(app)
+        guard let t = choosing else { return }
+        choosing = nil
+        await resume(t)
+    }
+
+    func cancelChoosing() { choosing = nil }
+
+    /// Opens in `app` just this once, otherwise in the saved terminal (asking first if there is none).
+    func resume(_ t: Transcript, in app: OpenIn? = nil) async {
         guard let cwd = t.cwd else { message = ("This session has no project folder recorded.", true); return }
+        guard let app = app ?? openIn else { choosing = t; return }
         do {
-            let used = try await TerminalLauncher.resume(cwd: cwd, id: t.id, in: openIn)
-            message = used == openIn ? nil : ("\(openIn.name) didn't open, so the session opened in \(used.name).", false)
+            let used = try await TerminalLauncher.resume(cwd: cwd, id: t.id, in: app)
+            message = used != app ? ("\(app.name) didn't open, so the session opened in \(used.name).", false)
+                : used.pastesCommand ? ("Opened \(used.name). The resume command is copied — paste it into its terminal.", false) : nil
         } catch {
             message = (error.localizedDescription, true)
         }
     }
 
     var footer: String {
+        guard loaded else { return "Reading Claude Code sessions…" }
         let n = visible.count
         return "\(n) session\(n == 1 ? "" : "s") · \(groups.count) group\(groups.count == 1 ? "" : "s")"
     }

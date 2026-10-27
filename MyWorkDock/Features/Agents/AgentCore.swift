@@ -19,15 +19,20 @@ final class AgentCore {
     private var waiters: [String: (String, (AgentDecision) -> Void)] = [:]
     private var queued: [String: [String]] = [:]
     private var ttyTried: Set<String> = []
-    private let ttyLookup: (Int32) async -> String?
+    /// The hook's parent of the newest message per session, for looking the terminal up again on Refresh.
+    private var lastPID: [String: Int32] = [:]
+    private let ttyLookup: (Int32) async -> (pid: Int32, tty: String)?
+    private let isAlive: (Int32) -> Bool
     private let saveRules: ([AlwaysRule]) -> Void
     var onChange: () -> Void = {}
 
     static let staleAfter: TimeInterval = 30 * 60
 
-    init(rules: [AlwaysRule] = [], ttyLookup: @escaping (Int32) async -> String? = TerminalLookup.tty, saveRules: @escaping ([AlwaysRule]) -> Void = { _ in }) {
+    init(rules: [AlwaysRule] = [], ttyLookup: @escaping (Int32) async -> (pid: Int32, tty: String)? = TerminalLookup.tty,
+         isAlive: @escaping (Int32) -> Bool = TerminalLookup.isAlive, saveRules: @escaping ([AlwaysRule]) -> Void = { _ in }) {
         self.rules = rules
         self.ttyLookup = ttyLookup
+        self.isAlive = isAlive
         self.saveRules = saveRules
     }
 
@@ -44,14 +49,10 @@ final class AgentCore {
         guard m.v == HookWire.version, m.agent == "claude" else { return .reply(passthrough) }
         let sid = ClaudeAdapter.sessionID(m)
         let now = Date()
-        if let pid = m.pid, ttyTried.insert(sid).inserted {
+        if let pid = m.pid {
+            lastPID[sid] = pid
             // Looked up once per session, off the main thread (it runs `ps`).
-            let lookup = ttyLookup
-            Task { [weak self] in
-                guard let tty = await lookup(pid) else { return }
-                self?.sessions[sid]?.tty = tty
-                self?.onChange()
-            }
+            if ttyTried.insert(sid).inserted { Task { await lookUpTerminal(sid, pid) } }
         }
         var result = Handled.reply(passthrough)
         for ev in ClaudeAdapter.events(m) {
@@ -106,6 +107,30 @@ final class AgentCore {
     }
 
     func session(_ sid: String) -> AgentSession? { sessions[sid] }
+
+    private func lookUpTerminal(_ sid: String, _ pid: Int32) async {
+        guard let found = await ttyLookup(pid) else { return }
+        sessions[sid]?.tty = found.tty
+        sessions[sid]?.ownerPID = found.pid
+        onChange()
+    }
+
+    /// Refresh: ends sessions whose `claude` process is gone (terminal closed or killed without a SessionEnd), and looks the
+    /// terminal up again for sessions that have none yet.
+    func recheck() async {
+        var changed = false
+        for (sid, s) in sessions where s.state != .ended {
+            guard let owner = s.ownerPID, !isAlive(owner) else { continue }
+            sessions[sid]?.state = .ended
+            waiters.removeValue(forKey: sid)?.1(.passthrough)
+            queued[sid] = nil
+            changed = true
+        }
+        if changed { onChange() }
+        for (sid, s) in sessions where s.state != .ended && s.tty == nil {
+            if let pid = lastPID[sid] { await lookUpTerminal(sid, pid) }
+        }
+    }
 
     private func apply(_ ev: AgentEvent, _ sid: String, _ m: HookMessage, _ now: Date) {
         touch(sid, m, now)

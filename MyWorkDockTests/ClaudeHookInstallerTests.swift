@@ -93,4 +93,13 @@ final class ClaudeHookInstallerTests: XCTestCase {
         try i.uninstall()
         XCTAssertEqual(try read(i.configURL) as NSDictionary, peekaboo as NSDictionary)
     }
+
+    @MainActor
+    func testAgentsTabLoadsUntilTheHookSetupIsRead() async throws {
+        let store = AgentStore(core: AgentCore(ttyLookup: { _ in nil }), installer: inst(), live: false)
+        XCTAssertFalse(store.checked)
+        await store.refreshHooks()
+        XCTAssertTrue(store.checked)
+        XCTAssertFalse(store.hooks.installed)
+    }
 }
