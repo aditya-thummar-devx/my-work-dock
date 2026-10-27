@@ -20,10 +20,13 @@ struct SessionsScreen: View {
             } else if store.transcripts.isEmpty {
                 ClaudePlaceholder(glyph: .terminal, title: "No sessions yet",
                                   message: "Claude Code sessions from the last 30 days show up here, ready to group and resume.")
+            } else if store.searching && store.columns.isEmpty {
+                ClaudePlaceholder(glyph: .search, title: "No matching sessions",
+                                  message: "Nothing matches “\(store.search.trimmingCharacters(in: .whitespaces))”. Try another word or a wider date range.")
             } else {
                 let board = HStack(alignment: .top, spacing: 10) {
                     ForEach(store.columns) { col in BoardColumn(store: store, column: col) }
-                    if store.groupFilter == .all { NewGroupColumn(store: store) }
+                    if store.groupFilter == .all && !store.searching { NewGroupColumn(store: store) }
                 }
                 if staticRender {
                     // Snapshots can't draw a ScrollView's content (see DockScroll).

@@ -152,6 +152,9 @@ final class SessionsStore {
         var isGroup: Bool { id != SessionsStore.ungroupedID }
     }
 
+    var searching: Bool { !search.trimmingCharacters(in: .whitespaces).isEmpty }
+
+    /// While searching, columns with no matches are hidden.
     var columns: [Column] {
         let v = visible
         let all = groups.map { (id: $0.id, name: $0.name) } + [(id: Self.ungroupedID, name: "Ungrouped")]
@@ -163,6 +166,7 @@ final class SessionsStore {
             }
         }
         .map { c in Column(id: c.id, name: c.name, items: v.filter { groupID(of: $0) == c.id }) }
+        .filter { !searching || !$0.items.isEmpty }
     }
 
     /// Clears filters so `id` is visible, and marks it for the board to scroll to.

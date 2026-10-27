@@ -173,8 +173,11 @@ final class SessionsStoreTests: XCTestCase {
         s.search = "release"
         s.range = .month
         XCTAssertEqual(s.visible.map(\.id), ["c"])
+        XCTAssertEqual(s.columns.map(\.name), ["Ungrouped"], "searching hides groups with no matches")
         s.groupFilter = .group(fox)
-        XCTAssertEqual(s.columns.map(\.name), ["Foxtale"])
+        XCTAssertEqual(s.columns.map(\.name), [])
+        s.search = ""
+        XCTAssertEqual(s.columns.map(\.name), ["Foxtale"], "empty groups show again once the search is cleared")
 
         s.focus("c")
         XCTAssertEqual(s.search, "")
