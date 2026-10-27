@@ -112,7 +112,7 @@ final class TerminalLauncherTests: XCTestCase {
         XCTAssertEqual(t.count, 1)
         XCTAssertEqual(t[0].exe, "/usr/bin/osascript")
         XCTAssertTrue(t[0].args[1].contains(#"do script "cd '/w' && claude --resume x""#))
-        for app in [OpenIn.iTerm2, .warp, .cmux, .ghostty, .kitty, .alacritty, .wezTerm] {
+        for app in OpenIn.allCases where app != .terminal {
             let p = TerminalLauncher.plan(app, cwd: "/w", id: "x", command: cmd)
             XCTAssertTrue(p.last!.args[1].contains("tell application \"Terminal\""), "\(app) falls back")
         }
@@ -122,6 +122,11 @@ final class TerminalLauncherTests: XCTestCase {
         XCTAssertEqual(c.exe, "/A/cmux.app/Contents/Resources/bin/cmux")
         XCTAssertEqual(c.args, ["new-workspace", "--name", "Claude x", "--cwd", "/w", "--command", "claude --resume x", "--focus", "true"])
         XCTAssertEqual(TerminalLauncher.cmuxCLI(URL(fileURLWithPath: "/A/cmux.app")), "/A/cmux.app/Contents/Resources/bin/cmux")
+        XCTAssertEqual(TerminalLauncher.plan(.tabby, cwd: "/w", id: "x", command: cmd)[0].args.suffix(2), ["-lc", cmd])
+        XCTAssertEqual(TerminalLauncher.plan(.rio, cwd: "/w", id: "x", command: cmd)[0].args.last, cmd)
+        // Editors can't run a command: they open the project, and the command goes on the clipboard.
+        XCTAssertEqual(TerminalLauncher.plan(.cursor, cwd: "/w", id: "x", command: cmd, appPath: "/A/Cursor.app")[0].args, ["-a", "/A/Cursor.app", "/w"])
+        XCTAssertTrue(OpenIn.vsCode.pastesCommand && OpenIn.hyper.pastesCommand && !OpenIn.tabby.pastesCommand)
     }
 
     func testWarpTabConfigRunsResumeInTheProjectAndCleansUp() throws {
@@ -147,6 +152,8 @@ final class TerminalLauncherTests: XCTestCase {
         XCTAssertFalse(OpenIn.warp.realPrompts)
         // cmux, and Warp's preview build, are found too.
         XCTAssertEqual(TerminalLauncher.detect { ["com.cmuxterm.app", "dev.warp.Warp-Preview"].contains($0) }, [.terminal, .warp, .cmux])
+        XCTAssertEqual(TerminalLauncher.detect { ["org.tabby", "com.microsoft.VSCodeInsiders", "com.todesktop.230313mzl4w4u92"].contains($0) },
+                       [.terminal, .tabby, .vsCode, .cursor])
     }
 }
 
@@ -188,6 +195,26 @@ final class SessionsStoreTests: XCTestCase {
         XCTAssertEqual(s.columns[0].items.count, 0)
         s.create("foxtale")
         XCTAssertEqual(s.message?.error, true, "duplicate names are reported")
+    }
+
+    func testFirstResumeAsksForATerminalOnce() async {
+        let d = UserDefaults(suiteName: "sess-\(UUID().uuidString)")!
+        let s = SessionsStore(reader: nil, groups: SessionGroups(file: nil), defaults: d)
+        XCTAssertNil(s.openIn)
+        let a = tx("a", "Fix checkout")
+        await s.resume(a)
+        XCTAssertEqual(s.choosing?.id, "a", "nothing picked yet, so Resume asks")
+        s.cancelChoosing()
+        XCTAssertNil(s.choosing)
+        s.setOpenIn(.cmux)
+        XCTAssertEqual(SessionsStore(reader: nil, groups: SessionGroups(file: nil), defaults: d).openIn, .cmux, "the pick is remembered")
+
+        // The old key: Terminal was the silent default and is asked again; a real pick carries over.
+        let old = UserDefaults(suiteName: "sess-\(UUID().uuidString)")!
+        old.set("terminal", forKey: "sessionsOpenIn")
+        XCTAssertNil(SessionsStore(reader: nil, groups: SessionGroups(file: nil), defaults: old).openIn)
+        old.set("warp", forKey: "sessionsOpenIn")
+        XCTAssertEqual(SessionsStore(reader: nil, groups: SessionGroups(file: nil), defaults: old).openIn, .warp)
     }
 
     func testBoardLoadsUntilTheFirstLookFinishes() async throws {

@@ -65,10 +65,11 @@ extension Geo {
 }
 
 /// Settings screen, drawn in the panel's content area like the menus: the sections on the left, the chosen one on the right.
-/// Appearance (theme, tint, panel size), Menus (which features are on), Peek, Clipboard (history size) and Version. Applies everywhere.
+/// Appearance (theme, tint, panel size), Menus (which features are on), Peek, Clipboard (history size), Claude (the terminal
+/// sessions open in) and Version. Applies everywhere.
 struct SettingsScreen: View {
     enum Page: String, CaseIterable, Identifiable {
-        case appearance, menus, peek, shortcuts, clipboard, version
+        case appearance, menus, peek, shortcuts, clipboard, claude, version
 
         var id: String { rawValue }
         var label: String { rawValue.capitalized }
@@ -79,6 +80,7 @@ struct SettingsScreen: View {
             case .peek: .eye
             case .shortcuts: .keyboard
             case .clipboard: .clipboard
+            case .claude: .chat
             case .version: .info
             }
         }
@@ -98,6 +100,8 @@ struct SettingsScreen: View {
     var customBuddies = CustomBuddies()
     var shortcuts = ShortcutStore()
     var clipboardLimit = ClipboardStore.defaultLimit
+    var terminals: [OpenIn] = [.terminal]
+    var openIn: OpenIn?
     var calendarAutoPeek = false
     var calendarAutoPeekThreshold = 5
     var version = ""
@@ -118,13 +122,14 @@ struct SettingsScreen: View {
     var onAllDisplays: (Bool) -> Void = { _ in }
     var onBuddy: (BuddyPrefs) -> Void = { _ in }
     var onClipboardLimit: (Int) -> Void = { _ in }
+    var onOpenIn: (OpenIn) -> Void = { _ in }
     @State private var page: Page
     @Environment(\.tokens) private var t
 
     init(theme: ThemeMode, systemIsDark: Bool = true, tint: Tint, panelSize: PanelSize = .medium,
          notchPosition: NotchPosition = .top,
          disabled: Set<Feature> = [], disabledSubs: Set<SubMenu> = [], peekOn: Set<PeekSource> = PeekSource.defaultOn, allDisplays: Bool = false, buddy: BuddyPrefs = BuddyPrefs(), customBuddies: CustomBuddies = CustomBuddies(), shortcuts: ShortcutStore = ShortcutStore(), page: Page = .appearance,
-         clipboardLimit: Int = ClipboardStore.defaultLimit, calendarAutoPeek: Bool = false, calendarAutoPeekThreshold: Int = 5, version: String = "", updatedAt: Date? = nil,
+         clipboardLimit: Int = ClipboardStore.defaultLimit, terminals: [OpenIn] = [.terminal], openIn: OpenIn? = nil, calendarAutoPeek: Bool = false, calendarAutoPeekThreshold: Int = 5, version: String = "", updatedAt: Date? = nil,
          autoCheckUpdates: Bool = true,
          onCheckForUpdates: (() -> Void)? = nil,
          onTheme: @escaping (ThemeMode) -> Void = { _ in }, onTint: @escaping (Tint) -> Void = { _ in },
@@ -137,6 +142,7 @@ struct SettingsScreen: View {
          onAllDisplays: @escaping (Bool) -> Void = { _ in },
          onBuddy: @escaping (BuddyPrefs) -> Void = { _ in },
          onClipboardLimit: @escaping (Int) -> Void = { _ in },
+         onOpenIn: @escaping (OpenIn) -> Void = { _ in },
          onAutoCheckUpdates: @escaping (Bool) -> Void = { _ in }) {
         self.theme = theme
         self.systemIsDark = systemIsDark
@@ -151,6 +157,9 @@ struct SettingsScreen: View {
         self.customBuddies = customBuddies
         self.shortcuts = shortcuts
         self.clipboardLimit = clipboardLimit
+        self.terminals = terminals
+        self.openIn = openIn
+        self.onOpenIn = onOpenIn
         self.calendarAutoPeek = calendarAutoPeek
         self.calendarAutoPeekThreshold = calendarAutoPeekThreshold
         self.version = version
@@ -216,6 +225,8 @@ struct SettingsScreen: View {
             ShortcutsSection(store: shortcuts, disabled: disabled, disabledSubs: disabledSubs)
         case .clipboard:
             ClipboardSection(limit: clipboardLimit, onLimit: onClipboardLimit)
+        case .claude:
+            ClaudeSection(terminals: terminals, openIn: openIn, onOpenIn: onOpenIn)
         case .version:
             VersionSection(version: version, updatedAt: updatedAt, autoCheckUpdates: autoCheckUpdates,
                            onAutoCheckUpdates: onAutoCheckUpdates, onCheck: onCheckForUpdates)
@@ -402,6 +413,45 @@ private struct VersionSection: View {
         }
         .padding(.horizontal, Geo.Menu.rowPadX)
         .frame(height: Geo.Appearance.menuRowHeight)
+    }
+}
+
+/// Settings › Claude: the app Sessions › Resume opens in. Only apps found on this Mac are listed.
+private struct ClaudeSection: View {
+    var terminals: [OpenIn]
+    var openIn: OpenIn?
+    var onOpenIn: (OpenIn) -> Void
+    @Environment(\.tokens) private var t
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Geo.Chrome.popoverGap) {
+            Text("Open sessions in").font(Typo.ui(Geo.Appearance.sectionFont, .semibold)).foregroundStyle(t.faint)
+            VStack(spacing: 0) {
+                ForEach(terminals) { app in
+                    Button { onOpenIn(app) } label: {
+                        HStack(spacing: Geo.Menu.rowGap) {
+                            Icon(.terminal, size: Geo.Appearance.themeIcon).foregroundStyle(openIn == app ? t.text : t.muted)
+                            Text(app.name).font(Typo.ui(Geo.Menu.font, .medium)).foregroundStyle(openIn == app ? t.text : t.text2)
+                            if let note = app.note { Text(note).font(Typo.ui(Geo.Appearance.noteFont)).foregroundStyle(t.faint) }
+                            Spacer(minLength: 0)
+                            if openIn == app { Icon(.check, size: Geo.Appearance.themeIcon).foregroundStyle(t.text) }
+                        }
+                        .padding(.horizontal, Geo.Menu.rowPadX)
+                        .frame(height: Geo.Appearance.menuRowHeight)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(app.name)
+                    .accessibilityAddTraits(openIn == app ? .isSelected : [])
+                }
+            }
+            .padding(.top, Geo.Appearance.pullUp)
+            Text(openIn == nil ? "Nothing picked yet: the first Resume asks." : "Resume in Sessions opens here. A session's ▾ opens it somewhere else just once.")
+                .font(Typo.ui(Geo.Appearance.noteFont))
+                .foregroundStyle(t.faint)
+                .lineSpacing(Typo.lineSpacing(size: Geo.Appearance.noteFont, lineHeight: 1.4))
+                .fixedSize(horizontal: false, vertical: true)
+        }
     }
 }
 

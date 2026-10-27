@@ -1,9 +1,11 @@
 import AppKit
 
 /// Terminal app Claude sessions open in. Terminal and iTerm2 can be typed into, so prompts sent
-/// from MyWorkDock arrive as real user prompts.
+/// from MyWorkDock arrive as real user prompts. Hyper, VS Code and Cursor can't be told to run a
+/// command, so they open with the resume command on the clipboard.
 enum OpenIn: String, CaseIterable, Identifiable, Codable {
-    case terminal, iTerm2 = "iterm2", warp, cmux, ghostty, kitty, alacritty, wezTerm = "wezterm"
+    case terminal, iTerm2 = "iterm2", warp, cmux, ghostty, kitty, alacritty, wezTerm = "wezterm", tabby, rio, hyper,
+         vsCode = "vscode", cursor
 
     var id: String { rawValue }
     var name: String {
@@ -16,6 +18,11 @@ enum OpenIn: String, CaseIterable, Identifiable, Codable {
         case .kitty: "kitty"
         case .alacritty: "Alacritty"
         case .wezTerm: "WezTerm"
+        case .tabby: "Tabby"
+        case .rio: "Rio"
+        case .hyper: "Hyper"
+        case .vsCode: "VS Code"
+        case .cursor: "Cursor"
         }
     }
     /// Every bundle id the app ships under (stable, preview and beta builds); the first installed one is used.
@@ -29,10 +36,19 @@ enum OpenIn: String, CaseIterable, Identifiable, Codable {
         case .kitty: ["net.kovidgoyal.kitty"]
         case .alacritty: ["org.alacritty", "io.alacritty"]
         case .wezTerm: ["com.github.wez.wezterm"]
+        case .tabby: ["org.tabby", "org.terminus"]
+        case .rio: ["com.raphaelamorim.rio"]
+        case .hyper: ["co.zeit.hyper"]
+        case .vsCode: ["com.microsoft.VSCode", "com.microsoft.VSCodeInsiders"]
+        case .cursor: ["com.todesktop.230313mzl4w4u92"]
         }
     }
     var bundleID: String { bundleIDs[0] }
     var realPrompts: Bool { self == .terminal || self == .iTerm2 }
+    /// Opens without running anything; the resume command is copied to paste in.
+    var pastesCommand: Bool { self == .hyper || self == .vsCode || self == .cursor }
+    /// Shown beside the name in pickers.
+    var note: String? { pastesCommand ? "paste the command" : realPrompts ? nil : "messages as notes" }
 }
 
 enum TerminalLauncher {
@@ -69,8 +85,9 @@ enum TerminalLauncher {
 
     private static var shell: String { ProcessInfo.processInfo.environment["SHELL"].flatMap { $0.isEmpty ? nil : $0 } ?? "/bin/zsh" }
 
-    /// Ways to open the session, tried in order; Terminal is always the last resort.
-    static func plan(_ app: OpenIn, cwd: String, id: String, command: String, cmux: String = cmuxCLI(nil)) -> [Step] {
+    /// Ways to open the session, tried in order; Terminal is always the last resort. `appPath` is the
+    /// installed copy for apps opened by path.
+    static func plan(_ app: OpenIn, cwd: String, id: String, command: String, cmux: String = cmuxCLI(nil), appPath: String? = nil) -> [Step] {
         let quoted = TerminalLookup.appleScriptText(command)
         let terminal = Step(exe: "/usr/bin/osascript", args: ["-e", "tell application \"Terminal\"\nactivate\ndo script \"\(quoted)\"\nend tell"])
         let first: Step
@@ -86,6 +103,10 @@ enum TerminalLauncher {
         case .kitty: first = Step(exe: "/usr/bin/open", args: ["-na", "kitty", "--args", "--directory", cwd, shell, "-lc", command])
         case .alacritty: first = Step(exe: "/usr/bin/open", args: ["-na", "Alacritty", "--args", "--working-directory", cwd, "-e", shell, "-lc", command])
         case .wezTerm: first = Step(exe: "/usr/bin/open", args: ["-na", "WezTerm", "--args", "start", "--cwd", cwd, "--", shell, "-lc", command])
+        case .tabby: first = Step(exe: "/usr/bin/open", args: ["-na", "Tabby", "--args", "run", shell, "-lc", command])
+        case .rio: first = Step(exe: "/usr/bin/open", args: ["-na", "Rio", "--args", "--working-dir", cwd, "-e", shell, "-lc", command])
+        case .hyper: first = Step(exe: "/usr/bin/open", args: ["-a", appPath ?? "Hyper"])
+        case .vsCode, .cursor: first = Step(exe: "/usr/bin/open", args: ["-a", appPath ?? app.name, cwd])
         }
         return [first, terminal]
     }
@@ -152,8 +173,12 @@ enum TerminalLauncher {
                 try await Task.sleep(nanoseconds: 250_000_000)
             }
         }
+        if app.pastesCommand {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(command, forType: .string)
+        }
         var errors: [String] = []
-        for (i, step) in plan(app, cwd: cwd, id: id, command: command, cmux: cli).enumerated() {
+        for (i, step) in plan(app, cwd: cwd, id: id, command: command, cmux: cli, appPath: appURL(app)?.path).enumerated() {
             let r = await ProcessRunner.run(step.exe, step.args, timeout: 10)
             if r.ok { return i == 0 ? app : .terminal }
             if r.err.contains("-1743") { errors.append("Allow MyWorkDock to control \(app.name) in System Settings › Privacy & Security › Automation.") }

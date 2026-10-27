@@ -133,6 +133,7 @@ func terminalName(_ termProgram: String) -> String {
     case "WarpTerminal": "Warp"
     case "vscode": "VS Code"
     case "ghostty": "Ghostty"
+    case "rio": "Rio"
     default: termProgram
     }
 }

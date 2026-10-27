@@ -59,7 +59,10 @@ final class SessionsStore {
     /// Session to reveal on the board (from Agents › Show on board).
     var focusID: String?
     private(set) var installedTerminals: [OpenIn] = [.terminal]
-    private(set) var openIn: OpenIn
+    /// nil until the user picks one; the first Resume asks.
+    private(set) var openIn: OpenIn?
+    /// Waiting on that first pick.
+    private(set) var choosing: Transcript?
 
     @ObservationIgnored private let reader: TranscriptReader?
     @ObservationIgnored private let store: SessionGroups
@@ -69,7 +72,10 @@ final class SessionsStore {
         self.reader = reader
         self.store = groups
         self.defaults = defaults
-        openIn = defaults?.string(forKey: "sessionsOpenIn").flatMap(OpenIn.init(rawValue:)) ?? .terminal
+        // Terminal used to be the silent default, so only a different pick carries over from the old key.
+        let legacy = defaults?.string(forKey: "sessionsOpenIn").flatMap(OpenIn.init(rawValue:))
+        openIn = defaults?.string(forKey: "sessionsTerminal").flatMap(OpenIn.init(rawValue:)) ?? (legacy == .terminal ? nil : legacy)
+        if reader != nil { installedTerminals = TerminalLauncher.detect() }
         syncGroups()
     }
 
@@ -207,14 +213,27 @@ final class SessionsStore {
 
     func setOpenIn(_ app: OpenIn) {
         openIn = app
-        defaults?.set(app.rawValue, forKey: "sessionsOpenIn")
+        defaults?.set(app.rawValue, forKey: "sessionsTerminal")
     }
 
-    func resume(_ t: Transcript) async {
+    /// Saves the first pick and resumes the session that asked.
+    func choose(_ app: OpenIn) async {
+        setOpenIn(app)
+        guard let t = choosing else { return }
+        choosing = nil
+        await resume(t)
+    }
+
+    func cancelChoosing() { choosing = nil }
+
+    /// Opens in `app` just this once, otherwise in the saved terminal (asking first if there is none).
+    func resume(_ t: Transcript, in app: OpenIn? = nil) async {
         guard let cwd = t.cwd else { message = ("This session has no project folder recorded.", true); return }
+        guard let app = app ?? openIn else { choosing = t; return }
         do {
-            let used = try await TerminalLauncher.resume(cwd: cwd, id: t.id, in: openIn)
-            message = used == openIn ? nil : ("\(openIn.name) didn't open, so the session opened in \(used.name).", false)
+            let used = try await TerminalLauncher.resume(cwd: cwd, id: t.id, in: app)
+            message = used != app ? ("\(app.name) didn't open, so the session opened in \(used.name).", false)
+                : used.pastesCommand ? ("Opened \(used.name). The resume command is copied — paste it into its terminal.", false) : nil
         } catch {
             message = (error.localizedDescription, true)
         }

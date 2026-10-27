@@ -22,6 +22,7 @@ struct OpenPanelView: View {
                                                                  setFile: { model.setCustomBuddyFile($0, of: $1) }),
                                    shortcuts: model.shortcuts,
                                    clipboardLimit: model.clipboard.limit,
+                                   terminals: model.sessions.installedTerminals, openIn: model.sessions.openIn,
                                    calendarAutoPeek: model.calendarAutoPeekEnabled, calendarAutoPeekThreshold: model.calendarAutoPeekThreshold,
                                    version: model.version, updatedAt: model.updatedAt,
                                    autoCheckUpdates: model.autoCheckUpdates,
@@ -31,7 +32,7 @@ struct OpenPanelView: View {
                                    onFeature: model.setEnabled, onSub: model.setEnabled, onPeek: model.setPeekEnabled,
                                    onCalendarAutoPeek: model.setCalendarAutoPeekEnabled, onCalendarAutoPeekThreshold: model.setCalendarAutoPeekThreshold,
                                    onAllDisplays: model.setShowOnAllDisplays,
-                                   onBuddy: model.setBuddy, onClipboardLimit: model.setClipboardLimit,
+                                   onBuddy: model.setBuddy, onClipboardLimit: model.setClipboardLimit, onOpenIn: model.sessions.setOpenIn,
                                    onAutoCheckUpdates: model.setAutoCheckUpdates)
                         .transition(.opacity)
                 } else if model.enabledTabs.isEmpty {
