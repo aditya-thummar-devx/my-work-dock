@@ -1246,7 +1246,7 @@
 		63FA7B4AF13BFA01C457A079 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_APPICON_NAME = "AppIcon-Dev";
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
@@ -1254,7 +1254,7 @@
 				ENABLE_HARDENED_RUNTIME = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = MyWorkDock/Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = MyWorkDock;
+				INFOPLIST_KEY_CFBundleDisplayName = "MyWorkDock Dev";
 				INFOPLIST_KEY_LSUIElement = YES;
 				INFOPLIST_KEY_NSLocalNetworkUsageDescription = "Pairs and connects Android devices over Wi-Fi.";
 				LD_RUNPATH_SEARCH_PATHS = (
