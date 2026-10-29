@@ -112,12 +112,11 @@ struct ClaudexToolbar: View {
             if list {
                 HStack(spacing: 6) {
                     ToolButton(padLeading: 8, action: { store.maxOnly.toggle() }) {
-                        HStack(spacing: 7) { Checkbox(on: store.maxOnly); Text("5x only") }
+                        HStack(spacing: 7) { Checkbox(on: store.maxOnly); Text("5x") }
                     }
                     .accessibilityAddTraits(store.maxOnly ? .isSelected : [])
                     ToolButton(padLeading: 10, padTrailing: 9, action: { store.sortOpen.toggle() }) {
                         HStack(spacing: 7) {
-                            Text("Sort").foregroundStyle(t.faint).fontWeight(.medium)
                             Text(store.sort.label)
                             Icon(.chevronDown, size: 11, stroke: 2.6)
                         }
@@ -128,11 +127,11 @@ struct ClaudexToolbar: View {
             HStack(spacing: 6) {
                 if list {
                     let canMine = store.mineCommand != nil
-                    ToolButton(fg: canMine ? t.text : t.offFg, enabled: canMine, action: store.switchToMine) { Text("Switch to mine") }
+                    ToolButton(fg: canMine ? t.text : t.offFg, enabled: canMine, action: store.switchToMine) { Text("Use mine") }
                 }
                 DotToolButton(title: store.consuming == true ? "Stop pool" : "Start pool", on: store.consuming == true,
                               enabled: store.consuming != nil) { store.togglePool() }
-                DotToolButton(title: store.autoswitchOn == true ? "Disable autoswitch" : "Enable autoswitch", on: store.autoswitchOn == true,
+                DotToolButton(title: "AutoSwitch", on: store.autoswitchOn == true,
                               enabled: store.autoswitchOn != nil) { store.toggleAutoswitch() }
             }
         }
