@@ -109,6 +109,8 @@ final class HotKeyManager {
             return model.disabled.contains(.clipboard)
         case .calendar:
             return model.disabled.contains(.calendar)
+        case .claude:
+            return model.disabled.contains(.claude)
         case .notesTodo:
             return model.disabled.contains(.notes) || model.disabledSubs.contains(.notesTodo)
         case .notesCommands:
@@ -132,6 +134,8 @@ final class HotKeyManager {
             return { [weak controller] in controller?.model.show(.clipboard) }
         case .calendar:
             return { [weak controller] in controller?.model.show(.calendar) }
+        case .claude:
+            return { [weak controller] in controller?.model.show(.claude) }
         case .notesTodo:
             return { [weak controller] in controller?.model.show(.notes, notes: .todo) }
         case .notesCommands:

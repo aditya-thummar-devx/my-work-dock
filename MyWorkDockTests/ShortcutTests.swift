@@ -50,12 +50,22 @@ final class ShortcutTests: XCTestCase {
         XCTAssertEqual(store.combo(for: .togglePanel).displayString, "⌥ Space")
         XCTAssertEqual(store.combo(for: .clipboard).displayString, "⇧⌘V")
         XCTAssertEqual(store.combo(for: .calendar).displayString, "⇧⌘M")
+        XCTAssertEqual(store.combo(for: .claude).displayString, "⇧⌘G")
         XCTAssertEqual(store.combo(for: .notesTodo).displayString, "⇧⌘D")
         XCTAssertEqual(store.combo(for: .notesCommands).displayString, "⇧⌘C")
         XCTAssertEqual(store.combo(for: .notesPrompts).displayString, "⇧⌘P")
         XCTAssertEqual(store.combo(for: .notesLinks).displayString, "⇧⌘L")
         XCTAssertEqual(store.combo(for: .emulator).displayString, "⇧⌘E")
         XCTAssertEqual(store.combo(for: .claudex).displayString, "⇧⌘X")
+    }
+
+    func testClaudeShortcutAttributes() {
+        XCTAssertEqual(ShortcutAction.claude.label, "Claude")
+        XCTAssertEqual(ShortcutAction.claude.category, .tabs)
+        XCTAssertEqual(ShortcutAction.claude.glyph, .chat)
+        XCTAssertEqual(ShortcutAction.claude.defaultCombo.carbonModifiers, cmdKey | shiftKey)
+        XCTAssertEqual(ShortcutAction.claude.defaultCombo.keyCode, UInt16(kVK_ANSI_G))
+        XCTAssertEqual(ShortcutAction.claude.defaultCombo.displayString, "⇧⌘G")
     }
 
     func testAllShortcutActionsHaveCategoriesAndGlyphs() {
