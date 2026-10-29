@@ -197,6 +197,7 @@ enum ShortcutAction: String, CaseIterable, Identifiable, Codable {
     case togglePanel
     case clipboard
     case calendar
+    case claude
     case notesTodo
     case notesCommands
     case notesPrompts
@@ -211,6 +212,7 @@ enum ShortcutAction: String, CaseIterable, Identifiable, Codable {
         case .togglePanel: "Open / close panel"
         case .clipboard: "Clipboard"
         case .calendar: "My Calendar"
+        case .claude: "Claude"
         case .notesTodo: "Notes › TODO"
         case .notesCommands: "Notes › Commands"
         case .notesPrompts: "Notes › Prompts"
@@ -225,6 +227,7 @@ enum ShortcutAction: String, CaseIterable, Identifiable, Codable {
         case .togglePanel: .power
         case .clipboard: .clipboard
         case .calendar: .calendar
+        case .claude: .chat
         case .notesTodo, .notesCommands, .notesPrompts, .notesLinks: .notes
         case .emulator: .phone
         case .claudex: .gauge
@@ -235,7 +238,7 @@ enum ShortcutAction: String, CaseIterable, Identifiable, Codable {
         switch self {
         case .togglePanel:
             return .general
-        case .clipboard, .calendar, .emulator, .claudex:
+        case .clipboard, .calendar, .claude, .emulator, .claudex:
             return .tabs
         case .notesTodo, .notesCommands, .notesPrompts, .notesLinks:
             return .notes
@@ -251,6 +254,8 @@ enum ShortcutAction: String, CaseIterable, Identifiable, Codable {
             return KeyCombo(keyCode: UInt16(kVK_ANSI_V), modifiers: cmdShift)
         case .calendar:
             return KeyCombo(keyCode: UInt16(kVK_ANSI_M), modifiers: cmdShift)
+        case .claude:
+            return KeyCombo(keyCode: UInt16(kVK_ANSI_G), modifiers: cmdShift)
         case .notesTodo:
             return KeyCombo(keyCode: UInt16(kVK_ANSI_D), modifiers: cmdShift)
         case .notesCommands:

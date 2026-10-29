@@ -319,6 +319,8 @@ private struct ShortcutsSection: View {
             return disabled.contains(.clipboard)
         case .calendar:
             return disabled.contains(.calendar)
+        case .claude:
+            return disabled.contains(.claude)
         case .notesTodo:
             return disabled.contains(.notes) || disabledSubs.contains(.notesTodo)
         case .notesCommands:
