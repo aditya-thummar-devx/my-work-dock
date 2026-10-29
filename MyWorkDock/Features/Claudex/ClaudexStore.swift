@@ -48,6 +48,7 @@ final class ClaudexStore {
     var maxOnly = false
     var sort: ClaudexSort = .resetAsc
     var sortOpen = false
+    var allPermOpen = false
     private(set) var expanded: Set<String> = []
     private(set) var out: [PlayLine] = []
     private(set) var message: String?
@@ -410,6 +411,24 @@ final class ClaudexStore {
             ask("Deny \(name)?", ["access", "deny", name], note: "If they are using your token right now, this cuts them off immediately.", ok: "Deny", danger: true, member: name)
         } else {
             ask("Allow \(name)?", ["access", "allow", name], note: "They can borrow your account through the pool again.", ok: "Allow", member: name)
+        }
+    }
+
+    /// Allow every pool member that is currently denied (one confirm per member, sequentially).
+    func allowAll() {
+        guard let names = access.data?.filter({ !$0.allowed }).map(\.name), !names.isEmpty else { return }
+        for name in names {
+            ask("Allow \(name)?", ["access", "allow", name],
+                note: "They can borrow your account through the pool again.", ok: "Allow", member: name)
+        }
+    }
+
+    /// Deny every pool member that is currently allowed (one confirm per member, sequentially).
+    func denyAll() {
+        guard let names = access.data?.filter(\.allowed).map(\.name), !names.isEmpty else { return }
+        for name in names {
+            ask("Deny \(name)?", ["access", "deny", name],
+                note: "If they are using your token right now, this cuts them off immediately.", ok: "Deny", danger: true, member: name)
         }
     }
 

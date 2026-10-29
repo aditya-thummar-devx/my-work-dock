@@ -40,7 +40,7 @@ struct ClaudexScreen: View {
                 .frame(maxHeight: .infinity, alignment: .top)
             }
             .overlay {
-                if store.sortOpen { Color.clear.contentShape(Rectangle()).onTapGesture { store.sortOpen = false } }
+                if store.sortOpen || store.allPermOpen { Color.clear.contentShape(Rectangle()).onTapGesture { store.sortOpen = false; store.allPermOpen = false } }
             }
         }
     }
@@ -126,6 +126,14 @@ struct ClaudexToolbar: View {
             Spacer(minLength: 0)
             HStack(spacing: 6) {
                 if list {
+                    let canPerm = store.access.data != nil
+                    ToolButton(fg: canPerm ? t.text : t.offFg, enabled: canPerm, action: { store.allPermOpen.toggle(); store.sortOpen = false }) {
+                        HStack(spacing: 7) {
+                            Text("All permissions")
+                            Icon(.chevronDown, size: 11, stroke: 2.6)
+                        }
+                    }
+                    .accessibilityAddTraits(store.allPermOpen ? .isSelected : [])
                     let canMine = store.mineCommand != nil
                     ToolButton(fg: canMine ? t.text : t.offFg, enabled: canMine, action: store.switchToMine) { Text("Use mine") }
                 }
@@ -145,6 +153,58 @@ struct ClaudexToolbar: View {
                 .padding(.top, 34).padding(.leading, 90)
             }
         }
+        .overlay(alignment: .topTrailing) {
+            if store.allPermOpen && list {
+                AllPermMenu(store: store)
+                    .padding(.top, 34)
+                    // offset rightward so it doesn't clip out of the toolbar — the right buttons are
+                    // "All permissions ⌄" then "Use mine" (when active), then two dot-buttons.
+                    .padding(.trailing, 144)
+            }
+        }
+    }
+}
+
+// MARK: All permissions popover
+
+/// Two-row menu that bulk-allows or bulk-denies every pool member.
+private struct AllPermMenu: View {
+    var store: ClaudexStore
+    @Environment(\.tokens) private var t
+
+    var body: some View {
+        VStack(spacing: 0) {
+            row("Allow all", danger: false) {
+                store.allPermOpen = false
+                store.allowAll()
+            }
+            Rectangle().fill(t.line).frame(height: 1).padding(.horizontal, Geo.Menu.rowPadX)
+            row("Deny all", danger: true) {
+                store.allPermOpen = false
+                store.denyAll()
+            }
+        }
+        .padding(Geo.Menu.padding + 1)
+        .frame(width: 160)
+        .background {
+            RoundedRectangle(cornerRadius: Geo.Menu.radius).fill(t.pop)
+                .shadow(color: t.popShadow, radius: Geo.Menu.shadow.radius, y: Geo.Menu.shadow.y)
+        }
+        .overlay(RoundedRectangle(cornerRadius: Geo.Menu.radius).strokeBorder(t.border, lineWidth: 1))
+    }
+
+    private func row(_ label: String, danger: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(label)
+                .font(Typo.ui(Geo.Menu.font, .medium))
+                .foregroundStyle(danger ? t.red : t.text)
+                .padding(.horizontal, Geo.Menu.rowPadX)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(height: Geo.Menu.rowHeight)
+                .background(RoundedRectangle(cornerRadius: Geo.Menu.rowRadius).fill(Color.clear))
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 }
 
