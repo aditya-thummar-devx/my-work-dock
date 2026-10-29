@@ -51,6 +51,18 @@ final class NotesStore {
     /// Last deleted todo and where it was, for Undo. Cleared by the next add or undo.
     private(set) var deleted: (todo: TodoSample, index: Int)?
 
+    // Copy & Double-click state, never saved.
+    private(set) var copiedId: Int?
+    @ObservationIgnored private var copyTask: Task<Void, Never>?
+    @ObservationIgnored var copyToClipboard: (String) -> Void = Clipboard.copy
+    @ObservationIgnored var onCopied: () -> Void = {}
+    @ObservationIgnored var doubleClickInterval: TimeInterval = NSEvent.doubleClickInterval
+    @ObservationIgnored var pause: (TimeInterval) async -> Void = { try? await Task.sleep(for: .seconds($0)) }
+    private(set) var hintShown = false
+    @ObservationIgnored private var tapTask: Task<Void, Never>?
+    @ObservationIgnored private var tapId: Int?
+    static let hintTime: TimeInterval = 1.6
+
     /// New tags take these colours in turn (Prototype `palette`).
     static let tagPalette: [UInt32] = [0xFFD86B, 0x7CE38B, 0xFFB38A, 0x8AB4FF, 0xFF8AD8, 0xB4F0FF]
 
@@ -155,6 +167,7 @@ final class NotesStore {
 
     var footer: String {
         if deleted != nil { return "Todo deleted" }
+        if copiedId != nil { return "Copied to clipboard" }
         return isFiltered ? "\(visibleTodos.count) of \(todos.count) shown · \(leftCount) left" : "\(leftCount) left · \(doneCount) done"
     }
 
@@ -311,8 +324,57 @@ final class NotesStore {
     func resetTransient() {
         endEdit()
         deleted = nil
+        copiedId = nil
+        tapTask?.cancel()
+        tapTask = nil
+        tapId = nil
+        hintShown = false
         closeSearch()
         closeMenus()
+    }
+
+    func copy(_ id: Int) {
+        guard let todo = todos.first(where: { $0.id == id }) else { return }
+        copyToClipboard(todo.title)
+        copiedId = id
+        copyTask?.cancel()
+        copyTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(1.4))
+            guard !Task.isCancelled else { return }
+            self?.copiedId = nil
+        }
+        onCopied()
+    }
+
+    /// Click on a todo row. A second click within the double-click interval copies it; if none comes, the hint toast
+    /// about the double-click shows. Returns the running sequence so tests can wait for it.
+    @discardableResult
+    func tap(_ id: Int) -> Task<Void, Never>? {
+        tapTask?.cancel()
+        tapTask = nil
+        if tapId == id {
+            tapId = nil
+            hintShown = false
+            copy(id)
+            return nil
+        }
+        tapId = id
+        let run = Task { [weak self] in
+            guard let self else { return }
+            await pause(doubleClickInterval)
+            guard !Task.isCancelled else { return }
+            tapId = nil
+            hintShown = true
+            await pause(Self.hintTime)
+            guard !Task.isCancelled else { return }
+            hintShown = false
+        }
+        tapTask = run
+        return run
+    }
+
+    func showCopied(_ id: Int) {
+        copiedId = id
     }
 
     func toggle(_ id: Int) {
@@ -349,6 +411,7 @@ final class NotesStore {
 
     func delete(_ id: Int) {
         guard let i = todos.firstIndex(where: { $0.id == id }) else { return }
+        if copiedId == id { copiedId = nil }
         deleted = (todos.remove(at: i), i)
         endEdit()
         save()

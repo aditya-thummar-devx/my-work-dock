@@ -12,6 +12,26 @@ enum Typo {
         return .system(size: size, weight: weight)
     }
 
+    /// AppKit NSFont equivalent of `Typo.ui`.
+    static func uiFont(_ size: CGFloat, _ weight: Font.Weight = .regular) -> NSFont {
+        let appKitWeight: NSFont.Weight
+        switch weight {
+        case .bold: appKitWeight = .bold
+        case .semibold: appKitWeight = .semibold
+        case .medium: appKitWeight = .medium
+        case .light: appKitWeight = .light
+        case .thin: appKitWeight = .thin
+        case .heavy: appKitWeight = .heavy
+        case .black: appKitWeight = .black
+        default: appKitWeight = .regular
+        }
+        if let uiFamily, let font = NSFont(name: uiFamily, size: size) {
+            let manager = NSFontManager.shared
+            return manager.convert(font, toHaveTrait: appKitWeight >= .semibold ? .boldFontMask : .unboldFontMask)
+        }
+        return NSFont.systemFont(ofSize: size, weight: appKitWeight)
+    }
+
     /// Bricolage Grotesque 800 for display titles and numbers. Chrome auto-sets the optical-size axis to the
     /// font size, so the variation is set explicitly (opsz = size, clamped to the font's 12...96 range).
     static func display(_ size: CGFloat) -> Font {

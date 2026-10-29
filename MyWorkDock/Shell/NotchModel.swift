@@ -314,6 +314,7 @@ final class NotchModel {
         commands.onCopied = { [weak self] in self?.closePanel() }
         prompts.onCopied = { [weak self] in self?.closePanel() }
         links.onCopied = { [weak self] in self?.closePanel() }
+        notes.onCopied = { [weak self] in self?.closePanel() }
         calendar.willOpenBrowser = { [weak self] in self?.closePanel() } // the open panel floats above the browser
         calendar.onSignedIn = { [weak self] in
             self?.show(.calendar)

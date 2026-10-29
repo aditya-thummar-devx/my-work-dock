@@ -611,4 +611,99 @@ final class NotesStoreTests: XCTestCase {
         XCTAssertEqual(store.peekTodo, PeekTodo(left: 0, done: 3)) // all done still shows its counts
         XCTAssertNil(NotesStore(url: nil, seed: []).peekTodo)
     }
+
+    // MARK: Copy & Double-Click & Selection
+
+    func testCopyWritesTitleAndShowsCopiedFooter() {
+        let store = NotesStore(url: nil, seed: [TodoSample(id: 1, title: "Ship build 2.4.0", tag: "release", due: "Today")])
+        var copied = ""
+        var notified = false
+        store.copyToClipboard = { copied = $0 }
+        store.onCopied = { notified = true }
+
+        store.copy(1)
+        XCTAssertEqual(copied, "Ship build 2.4.0")
+        XCTAssertEqual(store.copiedId, 1)
+        XCTAssertEqual(store.footer, "Copied to clipboard")
+        XCTAssertTrue(notified)
+    }
+
+    func testDoubleClickCopiesWithoutHintAndSingleClickShowsThenHidesTheHint() async {
+        let store = NotesStore(url: nil, seed: [TodoSample(id: 1, title: "Ship build 2.4.0", tag: "release", due: "Today")])
+        var written = ""
+        store.copyToClipboard = { written = $0 }
+        store.pause = { _ in }
+
+        store.tap(1)
+        store.tap(1)
+        await Task.yield()
+        XCTAssertEqual(written, "Ship build 2.4.0")
+        XCTAssertFalse(store.hintShown)
+
+        var seen: [(TimeInterval, Bool)] = []
+        store.pause = { d in seen.append((d, store.hintShown)) }
+        await store.tap(1)?.value
+        XCTAssertEqual(seen.map(\.0), [store.doubleClickInterval, NotesStore.hintTime])
+        XCTAssertEqual(seen.map(\.1), [false, true])
+        XCTAssertFalse(store.hintShown)
+    }
+
+    func testResetTransientClearsCopiedAndHint() {
+        let store = NotesStore(url: nil, seed: [TodoSample(id: 1, title: "Task 1", tag: "", due: "Today")])
+        store.showCopied(1)
+        store.resetTransient()
+        XCTAssertNil(store.copiedId)
+        XCTAssertFalse(store.hintShown)
+    }
+
+    func testDeleteClearsCopiedIfMatching() {
+        let store = NotesStore(url: nil, seed: [TodoSample(id: 1, title: "Task 1", tag: "", due: "Today")])
+        store.showCopied(1)
+        store.delete(1)
+        XCTAssertNil(store.copiedId)
+    }
+
+    func testSelectableTodoLabelCopySelectionAndAll() {
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 300, height: 100), styleMask: [.borderless], backing: .buffered, defer: false)
+        let field = SelectableTodoLabel(string: "Ship build 2.4.0")
+        field.isSelectable = true
+        field.isEditable = false
+        window.contentView?.addSubview(field)
+        window.makeKeyAndOrderFront(nil)
+
+        // Test 1: Nothing selected -> copies entire text with Cmd+C
+        let cmdC = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [.command], timestamp: 0, windowNumber: window.windowNumber, context: nil, characters: "c", charactersIgnoringModifiers: "c", isARepeat: false, keyCode: 8)!
+        NSPasteboard.general.clearContents()
+        XCTAssertTrue(field.performKeyEquivalent(with: cmdC))
+        XCTAssertEqual(NSPasteboard.general.string(forType: .string), "Ship build 2.4.0")
+
+        // Test 2: Nothing selected -> copies entire text with Ctrl+C
+        let ctrlC = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [.control], timestamp: 0, windowNumber: window.windowNumber, context: nil, characters: "\u{03}", charactersIgnoringModifiers: "c", isARepeat: false, keyCode: 8)!
+        NSPasteboard.general.clearContents()
+        XCTAssertTrue(field.performKeyEquivalent(with: ctrlC))
+        XCTAssertEqual(NSPasteboard.general.string(forType: .string), "Ship build 2.4.0")
+
+        // Test 3: Range selected -> copies only selection with Ctrl+C
+        field.selectText(nil)
+        if let editor = field.currentEditor() as? NSTextView {
+            editor.setSelectedRange(NSRange(location: 5, length: 5)) // "build"
+            NSPasteboard.general.clearContents()
+            XCTAssertTrue(field.performKeyEquivalent(with: ctrlC))
+            XCTAssertEqual(NSPasteboard.general.string(forType: .string), "build")
+        }
+    }
+
+    func testSelectableTodoLabelDoubleClick() {
+        let field = SelectableTodoLabel(string: "Task")
+        var doubleClicked = false
+        field.onDoubleClick = { doubleClicked = true }
+
+        let singleClick = NSEvent.mouseEvent(with: .leftMouseDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: 0, context: nil, eventNumber: 1, clickCount: 1, pressure: 1.0)!
+        field.mouseDown(with: singleClick)
+        XCTAssertFalse(doubleClicked)
+
+        let doubleClick = NSEvent.mouseEvent(with: .leftMouseDown, location: .zero, modifierFlags: [], timestamp: 0.1, windowNumber: 0, context: nil, eventNumber: 2, clickCount: 2, pressure: 1.0)!
+        field.mouseDown(with: doubleClick)
+        XCTAssertTrue(doubleClicked)
+    }
 }

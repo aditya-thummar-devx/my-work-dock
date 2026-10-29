@@ -25,6 +25,19 @@ final class NotchPanel: NSPanel {
         if event.keyCode == 53 { onEscape?() } else { super.keyDown(with: event) }
     }
 
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        if event.type == .keyDown {
+            let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+            let chars = event.charactersIgnoringModifiers?.lowercased()
+            if (flags == [.command] || flags == [.control]) && chars == "c" {
+                if let responder = firstResponder, responder.tryToPerform(#selector(NSText.copy(_:)), with: nil) {
+                    return true
+                }
+            }
+        }
+        return super.performKeyEquivalent(with: event)
+    }
+
     /// Esc from a text view whose delegate declined it.
     override func cancelOperation(_ sender: Any?) { onEscape?() }
 

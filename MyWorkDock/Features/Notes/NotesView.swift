@@ -192,6 +192,12 @@ struct TodoView: View {
                 TodoList(store: store)
             }
         }
+        .overlay(alignment: .bottom) {
+            if store.hintShown {
+                HintToast("Double-click a todo to copy it").padding(.bottom, 12).transition(.opacity.combined(with: .offset(y: 6)))
+            }
+        }
+        .animation(.easeOut(duration: 0.15), value: store.hintShown)
     }
 }
 
@@ -297,11 +303,18 @@ struct TodoList: View {
                         .padding(.leading, 4)
                         GroupedList(count: section.todos.count, rowHeight: Geo.Row.todoHeight) { i in
                             let todo = section.todos[i]
-                            TodoRow(todo: todo, tagColor: store.customColor(todo.tag), editing: store.editId == todo.id,
+                            TodoRow(todo: todo, tagColor: store.customColor(todo.tag),
+                                    copied: store.copiedId == todo.id,
+                                    editing: store.editId == todo.id,
                                     editText: $store.editDraft, editTag: store.editTag, editTagColor: store.customColor(store.editTag),
                                     onEditTag: store.toggleEditTagMenu,
-                                    onToggle: { store.toggle(todo.id) }, onEdit: { store.startEdit(todo.id) },
-                                    onDelete: { store.delete(todo.id) }, onSave: store.saveEdit, onCancel: store.cancelEdit)
+                                    onToggle: { store.toggle(todo.id) },
+                                    onCopy: { store.copy(todo.id) },
+                                    onTap: { store.tap(todo.id) },
+                                    onEdit: { store.startEdit(todo.id) },
+                                    onDelete: { store.delete(todo.id) },
+                                    onSave: store.saveEdit,
+                                    onCancel: store.cancelEdit)
                         }
                     }
                 }
