@@ -303,12 +303,13 @@ extension Geo {
     }
 }
 
-/// Todo row: round check, title, tag chip, due text, edit / delete. Done rows are struck through and faint.
+/// Todo row: round check, title, tag chip, copy / edit / delete. Done rows are struck through and faint.
 /// Editing swaps the title, tag and due for an input with Save and cancel.
 struct TodoRow: View {
     var todo: TodoSample
     /// Colour of the todo's tag when the user created it.
     var tagColor: Color?
+    var copied = false
     var editing = false
     /// Edit-field text; nil draws the title statically (snapshots).
     var editText: Binding<String>?
@@ -317,6 +318,8 @@ struct TodoRow: View {
     var editTagColor: Color?
     var onEditTag: () -> Void = {}
     var onToggle: () -> Void = {}
+    var onCopy: () -> Void = {}
+    var onTap: () -> Void = {}
     var onEdit: () -> Void = {}
     var onDelete: () -> Void = {}
     var onSave: () -> Void = {}
@@ -330,6 +333,10 @@ struct TodoRow: View {
         }
         .padding(.leading, 12)
         .padding(.trailing, editing ? 10 : 6)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            if !editing { onTap() }
+        }
     }
 
     @ViewBuilder private var editor: some View {
@@ -341,16 +348,126 @@ struct TodoRow: View {
     }
 
     @ViewBuilder private var content: some View {
-        Text(todo.title)
-            .font(Typo.ui(13.5, .medium))
-            .foregroundStyle(todo.done ? t.faint : t.text)
-            .strikethrough(todo.done)
-            .lineLimit(1)
-            .frame(maxWidth: .infinity, alignment: .leading)
+        SelectableTodoTitle(
+            title: todo.title,
+            done: todo.done,
+            onDoubleClick: onCopy
+        )
         TagChip(tag: todo.tag, custom: tagColor)
         HStack(spacing: 0) {
+            RowIconButton(glyph: copied ? .check : .copy, label: copied ? "Copied" : "Copy todo",
+                          fg: copied ? t.green : t.muted, fill: copied ? t.greenBg : .clear,
+                          stroke: copied ? 3 : nil, action: onCopy)
             RowIconButton(glyph: .pencil, label: "Edit todo", fg: t.muted, action: onEdit)
             RowIconButton(glyph: .trash, label: "Delete todo", fg: t.red, action: onDelete)
+        }
+    }
+}
+
+/// Selectable todo title text with single-line truncation, custom styling, strikethrough when done,
+/// double-click to copy, and keyboard copy (Cmd+C and Ctrl+C).
+/// In snapshot testing (`staticRender`), falls back to standard SwiftUI `Text` for ImageRenderer compatibility.
+struct SelectableTodoTitle: View {
+    var title: String
+    var done: Bool
+    var onDoubleClick: () -> Void = {}
+    @Environment(\.tokens) private var t
+    @Environment(\.staticRender) private var staticRender
+
+    var body: some View {
+        if staticRender {
+            Text(title)
+                .font(Typo.ui(13.5, .medium))
+                .foregroundStyle(done ? t.faint : t.text)
+                .strikethrough(done)
+                .lineLimit(1)
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+        } else {
+            SelectableTodoRepresentable(
+                title: title,
+                font: Typo.uiFont(13.5, .medium),
+                color: NSColor(done ? t.faint : t.text),
+                strikethrough: done,
+                onDoubleClick: onDoubleClick
+            )
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+}
+
+struct SelectableTodoRepresentable: NSViewRepresentable {
+    var title: String
+    var font: NSFont
+    var color: NSColor
+    var strikethrough: Bool
+    var onDoubleClick: () -> Void
+
+    func makeNSView(context: Context) -> SelectableTodoLabel {
+        let field = SelectableTodoLabel()
+        field.isSelectable = true
+        field.isEditable = false
+        field.drawsBackground = false
+        field.isBordered = false
+        field.isBezeled = false
+        field.cell?.wraps = false
+        field.cell?.isScrollable = true
+        field.cell?.lineBreakMode = .byTruncatingTail
+        field.cell?.focusRingType = .none
+        field.maximumNumberOfLines = 1
+        field.usesSingleLineMode = true
+        field.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        return field
+    }
+
+    func updateNSView(_ nsView: SelectableTodoLabel, context: Context) {
+        nsView.onDoubleClick = onDoubleClick
+        var attrs: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .foregroundColor: color
+        ]
+        if strikethrough {
+            attrs[.strikethroughStyle] = NSUnderlineStyle.single.rawValue
+            attrs[.strikethroughColor] = color
+        }
+        nsView.attributedStringValue = NSAttributedString(string: title, attributes: attrs)
+    }
+}
+
+final class SelectableTodoLabel: NSTextField {
+    var onDoubleClick: (() -> Void)?
+
+    override var intrinsicContentSize: NSSize {
+        var size = super.intrinsicContentSize
+        size.height = 20
+        return size
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        if event.clickCount == 2 {
+            onDoubleClick?()
+            return
+        }
+        super.mouseDown(with: event)
+    }
+
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+        let chars = event.charactersIgnoringModifiers?.lowercased()
+        if (flags == [.command] || flags == [.control]) && chars == "c" {
+            copyCurrentSelectionOrAll()
+            return true
+        }
+        return super.performKeyEquivalent(with: event)
+    }
+
+    func copyCurrentSelectionOrAll() {
+        if let editor = currentEditor() as? NSTextView, editor.selectedRange().length > 0 {
+            editor.copy(nil)
+        } else {
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(stringValue, forType: .string)
         }
     }
 }
