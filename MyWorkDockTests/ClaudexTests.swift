@@ -263,6 +263,53 @@ final class ClaudexStoreTests: XCTestCase {
         XCTAssertTrue(s.memberCards.allSatisfy { !$0.busy })
     }
 
+    func testAllowAllAndDenyAllAskConfirmationAndShowLoading() async {
+        let s = store()
+        s.findTool = { _ in "/bin/claudex" }
+        s.runner = { _, _, _ in
+            try? await Task.sleep(nanoseconds: 200_000_000)
+            return ProcessResult(status: 0, out: "ok", err: "")
+        }
+
+        // Sample access data has some allowed and some denied:
+        // Deny all: asks first with all allowed members
+        s.denyAll()
+        guard let denyReq = s.confirmer.pending else {
+            XCTFail("denyAll did not ask for confirmation")
+            return
+        }
+        XCTAssertTrue(denyReq.danger)
+        XCTAssertTrue(denyReq.title.contains("Deny all"))
+        XCTAssertEqual(denyReq.confirmTitle, "Deny")
+        XCTAssertFalse(s.allPermBusy)
+
+        s.confirmer.confirm()
+        await wait { s.allPermBusy }
+        XCTAssertTrue(s.allPermBusy)
+        XCTAssertFalse(s.busyMembers.isEmpty)
+        XCTAssertTrue(s.memberCards.contains(where: \.busy))
+
+        await wait { !s.allPermBusy }
+        XCTAssertFalse(s.allPermBusy)
+        XCTAssertTrue(s.busyMembers.isEmpty)
+
+        // Allow all: asks first with all denied members
+        s.allowAll()
+        guard let allowReq = s.confirmer.pending else {
+            XCTFail("allowAll did not ask for confirmation")
+            return
+        }
+        XCTAssertFalse(allowReq.danger)
+        XCTAssertTrue(allowReq.title.contains("Allow all"))
+        XCTAssertEqual(allowReq.confirmTitle, "Allow")
+
+        s.confirmer.confirm()
+        await wait { s.allPermBusy }
+        XCTAssertTrue(s.allPermBusy)
+        await wait { !s.allPermBusy }
+        XCTAssertFalse(s.allPermBusy)
+    }
+
     func testDetailLoadingSpansTheFetchAndClearsOnClose() async {
         let s = ClaudexStore()
         s.findTool = { _ in "/bin/claudex" }

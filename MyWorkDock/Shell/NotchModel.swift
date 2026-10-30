@@ -790,7 +790,7 @@ final class NotchModel {
 
     /// Nothing on screen or in flight that a relaunch would interrupt; the updater waits for this before installing.
     var isIdle: Bool {
-        !open && !hover && confirmer.pending == nil && emulator.bootingName == nil && emulator.pendingBoot.isEmpty && claudex.busyMember == nil && !calendar.isSigningIn
+        !open && !hover && confirmer.pending == nil && emulator.bootingName == nil && emulator.pendingBoot.isEmpty && claudex.busyMember == nil && !claudex.allPermBusy && !calendar.isSigningIn
             && !runner.isRunning
     }
 
@@ -811,7 +811,7 @@ final class NotchModel {
             || calendar.calendarsMenuOpen
             || clipboard.tagMenuOpen
             || notes.tagMenuOpen || notes.filterMenuOpen || notes.editTagMenuOpen || notes.tagManageOpen || notes.tagFormOpen
-            || claudex.sortOpen
+            || claudex.sortOpen || claudex.allPermOpen
             || emulator.targetMenuOpen
     }
 
@@ -865,8 +865,9 @@ final class NotchModel {
             return
         }
 
-        if claudex.sortOpen {
+        if claudex.sortOpen || claudex.allPermOpen {
             claudex.sortOpen = false
+            claudex.allPermOpen = false
             changed()
             return
         }

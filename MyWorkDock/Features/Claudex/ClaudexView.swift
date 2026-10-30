@@ -39,9 +39,6 @@ struct ClaudexScreen: View {
                 .padding(.top, Geo.Chrome.contentTopClaudex)
                 .frame(maxHeight: .infinity, alignment: .top)
             }
-            .overlay {
-                if store.sortOpen || store.allPermOpen { Color.clear.contentShape(Rectangle()).onTapGesture { store.sortOpen = false; store.allPermOpen = false } }
-            }
         }
     }
 
@@ -126,11 +123,15 @@ struct ClaudexToolbar: View {
             Spacer(minLength: 0)
             HStack(spacing: 6) {
                 if list {
-                    let canPerm = store.access.data != nil
+                    let canPerm = store.access.data != nil && !store.allPermBusy
                     ToolButton(fg: canPerm ? t.text : t.offFg, enabled: canPerm, action: { store.allPermOpen.toggle(); store.sortOpen = false }) {
                         HStack(spacing: 7) {
                             Text("All permissions")
-                            Icon(.chevronDown, size: 11, stroke: 2.6)
+                            if store.allPermBusy {
+                                Spinner(size: 11, stroke: 2.2)
+                            } else {
+                                Icon(.chevronDown, size: 11, stroke: 2.6)
+                            }
                         }
                     }
                     .accessibilityAddTraits(store.allPermOpen ? .isSelected : [])
@@ -146,9 +147,15 @@ struct ClaudexToolbar: View {
         .frame(height: Geo.Btn.toolHeight)
         .overlay(alignment: .topLeading) {
             if store.sortOpen && list {
-                MenuPopover(options: ClaudexSort.allCases.map(\.label), selected: ClaudexSort.allCases.firstIndex(of: store.sort) ?? 0) { i in
-                    store.sort = ClaudexSort.allCases[i]
-                    store.sortOpen = false
+                ZStack(alignment: .topLeading) {
+                    Color.clear
+                        .frame(width: 2000, height: 2000)
+                        .contentShape(Rectangle())
+                        .onTapGesture { store.sortOpen = false }
+                    MenuPopover(options: ClaudexSort.allCases.map(\.label), selected: ClaudexSort.allCases.firstIndex(of: store.sort) ?? 0) { i in
+                        store.sort = ClaudexSort.allCases[i]
+                        store.sortOpen = false
+                    }
                 }
                 .padding(.top, 34).padding(.leading, 90)
             }
@@ -173,24 +180,31 @@ private struct AllPermMenu: View {
     @Environment(\.tokens) private var t
 
     var body: some View {
-        VStack(spacing: 0) {
-            row("Allow all", danger: false) {
-                store.allPermOpen = false
-                store.allowAll()
+        ZStack(alignment: .topTrailing) {
+            Color.clear
+                .frame(width: 2000, height: 2000)
+                .contentShape(Rectangle())
+                .onTapGesture { store.allPermOpen = false }
+
+            VStack(spacing: 0) {
+                row("Allow all", danger: false) {
+                    store.allPermOpen = false
+                    store.allowAll()
+                }
+                Rectangle().fill(t.line).frame(height: 1).padding(.horizontal, Geo.Menu.rowPadX)
+                row("Deny all", danger: true) {
+                    store.allPermOpen = false
+                    store.denyAll()
+                }
             }
-            Rectangle().fill(t.line).frame(height: 1).padding(.horizontal, Geo.Menu.rowPadX)
-            row("Deny all", danger: true) {
-                store.allPermOpen = false
-                store.denyAll()
+            .padding(Geo.Menu.padding + 1)
+            .frame(width: 160)
+            .background {
+                RoundedRectangle(cornerRadius: Geo.Menu.radius).fill(t.pop)
+                    .shadow(color: t.popShadow, radius: Geo.Menu.shadow.radius, y: Geo.Menu.shadow.y)
             }
+            .overlay(RoundedRectangle(cornerRadius: Geo.Menu.radius).strokeBorder(t.border, lineWidth: 1))
         }
-        .padding(Geo.Menu.padding + 1)
-        .frame(width: 160)
-        .background {
-            RoundedRectangle(cornerRadius: Geo.Menu.radius).fill(t.pop)
-                .shadow(color: t.popShadow, radius: Geo.Menu.shadow.radius, y: Geo.Menu.shadow.y)
-        }
-        .overlay(RoundedRectangle(cornerRadius: Geo.Menu.radius).strokeBorder(t.border, lineWidth: 1))
     }
 
     private func row(_ label: String, danger: Bool, action: @escaping () -> Void) -> some View {

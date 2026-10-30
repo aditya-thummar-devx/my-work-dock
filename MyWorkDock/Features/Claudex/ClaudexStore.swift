@@ -70,6 +70,10 @@ final class ClaudexStore {
     private(set) var unavailable: String?
     /// The pool member a confirmed write is running for (until the refresh after it lands).
     private(set) var busyMember: String?
+    /// True while an "Allow all" or "Deny all" bulk operation is in-flight (confirmed and running).
+    private(set) var allPermBusy = false
+    /// Names of pool members whose permissions are currently being updated in bulk.
+    private(set) var busyMembers: Set<String> = []
 
     /// Settings › Menus: tabs switched off there. Set by `NotchModel`.
     var hidden: Set<ClaudexTab> = []
@@ -147,7 +151,7 @@ final class ClaudexStore {
         return sort.apply(rows) { key(name: $0.name, session: $0.session, week: $0.week) }.map { m in
             MemberSample(id: m.name, plan: m.plan, net: m.netM ?? 0, session: reading(m.session), week: reading(m.week),
                          using: usingName == m.name, denied: access.data?.first { $0.name == m.name }?.allowed == false,
-                         mine: me?.pool == m.name, busy: busyMember == m.name)
+                         mine: me?.pool == m.name, busy: busyMember == m.name || busyMembers.contains(m.name))
         }
     }
 
@@ -414,22 +418,72 @@ final class ClaudexStore {
         }
     }
 
-    /// Allow every pool member that is currently denied (one confirm per member, sequentially).
+    /// Allow every pool member that is currently denied — one confirmation, then runs sequentially.
     func allowAll() {
         guard let names = access.data?.filter({ !$0.allowed }).map(\.name), !names.isEmpty else { return }
-        for name in names {
-            ask("Allow \(name)?", ["access", "allow", name],
-                note: "They can borrow your account through the pool again.", ok: "Allow", member: name)
-        }
+        let count = names.count
+        let title = count == 1 ? "Allow \(names[0])?" : "Allow all \(count) denied members?"
+        let note = "They can borrow your account through the pool again."
+        let commands = names.map { ["access", "allow", $0] }
+        let commandLine = commands.map { display($0) }.joined(separator: "\n")
+        confirmer.ask(ConfirmRequest(title: title, command: commandLine, note: note, confirmTitle: "Allow",
+                                    commandLines: min(count, 4)) { [weak self] in
+            guard let self else { return }
+            allPermBusy = true
+            busyMembers = Set(names)
+            defer {
+                allPermBusy = false
+                busyMembers = []
+            }
+            for args in commands {
+                let r = await claudex(args, timeout: Self.writeTimeout)
+                cache.removeAll()
+                let cmd = display(args)
+                out += [PlayLine(text: "$ \(cmd)", kind: .cmd)]
+                if r.ok {
+                    out += [PlayLine(text: "✓ done", kind: .ok)]
+                } else {
+                    let why = r.timedOut ? "timed out after \(Int(Self.writeTimeout))s" : (r.firstLine.isEmpty ? "exit \(r.status)" : r.firstLine)
+                    out += [PlayLine(text: "⚠ \(why)", kind: .warn)]
+                }
+            }
+            message = "Allow all: \(count) member(s) updated"
+            await refresh(fresh: true)
+        })
     }
 
-    /// Deny every pool member that is currently allowed (one confirm per member, sequentially).
+    /// Deny every pool member that is currently allowed — one confirmation, then runs sequentially.
     func denyAll() {
         guard let names = access.data?.filter(\.allowed).map(\.name), !names.isEmpty else { return }
-        for name in names {
-            ask("Deny \(name)?", ["access", "deny", name],
-                note: "If they are using your token right now, this cuts them off immediately.", ok: "Deny", danger: true, member: name)
-        }
+        let count = names.count
+        let title = count == 1 ? "Deny \(names[0])?" : "Deny all \(count) allowed members?"
+        let note = "If any of them are using your token right now, this cuts them off immediately."
+        let commands = names.map { ["access", "deny", $0] }
+        let commandLine = commands.map { display($0) }.joined(separator: "\n")
+        confirmer.ask(ConfirmRequest(title: title, command: commandLine, note: note, confirmTitle: "Deny", danger: true,
+                                    commandLines: min(count, 4)) { [weak self] in
+            guard let self else { return }
+            allPermBusy = true
+            busyMembers = Set(names)
+            defer {
+                allPermBusy = false
+                busyMembers = []
+            }
+            for args in commands {
+                let r = await claudex(args, timeout: Self.writeTimeout)
+                cache.removeAll()
+                let cmd = display(args)
+                out += [PlayLine(text: "$ \(cmd)", kind: .cmd)]
+                if r.ok {
+                    out += [PlayLine(text: "✓ done", kind: .ok)]
+                } else {
+                    let why = r.timedOut ? "timed out after \(Int(Self.writeTimeout))s" : (r.firstLine.isEmpty ? "exit \(r.status)" : r.firstLine)
+                    out += [PlayLine(text: "⚠ \(why)", kind: .warn)]
+                }
+            }
+            message = "Deny all: \(count) member(s) updated"
+            await refresh(fresh: true)
+        })
     }
 
     func togglePool(on: Bool? = nil) {
