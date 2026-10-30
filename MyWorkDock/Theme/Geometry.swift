@@ -84,7 +84,7 @@ enum Geo {
     /// Leave timer: re-entering cancels it; pinned panels never auto-close.
     static let leaveDelay = 0.35
     /// Content fade-in after the shell moves: opacity 0→1, y -6→0, scale .985→1.
-    static let fadeOpen = (duration: 0.35, delay: 0.12)
+    static let fadeOpen = (duration: 0.2, delay: shellDuration)
     static let fadePeekLive = (duration: 0.3, delay: 0.08)
     static let fadeOffsetY: CGFloat = -6
     static let fadeScale: CGFloat = 0.985

@@ -64,7 +64,7 @@ struct NotchContainer: View {
                 .overlay(alignment: .topLeading) { buddyHint(g) }
 
             topContent(mode, g)
-                .animation(reduceMotion ? nil : .easeOut(duration: Geo.fadeOut), value: mode)
+                .animation(reduceMotion || model.shrinking ? nil : .easeOut(duration: Geo.fadeOut), value: mode)
                 .frame(width: g.width, height: g.height, alignment: .top)
                 .clipShape(UnevenRoundedRectangle(bottomLeadingRadius: g.radius, bottomTrailingRadius: g.radius))
         }
@@ -97,7 +97,7 @@ struct NotchContainer: View {
                 .overlay { buddy(g) }
 
             topContent(mode, g)
-                .animation(reduceMotion ? nil : .easeOut(duration: Geo.fadeOut), value: mode)
+                .animation(reduceMotion || model.shrinking ? nil : .easeOut(duration: Geo.fadeOut), value: mode)
                 .frame(width: g.width, height: g.height, alignment: frameAlignment)
                 .clipShape(RoundedRectangle(cornerRadius: g.radius))
         }
@@ -228,11 +228,14 @@ struct NotchContainer: View {
                 .modifier(Entrance(timing: Geo.fadePeekLive))
                 .transition(Self.contentSwap)
         case .open:
-            OpenPanelView(model: model, size: CGSize(width: g.width, height: g.height))
+            OpenPanelView(model: model, size: model.panelSize.size(on: screen.size))
                 .accessibilityElement(children: .contain)
                 .accessibilityLabel("MyWorkDock panel")
+                .opacity(model.open ? 1 : 0)
+                .animation(nil, value: model.open)
                 .modifier(Entrance(timing: Geo.fadeOpen))
-                .transition(Self.contentSwap)
+                .id(model.open)
+                .transition(.identity)
         }
     }
 }
@@ -246,11 +249,17 @@ private struct Entrance: ViewModifier {
 
     func body(content: Content) -> some View {
         let on = shown || !enabled
+        let delay = reduceMotion ? 0 : timing.delay
+        let duration = reduceMotion ? 0.12 : timing.duration
         content
             .opacity(on ? 1 : 0)
             .offset(y: on || reduceMotion ? 0 : Geo.fadeOffsetY)
             .scaleEffect(on || reduceMotion ? 1 : Geo.fadeScale)
-            .animation(.timingCurve(0.25, 0.1, 0.25, 1, duration: timing.duration).delay(timing.delay), value: on)
+            .animation(
+                enabled ? .timingCurve(0.25, 0.1, 0.25, 1, duration: duration).delay(delay) : nil,
+                value: on
+            )
             .onAppear { shown = true }
+            .onDisappear { shown = false }
     }
 }
