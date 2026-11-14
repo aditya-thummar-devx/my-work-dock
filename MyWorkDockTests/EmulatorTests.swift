@@ -204,4 +204,27 @@ final class EmulatorStoreTests: XCTestCase {
         s.startMonitoring()
         s.stopMonitoring() // nothing was started: must not crash
     }
+
+    func testAdbQRPayloadAndImageGeneration() {
+        let payload = AdbQRGenerator.makePayload()
+        XCTAssertTrue(payload.serviceName.hasPrefix("mwd-"))
+        XCTAssertEqual(payload.password.count, 8)
+        XCTAssertEqual(payload.qrString, "WIFI:T:ADB;S:\(payload.serviceName);P:\(payload.password);;")
+        let img = AdbQRGenerator.qrImage(for: payload, size: 160)
+        XCTAssertNotNil(img)
+        XCTAssertEqual(img?.size.width, 160)
+        XCTAssertEqual(img?.size.height, 160)
+    }
+
+    func testQRPairingLifecycle() {
+        let s = store()
+        XCTAssertNil(s.qrPayload)
+        XCTAssertFalse(s.qrPairing)
+        s.startQRPairing()
+        XCTAssertNotNil(s.qrPayload)
+        XCTAssertTrue(s.qrPairing)
+        s.cancelQRPairing()
+        XCTAssertNil(s.qrPayload)
+        XCTAssertFalse(s.qrPairing)
+    }
 }

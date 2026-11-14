@@ -114,24 +114,119 @@ struct WirelessView: View {
     }
 }
 
+struct QRPairView: View {
+    var store: EmulatorStore
+    var payload: AdbQRPayload
+    @Environment(\.tokens) private var t
+
+    private var qrImage: NSImage? { AdbQRGenerator.qrImage(for: payload) }
+
+    var body: some View {
+        VStack(alignment: .center, spacing: 12) {
+            if let img = qrImage {
+                Image(nsImage: img)
+                    .interpolation(.none)
+                    .resizable()
+                    .frame(width: 160, height: 160)
+            } else {
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(t.inset)
+                    .frame(width: 160, height: 160)
+            }
+            Text("Open Developer Options › Wireless debugging › Pair with QR code on your Android device.")
+                .font(Typo.ui(12))
+                .foregroundStyle(t.muted)
+                .lineSpacing(Typo.lineSpacing(size: 12, lineHeight: 1.45))
+                .fixedSize(horizontal: false, vertical: true)
+                .multilineTextAlignment(.center)
+            if store.qrPairing {
+                HStack(spacing: 6) {
+                    ProgressView()
+                        .controlSize(.small)
+                    Text("Waiting for device…")
+                        .font(Typo.ui(11.5))
+                        .foregroundStyle(t.faint)
+                }
+            }
+            Spacer(minLength: 0)
+            DockButton(title: "Cancel", glyph: nil, metrics: .form, tone: .ctrl, action: store.cancelQRPairing)
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
 struct PairCard: View {
     @Bindable var store: EmulatorStore
     @Environment(\.tokens) private var t
+    @State private var showQR = false
+
+    /// Read-only access bypassing the @Bindable subscript (qrPayload is private(set)).
+    private var qrPayload: AdbQRPayload? { store.qrPayload }
+    private var qrPairing: Bool { store.qrPairing }
 
     var body: some View {
         Card(radius: 18, padding: EdgeInsets(top: 16, leading: 16, bottom: 16, trailing: 16)) {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Pair new device").font(Typo.display(20)).tracking(-0.5)
-                Text("Developer options › Wireless debugging › Pair with code.")
-                    .font(Typo.ui(12)).foregroundStyle(t.muted)
-                    .lineSpacing(Typo.lineSpacing(size: 12, lineHeight: 1.45))
-                    .fixedSize(horizontal: false, vertical: true)
-                field("IP address & port", "192.168.1.24:37099", $store.pairAddress)
-                field("Pairing code", "6-digit code", $store.pairCode, tracking: 2)
-                Spacer(minLength: 0)
-                DockButton(title: "Pair", glyph: nil, metrics: .form, tone: .tint, weight: .bold, action: store.pair)
+
+                // Mode tab switcher
+                HStack(spacing: 0) {
+                    ForEach(["QR Code", "Manual"], id: \.self) { label in
+                        Button(label) {
+                            if label == "QR Code" { showQR = true }
+                            else { showQR = false; store.cancelQRPairing() }
+                        }
+                        .buttonStyle(.plain)
+                        .font(Typo.ui(12, .semibold))
+                        .foregroundStyle(showQR == (label == "QR Code") ? t.text : t.faint)
+                        .padding(.vertical, 4).padding(.horizontal, 8)
+                        .background(showQR == (label == "QR Code") ? RoundedRectangle(cornerRadius: 8).fill(t.ctrl) : nil)
+                    }
+                }
+
+                if showQR {
+                    if let payload = qrPayload {
+                        QRPairView(store: store, payload: payload)
+                    } else {
+                        // Payload not yet ready — show spinner while startQRPairing generates it
+                        HStack(spacing: 6) {
+                            ProgressView().controlSize(.small)
+                            Text("Generating QR code…")
+                                .font(Typo.ui(11.5))
+                                .foregroundStyle(t.faint)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.vertical, 8)
+                    }
+                } else {
+                    Text("Developer options › Wireless debugging › Pair with code.")
+                        .font(Typo.ui(12)).foregroundStyle(t.muted)
+                        .lineSpacing(Typo.lineSpacing(size: 12, lineHeight: 1.45))
+                        .fixedSize(horizontal: false, vertical: true)
+                    field("IP address & port", "192.168.1.24:37099", $store.pairAddress)
+                    field("Pairing code", "6-digit code", $store.pairCode, tracking: 2)
+                    Spacer(minLength: 0)
+                    DockButton(title: "Pair", glyph: nil, metrics: .form, tone: .tint, weight: .bold, action: store.pair)
+                }
             }
             .frame(maxHeight: .infinity)
+        }
+        .onAppear {
+            if showQR && qrPayload == nil { store.startQRPairing() }
+        }
+        .onChange(of: showQR) { _, newValue in
+            if newValue {
+                if qrPayload == nil { store.startQRPairing() }
+            } else {
+                store.cancelQRPairing()
+            }
+        }
+        .onChange(of: qrPairing) { _, pairing in
+            // If the QR tab is active and pairing finishes (payload cleared → timed out or succeeded),
+            // switch back to manual mode automatically.
+            if showQR && !pairing && qrPayload == nil {
+                showQR = false
+            }
         }
     }
 
