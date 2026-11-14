@@ -59,6 +59,10 @@ targets:
         SUScheduledCheckInterval: 86400
         SUEnableAutomaticChecks: true
         SUAutomaticallyUpdate: false
+        # Bonjour service types browsed for wireless ADB pairing; required by macOS for NWBrowser to discover them on the local network.
+        NSBonjourServices:
+          - _adb-tls-pairing._tcp
+          - _adb-tls-connect._tcp
         # My Calendar's Google OAuth client, filled from Config/GoogleOAuth.xcconfig at build time; empty = "sign-in not configured".
         GoogleClientID: $(GOOGLE_CLIENT_ID)
         GoogleClientSecret: $(GOOGLE_CLIENT_SECRET)

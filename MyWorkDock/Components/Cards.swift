@@ -542,6 +542,7 @@ struct InlineEditField: View {
 struct SnippetRow: View {
     var kind: SnippetKind
     var text: String
+    var pinned = false
     var copied = false
     var editing = false
     var isReordering = false
@@ -557,6 +558,7 @@ struct SnippetRow: View {
     var onRun: () -> Void = {}
     var onUnlock: () -> Void = {}
     var onCopy: () -> Void = {}
+    var onPin: () -> Void = {}
     var onEdit: () -> Void = {}
     var onDelete: () -> Void = {}
     var onSave: () -> Void = {}
@@ -646,6 +648,8 @@ struct SnippetRow: View {
                           fg: copied ? t.green : t.muted, fill: copied ? t.greenBg : .clear,
                           stroke: copied ? 3 : nil, action: onCopy)
             RowIconButton(glyph: .pencil, label: "Edit \(kind.noun)", fg: t.muted, action: onEdit)
+            RowIconButton(glyph: .pin, label: pinned ? "Unpin \(kind.noun)" : "Pin \(kind.noun)",
+                          fg: pinned ? t.accent : t.muted, action: onPin)
             RowIconButton(glyph: .trash, label: "Delete \(kind.noun)", fg: t.red, action: onDelete)
         }
     }

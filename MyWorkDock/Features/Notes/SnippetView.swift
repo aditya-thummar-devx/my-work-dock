@@ -118,11 +118,12 @@ struct SnippetList: View {
         let items = store.isReordering ? store.stagedItems : store.visibleItems
         GroupedList(count: items.count, rowHeight: Geo.Row.snippetHeight, scrolls: true, autoHeight: store.kind == .prompts) { i in
             let item = items[i]
-            SnippetRow(kind: store.kind, text: item.text, copied: store.copiedId == item.id, editing: store.editId == item.id,
+            SnippetRow(kind: store.kind, text: item.text, pinned: item.pinned, copied: store.copiedId == item.id, editing: store.editId == item.id,
                        isReordering: store.isReordering,
                        editText: $store.editDraft,
                        run: runner?.availability(of: item.text) ?? .none, folder: item.folder, onFolder: { onFolder(item.id) },
-                       onTap: { store.tap(item.id) }, onOpen: { store.open(item.id) }, onRun: { onRun(item.id) }, onUnlock: { onUnlock(item.id) }, onCopy: { store.copy(item.id) }, onEdit: { store.startEdit(item.id) },
+                       onTap: { store.tap(item.id) }, onOpen: { store.open(item.id) }, onRun: { onRun(item.id) }, onUnlock: { onUnlock(item.id) }, onCopy: { store.copy(item.id) },
+                       onPin: { store.togglePin(item.id) }, onEdit: { store.startEdit(item.id) },
                        onDelete: { store.delete(item.id) }, onSave: store.saveEdit, onCancel: store.cancelEdit)
                 .modifier(ReorderableRowModifier(
                     enabled: store.isReordering && !staticRender,

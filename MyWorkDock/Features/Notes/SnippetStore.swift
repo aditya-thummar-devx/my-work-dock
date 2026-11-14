@@ -65,6 +65,26 @@ struct SnippetItem: Identifiable, Codable, Equatable {
     var text: String
     /// Commands only: where Run executes it, chosen on its first run. nil until then, and absent from older files.
     var folder: String?
+    var pinned: Bool = false
+
+    enum CodingKeys: String, CodingKey {
+        case id, text, folder, pinned
+    }
+
+    init(id: Int, text: String, folder: String? = nil, pinned: Bool = false) {
+        self.id = id
+        self.text = text
+        self.folder = folder
+        self.pinned = pinned
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(Int.self, forKey: .id)
+        text = try container.decode(String.self, forKey: .text)
+        folder = try container.decodeIfPresent(String.self, forKey: .folder)
+        pinned = try container.decodeIfPresent(Bool.self, forKey: .pinned) ?? false
+    }
 }
 
 /// Saved commands, prompts or links: add, inline edit, copy, delete with one-step undo (Prototype `cmds` / `prompts`).
@@ -121,9 +141,10 @@ final class SnippetStore {
 
     var isSearching: Bool { !needle.isEmpty }
 
-    /// Items whose text contains the query; everything while the query is empty. Order is the list's.
+    /// Items whose text contains the query; everything while the query is empty. Pinned items first, then unpinned.
     var visibleItems: [SnippetItem] {
-        isSearching ? items.filter { $0.text.lowercased().contains(needle) } : items
+        let found = isSearching ? items.filter { $0.text.lowercased().contains(needle) } : items
+        return found.filter(\.pinned) + found.filter { !$0.pinned }
     }
 
     /// Search field counter: empty until something is typed.
@@ -274,6 +295,12 @@ final class SnippetStore {
     func open(_ id: Int) {
         guard let item = items.first(where: { $0.id == id }), let url = Self.url(from: item.text) else { return }
         openURL(url)
+    }
+
+    func togglePin(_ id: Int) {
+        guard let i = items.firstIndex(where: { $0.id == id }) else { return }
+        items[i].pinned.toggle()
+        save()
     }
 
     func delete(_ id: Int) {

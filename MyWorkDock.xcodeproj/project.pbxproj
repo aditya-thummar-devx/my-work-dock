@@ -36,6 +36,7 @@
 		2EFCE855010D0DD1C1BF564C /* buddy-emoji-eyes.json in Resources */ = {isa = PBXBuildFile; fileRef = E21DC54C1942057726802E96 /* buddy-emoji-eyes.json */; };
 		2F93CEF158FC044A687997CE /* ClipboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41B3732CE79DBBB692A0C299 /* ClipboardView.swift */; };
 		3049954204E35276D9FD4CF0 /* TodoBridgeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACF380AF5976C9F4B06B86D2 /* TodoBridgeTests.swift */; };
+		3325CEF824C1814FE6758533 /* AdbQRGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97A6BF3FF10DEA640E046E52 /* AdbQRGenerator.swift */; };
 		33724C362B5B14593828EFC4 /* SessionGroups.swift in Sources */ = {isa = PBXBuildFile; fileRef = CACCD3C9FCAD655D0FC71D01 /* SessionGroups.swift */; };
 		39EA79E020C3DF24FC1E385E /* CustomBuddyStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFE7F9B79F02193ADB46A8DD /* CustomBuddyStore.swift */; };
 		3A50A9DEE22D55F58275D986 /* Updater.swift in Sources */ = {isa = PBXBuildFile; fileRef = 748FC4B1F0A4DB4C2D2CC661 /* Updater.swift */; };
@@ -161,6 +162,7 @@
 		F3F3EB18EADF02F08FE52CD7 /* Tabs.swift in Sources */ = {isa = PBXBuildFile; fileRef = F516D6B0A88B0BB3921F66F7 /* Tabs.swift */; };
 		F4A516960EB8A1186A752763 /* CalendarModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0EAE454CCBE842C94194E6ED /* CalendarModels.swift */; };
 		F90E30EFB2FFC2891BF8E3EB /* SampleData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47761937DF738E2DF72CAC78 /* SampleData.swift */; };
+		FA34726758A2195E0F60C947 /* AdbPairingMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D839592A0EE7F443B6BC435 /* AdbPairingMonitor.swift */; };
 		FA6E5329FAD31AF258C3AA25 /* SnippetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF75D679CBBD1CD31DA922BA /* SnippetView.swift */; };
 		FC9B18AA1BEC0517CA3BE8F7 /* BuddyPrefs.swift in Sources */ = {isa = PBXBuildFile; fileRef = 84551E29945EDA5751BD0611 /* BuddyPrefs.swift */; };
 		FDEFD59E08B32544CD429A1C /* buddy-emoji-wave.json in Resources */ = {isa = PBXBuildFile; fileRef = B4CE639789218CB84FE0F7B3 /* buddy-emoji-wave.json */; };
@@ -223,6 +225,7 @@
 		09F7C9EE63C67CD5FA7FDA90 /* ClaudexView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudexView.swift; sourceTree = "<group>"; };
 		0B25AC1C13D3FD72F541BD63 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		0C2C70119ECAE4541292A380 /* MyWorkDockApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MyWorkDockApp.swift; sourceTree = "<group>"; };
+		0D839592A0EE7F443B6BC435 /* AdbPairingMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdbPairingMonitor.swift; sourceTree = "<group>"; };
 		0E1258D4A7B0AAFCFF40DFAC /* SVGPath.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SVGPath.swift; sourceTree = "<group>"; };
 		0EAE454CCBE842C94194E6ED /* CalendarModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarModels.swift; sourceTree = "<group>"; };
 		11AC69D3018C5A1EF74B75E1 /* LocalIPStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalIPStore.swift; sourceTree = "<group>"; };
@@ -306,6 +309,7 @@
 		9286F435184F1D92EF8E55CF /* UsageLedger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageLedger.swift; sourceTree = "<group>"; };
 		9560B277AF811CBA16AF9406 /* NotchContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotchContainer.swift; sourceTree = "<group>"; };
 		95A6A48627271C03C1B1C9EA /* CalendarAutoPeekTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarAutoPeekTests.swift; sourceTree = "<group>"; };
+		97A6BF3FF10DEA640E046E52 /* AdbQRGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdbQRGenerator.swift; sourceTree = "<group>"; };
 		9973D49E4E706206141196C5 /* Tokens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tokens.swift; sourceTree = "<group>"; };
 		9A719DBA5CFFD6B2A2A21DF6 /* CalendarGrids.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarGrids.swift; sourceTree = "<group>"; };
 		9BABACDBB72A173310871679 /* ClaudeUsageView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ClaudeUsageView.swift; sourceTree = "<group>"; };
@@ -497,6 +501,8 @@
 		49AF4A123D40B4581D0D7116 /* Emulator */ = {
 			isa = PBXGroup;
 			children = (
+				0D839592A0EE7F443B6BC435 /* AdbPairingMonitor.swift */,
+				97A6BF3FF10DEA640E046E52 /* AdbQRGenerator.swift */,
 				F4F6C9CAA8A02E561CD28AA3 /* EmulatorParsers.swift */,
 				7558FB443D24F18007D7B140 /* EmulatorStore.swift */,
 				170EC65D981DACCAC7F50DCB /* EmulatorView.swift */,
@@ -954,6 +960,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FA34726758A2195E0F60C947 /* AdbPairingMonitor.swift in Sources */,
+				3325CEF824C1814FE6758533 /* AdbQRGenerator.swift in Sources */,
 				7E72186AEAEBC6C52074E2C1 /* AgentCore.swift in Sources */,
 				819EDDC62DE2AA32A1B8BC80 /* AgentModels.swift in Sources */,
 				83E664DD5E4E93119A045E1A /* AgentServer.swift in Sources */,

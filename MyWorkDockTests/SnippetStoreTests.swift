@@ -286,4 +286,68 @@ final class SnippetStoreTests: XCTestCase {
         XCTAssertFalse(store.isReordering)
         XCTAssertTrue(store.stagedItems.isEmpty)
     }
+
+    func testTogglePinTogglesPinnedStateAndPersists() {
+        let url = FileManager.default.temporaryDirectory.appending(path: "snips-\(UUID().uuidString)/prompts.json")
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        let store = SnippetStore(.prompts, url: url, seed: ["Write a test"])
+        XCTAssertFalse(store.items[0].pinned)
+
+        store.togglePin(1)
+        XCTAssertTrue(store.items[0].pinned)
+
+        let reloaded = SnippetStore(.prompts, url: url, seed: [])
+        XCTAssertTrue(reloaded.items[0].pinned)
+
+        store.togglePin(1)
+        XCTAssertFalse(store.items[0].pinned)
+        let reloaded2 = SnippetStore(.prompts, url: url, seed: [])
+        XCTAssertFalse(reloaded2.items[0].pinned)
+    }
+
+    func testVisibleItemsShowsPinnedItemsFirstAndPreservesSearch() {
+        let store = SnippetStore(.prompts, url: nil, seed: ["alpha", "beta", "alpha two"])
+        // Initially in insertion order
+        XCTAssertEqual(store.visibleItems.map(\.text), ["alpha", "beta", "alpha two"])
+
+        // Pin the second item ("beta", id 2)
+        store.togglePin(2)
+        XCTAssertEqual(store.visibleItems.map(\.text), ["beta", "alpha", "alpha two"])
+
+        // Pin the third item ("alpha two", id 3)
+        store.togglePin(3)
+        XCTAssertEqual(store.visibleItems.map(\.text), ["beta", "alpha two", "alpha"])
+
+        // Search while items are pinned: pinned matches come first
+        store.openSearch()
+        store.query = "alpha"
+        XCTAssertEqual(store.visibleItems.map(\.text), ["alpha two", "alpha"])
+    }
+
+    func testOlderFilesWithoutPinnedFieldDecodeWithPinnedFalse() throws {
+        let dir = FileManager.default.temporaryDirectory.appending(path: "snips-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: dir) }
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let url = dir.appending(path: "prompts.json")
+        try Data(#"[{"id":1,"text":"legacy prompt"}]"#.utf8).write(to: url)
+
+        let store = SnippetStore(.prompts, url: url, seed: [])
+        XCTAssertEqual(store.items.count, 1)
+        XCTAssertEqual(store.items[0].text, "legacy prompt")
+        XCTAssertFalse(store.items[0].pinned)
+        XCTAssertNil(store.items[0].folder)
+    }
+
+    func testDeleteAndUndoPreservesPinnedState() {
+        let store = SnippetStore(.commands, url: nil, seed: ["cmd1", "cmd2"])
+        store.togglePin(2)
+        XCTAssertTrue(store.items[1].pinned)
+
+        store.delete(2)
+        XCTAssertEqual(store.items.map(\.text), ["cmd1"])
+
+        store.undo()
+        XCTAssertEqual(store.items.map(\.text), ["cmd1", "cmd2"])
+        XCTAssertTrue(store.items[1].pinned)
+    }
 }
