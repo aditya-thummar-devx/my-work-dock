@@ -28,6 +28,11 @@ final class EmulatorStore {
     var pairCode = ""
     var targetMenuOpen = false
 
+    // QR pairing
+    private(set) var qrPayload: AdbQRPayload?    // nil = QR not active
+    private(set) var qrPairing = false            // true = mDNS discovery running
+    @ObservationIgnored private(set) var qrMonitor: AdbPairingMonitor?
+
     // Data
     private(set) var ios: [DeviceSample]
     private(set) var android: [DeviceSample]
@@ -395,6 +400,53 @@ final class EmulatorStore {
         ask("Pair with \(addr)?", Self.display("adb", args), note: "Pairs this Mac with the device.", ok: "Pair") { [self] in
             let r = await shell("adb", args)
             if r.ok { pairAddress = ""; pairCode = "" }
+            return r
+        }
+    }
+
+    func startQRPairing() {
+        let payload = AdbQRGenerator.makePayload()
+        qrPayload = payload
+        qrPairing = true
+
+        let monitor = AdbPairingMonitor()
+        monitor.onDiscovered = { [weak self] ip, port in
+            Task { @MainActor [weak self] in
+                self?.handleQRDiscovery(ip: ip, port: port)
+            }
+        }
+        monitor.onTimeout = { [weak self] in
+            Task { @MainActor [weak self] in
+                self?.cancelQRPairing()
+                self?.say("QR pairing timed out. Try again.", error: true)
+            }
+        }
+        monitor.onFailed = { [weak self] reason in
+            Task { @MainActor [weak self] in
+                self?.cancelQRPairing()
+                self?.say(reason, error: true)
+            }
+        }
+        qrMonitor = monitor
+        monitor.start(payload: payload)
+    }
+
+    func cancelQRPairing() {
+        qrMonitor?.stop()
+        qrMonitor = nil
+        qrPairing = false
+        qrPayload = nil
+    }
+
+    private func handleQRDiscovery(ip: String, port: UInt16) {
+        guard let payload = qrPayload else { return }
+        cancelQRPairing()
+        let addr = "\(ip):\(port)"
+        let args = ["pair", addr, payload.password]
+        ask("Pair with \(addr)?", EmulatorStore.display("adb", args),
+            note: "Pairs this Mac with the device found via QR scan.", ok: "Pair") { [self] in
+            let r = await shell("adb", args)
+            if r.ok { await refreshAll() }
             return r
         }
     }
