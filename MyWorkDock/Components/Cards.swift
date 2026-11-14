@@ -311,6 +311,7 @@ struct TodoRow: View {
     var tagColor: Color?
     var copied = false
     var editing = false
+    var isReordering = false
     /// Edit-field text; nil draws the title statically (snapshots).
     var editText: Binding<String>?
     /// Tag picked while editing ("" = none), its colour, and the button that opens the tag menu.
@@ -328,14 +329,14 @@ struct TodoRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            RoundCheck(done: todo.done, title: todo.title, action: onToggle)
+            RoundCheck(done: todo.done, title: todo.title, action: isReordering ? {} : onToggle)
             if editing { editor } else { content }
         }
         .padding(.leading, 12)
         .padding(.trailing, editing ? 10 : 6)
         .contentShape(Rectangle())
         .onTapGesture {
-            if !editing { onTap() }
+            if !editing && !isReordering { onTap() }
         }
     }
 
@@ -351,15 +352,49 @@ struct TodoRow: View {
         SelectableTodoTitle(
             title: todo.title,
             done: todo.done,
-            onDoubleClick: onCopy
+            onDoubleClick: isReordering ? {} : onCopy
         )
         TagChip(tag: todo.tag, custom: tagColor)
-        HStack(spacing: 0) {
-            RowIconButton(glyph: copied ? .check : .copy, label: copied ? "Copied" : "Copy todo",
-                          fg: copied ? t.green : t.muted, fill: copied ? t.greenBg : .clear,
-                          stroke: copied ? 3 : nil, action: onCopy)
-            RowIconButton(glyph: .pencil, label: "Edit todo", fg: t.muted, action: onEdit)
-            RowIconButton(glyph: .trash, label: "Delete todo", fg: t.red, action: onDelete)
+        if isReordering {
+            Icon(.reorder, size: 14)
+                .foregroundStyle(t.muted)
+                .frame(width: Geo.Btn.rowIcon, height: Geo.Btn.rowIcon)
+        } else {
+            HStack(spacing: 0) {
+                RowIconButton(glyph: copied ? .check : .copy, label: copied ? "Copied" : "Copy todo",
+                              fg: copied ? t.green : t.muted, fill: copied ? t.greenBg : .clear,
+                              stroke: copied ? 3 : nil, action: onCopy)
+                RowIconButton(glyph: .pencil, label: "Edit todo", fg: t.muted, action: onEdit)
+                RowIconButton(glyph: .trash, label: "Delete todo", fg: t.red, action: onDelete)
+            }
+        }
+    }
+}
+
+/// Drag source and drop destination for list items in reorder mode.
+struct ReorderableRowModifier: ViewModifier {
+    var enabled: Bool
+    var id: String
+    var rowHeight: CGFloat
+    var onMove: (Int, Int, Bool) -> Void
+    @State private var isTargeted = false
+    @Environment(\.tokens) private var t
+
+    func body(content: Content) -> some View {
+        if enabled {
+            content
+                .background(isTargeted ? t.accent.opacity(0.12) : Color.clear)
+                .draggable(id)
+                .dropDestination(for: String.self) { ids, location in
+                    guard let first = ids.first, let fromId = Int(first), let toId = Int(id), fromId != toId else { return false }
+                    let after = location.y >= rowHeight / 2
+                    onMove(fromId, toId, after)
+                    return true
+                } isTargeted: { targeted in
+                    isTargeted = targeted
+                }
+        } else {
+            content
         }
     }
 }
@@ -509,6 +544,7 @@ struct SnippetRow: View {
     var text: String
     var copied = false
     var editing = false
+    var isReordering = false
     /// Edit-field text; nil draws `text` statically (snapshots).
     var editText: Binding<String>?
     /// Commands only: Run, or the lock that explains why there is none.
@@ -570,7 +606,9 @@ struct SnippetRow: View {
                 .padding(.top, Geo.Prompt.textTop)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
-                .onTapGesture(perform: onTap) // the store tells a single click (hint) from a double-click (copy)
+                .onTapGesture {
+                    if !isReordering { onTap() }
+                }
                 .help(text)
         } else {
             Text(text)
@@ -580,28 +618,36 @@ struct SnippetRow: View {
                 .truncationMode(.tail)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
-                .onTapGesture(perform: onTap)
+                .onTapGesture {
+                    if !isReordering { onTap() }
+                }
         }
-        if kind == .links {
-            RowIconButton(glyph: .globe, label: "Open link", fg: t.muted, action: onOpen)
+        if isReordering {
+            Icon(.reorder, size: 14)
+                .foregroundStyle(t.muted)
+                .frame(width: Geo.Btn.rowIcon, height: Geo.Btn.rowIcon)
+        } else {
+            if kind == .links {
+                RowIconButton(glyph: .globe, label: "Open link", fg: t.muted, action: onOpen)
+            }
+            if let folder, runs {
+                FolderChip(path: folder, enabled: run != .busy, action: onFolder)
+            }
+            switch run {
+            case .none: EmptyView()
+            case .ready: RowIconButton(glyph: .play, label: "Run command", fg: t.green, iconSize: 12, action: onRun)
+            case .unlocked: RowIconButton(glyph: .play, label: "Run command (unlocked)", fg: t.red, iconSize: 12, action: onRun)
+            case .busy: RowIconButton(glyph: .play, label: "Another command is running", fg: t.offFg, iconSize: 12)
+            case .blocked(let why):
+                RowIconButton(glyph: .lock, label: "Blocked: \(why). Click to unlock", fg: t.offFg, iconSize: 13, action: onUnlock)
+                    .help("Blocked: \(why). Click to unlock")
+            }
+            RowIconButton(glyph: copied ? .check : .copy, label: copied ? "Copied" : "Copy \(kind.noun)",
+                          fg: copied ? t.green : t.muted, fill: copied ? t.greenBg : .clear,
+                          stroke: copied ? 3 : nil, action: onCopy)
+            RowIconButton(glyph: .pencil, label: "Edit \(kind.noun)", fg: t.muted, action: onEdit)
+            RowIconButton(glyph: .trash, label: "Delete \(kind.noun)", fg: t.red, action: onDelete)
         }
-        if let folder, runs {
-            FolderChip(path: folder, enabled: run != .busy, action: onFolder)
-        }
-        switch run {
-        case .none: EmptyView()
-        case .ready: RowIconButton(glyph: .play, label: "Run command", fg: t.green, iconSize: 12, action: onRun)
-        case .unlocked: RowIconButton(glyph: .play, label: "Run command (unlocked)", fg: t.red, iconSize: 12, action: onRun)
-        case .busy: RowIconButton(glyph: .play, label: "Another command is running", fg: t.offFg, iconSize: 12)
-        case .blocked(let why):
-            RowIconButton(glyph: .lock, label: "Blocked: \(why). Click to unlock", fg: t.offFg, iconSize: 13, action: onUnlock)
-                .help("Blocked: \(why). Click to unlock")
-        }
-        RowIconButton(glyph: copied ? .check : .copy, label: copied ? "Copied" : "Copy \(kind.noun)",
-                      fg: copied ? t.green : t.muted, fill: copied ? t.greenBg : .clear,
-                      stroke: copied ? 3 : nil, action: onCopy)
-        RowIconButton(glyph: .pencil, label: "Edit \(kind.noun)", fg: t.muted, action: onEdit)
-        RowIconButton(glyph: .trash, label: "Delete \(kind.noun)", fg: t.red, action: onDelete)
     }
 }
 

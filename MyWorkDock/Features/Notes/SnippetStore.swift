@@ -87,6 +87,9 @@ final class SnippetStore {
     /// Sub-nav search (Prompts and Links in the UI); never saved.
     var query = ""
     private(set) var searchOpen = false
+    /// Reorder mode (drag to reorder); never saved.
+    var isReordering = false
+    var stagedItems: [SnippetItem] = []
 
     @ObservationIgnored private let url: URL?
     @ObservationIgnored var copyToClipboard: (String) -> Void = Clipboard.copy
@@ -130,6 +133,7 @@ final class SnippetStore {
     var emptyText: String { "No \(kind.noun)s match “\(query.trimmingCharacters(in: .whitespacesAndNewlines))”." }
 
     var footer: String {
+        if isReordering { return "Drag to reorder \(kind.noun)s · Click Submit to save" }
         if deleted != nil { return "\(kind.noun.capitalized) deleted" }
         if copiedId != nil { return "Copied to clipboard" }
         return isSearching ? "\(visibleItems.count) of \(items.count) \(kind.noun)s shown" : "\(items.count) saved \(kind.noun)s"
@@ -175,8 +179,39 @@ final class SnippetStore {
 
     func cancelEdit() { editId = nil }
 
-    /// Sub-tab switch (Prototype `sub.pick`): drops the edit, the draft, the undo, the "Copied" state and the search.
+    func startReorder() {
+        closeSearch()
+        editId = nil
+        stagedItems = items
+        isReordering = true
+    }
+
+    func submitReorder() {
+        guard isReordering else { return }
+        items = stagedItems
+        isReordering = false
+        deleted = nil
+        save()
+    }
+
+    func cancelReorder() {
+        isReordering = false
+        stagedItems = []
+    }
+
+    func moveStagedItem(fromId: Int, toId: Int, after: Bool = false) {
+        guard let from = stagedItems.firstIndex(where: { $0.id == fromId }),
+              let to = stagedItems.firstIndex(where: { $0.id == toId }),
+              from != to else { return }
+        let item = stagedItems.remove(at: from)
+        let newToIndex = stagedItems.firstIndex(where: { $0.id == toId })!
+        let destination = after ? newToIndex + 1 : newToIndex
+        stagedItems.insert(item, at: min(destination, stagedItems.count))
+    }
+
+    /// Sub-tab switch (Prototype `sub.pick`): drops the edit, the draft, the undo, the "Copied" state, the search and reordering.
     func reset() {
+        cancelReorder()
         editId = nil
         draft = ""
         deleted = nil

@@ -43,6 +43,43 @@ struct IconButton: View {
     }
 }
 
+/// Pill button in the sub-nav to activate reorder mode.
+struct ReorderButton: View {
+    var action: () -> Void
+    @Environment(\.tokens) private var t
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: Geo.Filter.gap) {
+                Icon(.arrows, size: Geo.Filter.icon)
+                Text("Reorder")
+            }
+            .font(Typo.ui(Geo.Filter.font, .semibold))
+            .foregroundStyle(t.text2)
+            .padding(.leading, Geo.Filter.padLeading)
+            .padding(.trailing, Geo.Filter.padTrailing)
+            .frame(height: Geo.Filter.height)
+            .background(Capsule().fill(t.ctrl))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Reorder list")
+    }
+}
+
+/// Cancel and Submit buttons shown in the sub-nav while reorder mode is active.
+struct ReorderControls: View {
+    var onSubmit: () -> Void
+    var onCancel: () -> Void
+
+    var body: some View {
+        HStack(spacing: 8) {
+            DockButton(title: "Cancel", glyph: nil, metrics: .card, tone: .secondaryQuiet, action: onCancel)
+            DockButton(title: "Submit", glyph: .check, metrics: .card, tone: .tint, weight: .bold, action: onSubmit)
+        }
+    }
+}
+
 /// Borderless rounded-square icon button in list rows: edit (muted), delete (red), cancel edit (`btn2`).
 struct RowIconButton: View {
     var glyph: Glyph

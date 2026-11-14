@@ -23,9 +23,9 @@ struct NotesScreen: View {
                       onSelect: { model.setNotesTab(NotesTab(rawValue: $0) ?? .todo) }) {
                 switch model.notesTab {
                 case .todo: TodoNavTrailing(store: model.notes)
-                case .commands: Text("One line each · copy, edit or delete").font(Typo.ui(12)).foregroundStyle(t.faint)
-                case .prompts: PromptNavTrailing(store: model.prompts)
-                case .links: PromptNavTrailing(store: model.links)
+                case .commands: SnippetNavTrailing(store: model.commands)
+                case .prompts: SnippetNavTrailing(store: model.prompts)
+                case .links: SnippetNavTrailing(store: model.links)
                 }
             }
             .padding(.top, Geo.Chrome.subNavTop)
@@ -138,14 +138,21 @@ struct TodoMenus: View {
     }
 }
 
-/// Sub-nav right side: tag filter dropdown, then search.
+/// Sub-nav right side: Reorder button, Submit/Cancel controls, tag filter dropdown, then search.
 struct TodoNavTrailing: View {
     @Bindable var store: NotesStore
 
     var body: some View {
-        TagFilterButton(store: store)
-        SearchControl(open: store.searchOpen, query: $store.query, placeholder: "Search todos", count: store.foundText,
-                      width: Geo.Search.todoWidth, onOpen: store.openSearch, onClose: store.closeSearch)
+        if store.isReordering {
+            ReorderControls(onSubmit: store.submitReorder, onCancel: store.cancelReorder)
+        } else {
+            if !store.todos.isEmpty {
+                ReorderButton(action: store.startReorder)
+            }
+            TagFilterButton(store: store)
+            SearchControl(open: store.searchOpen, query: $store.query, placeholder: "Search todos", count: store.foundText,
+                          width: Geo.Search.todoWidth, onOpen: store.openSearch, onClose: store.closeSearch)
+        }
     }
 }
 
@@ -183,8 +190,10 @@ struct TodoView: View {
 
     var body: some View {
         VStack(spacing: Geo.Surface.fieldGap) {
-            if bridge.showsBanner { ClaudeTodoBanner(bridge: bridge) }
-            QuickAddBar(store: store)
+            if !store.isReordering {
+                if bridge.showsBanner { ClaudeTodoBanner(bridge: bridge) }
+                QuickAddBar(store: store)
+            }
             if store.visibleTodos.isEmpty {
                 EmptyState(message: "No todos match \(store.emptyWhat).", action: "Clear filters", onAction: store.clearFilters)
                     .padding(.bottom, Geo.Surface.fieldGap) // the prototype's empty list still takes its flex gap
@@ -288,11 +297,13 @@ struct TagPickerButton: View {
 struct TodoList: View {
     @Bindable var store: NotesStore
     @Environment(\.tokens) private var t
+    @Environment(\.staticRender) private var staticRender
 
     var body: some View {
+        let sections = store.isReordering ? store.stagedSections : store.sections
         DockScroll {
             VStack(alignment: .leading, spacing: Geo.DayHeading.gap) {
-                ForEach(store.sections) { section in
+                ForEach(sections) { section in
                     VStack(alignment: .leading, spacing: Geo.DayHeading.headerGap) {
                         HStack(spacing: 6) {
                             Text(section.title.uppercased())
@@ -306,6 +317,7 @@ struct TodoList: View {
                             TodoRow(todo: todo, tagColor: store.customColor(todo.tag),
                                     copied: store.copiedId == todo.id,
                                     editing: store.editId == todo.id,
+                                    isReordering: store.isReordering,
                                     editText: $store.editDraft, editTag: store.editTag, editTagColor: store.customColor(store.editTag),
                                     onEditTag: store.toggleEditTagMenu,
                                     onToggle: { store.toggle(todo.id) },
@@ -315,6 +327,14 @@ struct TodoList: View {
                                     onDelete: { store.delete(todo.id) },
                                     onSave: store.saveEdit,
                                     onCancel: store.cancelEdit)
+                                .modifier(ReorderableRowModifier(
+                                    enabled: store.isReordering && !staticRender,
+                                    id: "\(todo.id)",
+                                    rowHeight: Geo.Row.todoHeight,
+                                    onMove: { fromId, toId, after in
+                                        store.moveStagedTodo(fromId: fromId, toId: toId, after: after)
+                                    }
+                                ))
                         }
                     }
                 }

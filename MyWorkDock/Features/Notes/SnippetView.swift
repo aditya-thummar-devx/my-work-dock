@@ -16,7 +16,9 @@ struct SnippetScreen: View {
 
     var body: some View {
         VStack(spacing: Geo.Surface.fieldGap) {
-            if store.kind == .prompts { PromptAddBar(store: store) } else { SnippetAddBar(store: store) }
+            if !store.isReordering {
+                if store.kind == .prompts { PromptAddBar(store: store) } else { SnippetAddBar(store: store) }
+            }
             if store.items.isEmpty {
                 EmptyState(title: store.kind.emptyTitle, message: store.kind.emptyHint)
                     .padding(.bottom, Geo.Surface.fieldGap) // same flex gap as TodoView's empty state
@@ -78,15 +80,31 @@ struct PromptAddBar: View {
     }
 }
 
-/// Prompts and Links search in the sub-nav: the shared search control, `N found`.
-struct PromptNavTrailing: View {
+/// Sub-nav trailing for Commands, Prompts and Links: Reorder button, Submit/Cancel controls, and Search.
+struct SnippetNavTrailing: View {
     @Bindable var store: SnippetStore
+    @Environment(\.tokens) private var t
 
     var body: some View {
-        SearchControl(open: store.searchOpen, query: $store.query, placeholder: "Search \(store.kind.noun)s", count: store.foundText,
-                      onOpen: store.openSearch, onClose: store.closeSearch)
+        if store.isReordering {
+            ReorderControls(onSubmit: store.submitReorder, onCancel: store.cancelReorder)
+        } else {
+            if store.kind == .commands {
+                Text("One line each · copy, edit or delete").font(Typo.ui(12)).foregroundStyle(t.faint)
+            }
+            if !store.items.isEmpty {
+                ReorderButton(action: store.startReorder)
+            }
+            if store.kind != .commands {
+                SearchControl(open: store.searchOpen, query: $store.query, placeholder: "Search \(store.kind.noun)s", count: store.foundText,
+                              onOpen: store.openSearch, onClose: store.closeSearch)
+            }
+        }
     }
 }
+
+/// Retained for backwards compatibility.
+typealias PromptNavTrailing = SnippetNavTrailing
 
 struct SnippetList: View {
     @Bindable var store: SnippetStore
@@ -94,16 +112,26 @@ struct SnippetList: View {
     var onRun: (Int) -> Void = { _ in }
     var onUnlock: (Int) -> Void = { _ in }
     var onFolder: (Int) -> Void = { _ in }
+    @Environment(\.staticRender) private var staticRender
 
     var body: some View {
-        let items = store.visibleItems
+        let items = store.isReordering ? store.stagedItems : store.visibleItems
         GroupedList(count: items.count, rowHeight: Geo.Row.snippetHeight, scrolls: true, autoHeight: store.kind == .prompts) { i in
             let item = items[i]
             SnippetRow(kind: store.kind, text: item.text, copied: store.copiedId == item.id, editing: store.editId == item.id,
+                       isReordering: store.isReordering,
                        editText: $store.editDraft,
                        run: runner?.availability(of: item.text) ?? .none, folder: item.folder, onFolder: { onFolder(item.id) },
                        onTap: { store.tap(item.id) }, onOpen: { store.open(item.id) }, onRun: { onRun(item.id) }, onUnlock: { onUnlock(item.id) }, onCopy: { store.copy(item.id) }, onEdit: { store.startEdit(item.id) },
                        onDelete: { store.delete(item.id) }, onSave: store.saveEdit, onCancel: store.cancelEdit)
+                .modifier(ReorderableRowModifier(
+                    enabled: store.isReordering && !staticRender,
+                    id: "\(item.id)",
+                    rowHeight: Geo.Row.snippetHeight,
+                    onMove: { fromId, toId, after in
+                        store.moveStagedItem(fromId: fromId, toId: toId, after: after)
+                    }
+                ))
         }
     }
 }

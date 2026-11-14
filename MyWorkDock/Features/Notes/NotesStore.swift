@@ -48,6 +48,9 @@ final class NotesStore {
     /// Tag picked for the todo being edited ("" = none), and its tag menu; never saved.
     private(set) var editTag = ""
     private(set) var editTagMenuOpen = false
+    /// Reorder mode (drag to reorder); never saved.
+    var isReordering = false
+    var stagedTodos: [TodoSample] = []
     /// Last deleted todo and where it was, for Undo. Cleared by the next add or undo.
     private(set) var deleted: (todo: TodoSample, index: Int)?
 
@@ -110,8 +113,8 @@ final class NotesStore {
         }
     }
 
-    /// `visibleTodos` grouped by the day they were added, newest day first; todos without a date go last under "Earlier".
-    var sections: [TodoSection] {
+    /// Groups todos by the day they were added, newest day first; todos without a date go last under "Earlier".
+    func sections(for list: [TodoSample]) -> [TodoSection] {
         let cal = Calendar.current
         let today = cal.startOfDay(for: now())
         func title(_ day: Date) -> String {
@@ -121,14 +124,23 @@ final class NotesStore {
             default: day.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())
             }
         }
-        let todos = visibleTodos
-        let days = Set(todos.compactMap { $0.createdAt.map(cal.startOfDay) }).sorted(by: >)
+        let days = Set(list.compactMap { $0.createdAt.map(cal.startOfDay) }).sorted(by: >)
         var out = days.map { day in
-            TodoSection(title: title(day), todos: todos.filter { $0.createdAt.map(cal.startOfDay) == day })
+            TodoSection(title: title(day), todos: list.filter { $0.createdAt.map(cal.startOfDay) == day })
         }
-        let undated = todos.filter { $0.createdAt == nil }
+        let undated = list.filter { $0.createdAt == nil }
         if !undated.isEmpty { out.append(TodoSection(title: "Earlier", todos: undated)) }
         return out
+    }
+
+    /// `visibleTodos` grouped by the day they were added, newest day first; todos without a date go last under "Earlier".
+    var sections: [TodoSection] {
+        sections(for: visibleTodos)
+    }
+
+    /// `stagedTodos` grouped by day for drag-and-drop reordering.
+    var stagedSections: [TodoSection] {
+        sections(for: stagedTodos)
     }
 
     /// The user's tags, then any other tag a todo carries (Prototype `tagOrder`).
@@ -166,6 +178,7 @@ final class NotesStore {
     }
 
     var footer: String {
+        if isReordering { return "Drag to reorder todos · Click Submit to save" }
         if deleted != nil { return "Todo deleted" }
         if copiedId != nil { return "Copied to clipboard" }
         return isFiltered ? "\(visibleTodos.count) of \(todos.count) shown · \(leftCount) left" : "\(leftCount) left · \(doneCount) done"
@@ -320,8 +333,46 @@ final class NotesStore {
         closeSearch()
     }
 
-    /// Sub-tab switch: drops the query, the search field and any open menu (the picked tag and filter stay).
+    func startReorder() {
+        closeSearch()
+        closeMenus()
+        endEdit()
+        filterTag = "all"
+        stagedTodos = todos
+        isReordering = true
+    }
+
+    func submitReorder() {
+        guard isReordering else { return }
+        todos = stagedTodos
+        isReordering = false
+        deleted = nil
+        save()
+    }
+
+    func cancelReorder() {
+        isReordering = false
+        stagedTodos = []
+    }
+
+    /// Moves a todo within the staged todos, constrained to the same day section (Option A).
+    func moveStagedTodo(fromId: Int, toId: Int, after: Bool = false) {
+        guard let from = stagedTodos.firstIndex(where: { $0.id == fromId }),
+              let to = stagedTodos.firstIndex(where: { $0.id == toId }),
+              from != to else { return }
+        let cal = Calendar.current
+        let fromDay = stagedTodos[from].createdAt.map(cal.startOfDay)
+        let toDay = stagedTodos[to].createdAt.map(cal.startOfDay)
+        guard fromDay == toDay else { return } // Option A: only reorder within the same section
+        let item = stagedTodos.remove(at: from)
+        let newToIndex = stagedTodos.firstIndex(where: { $0.id == toId })!
+        let destination = after ? newToIndex + 1 : newToIndex
+        stagedTodos.insert(item, at: min(destination, stagedTodos.count))
+    }
+
+    /// Sub-tab switch: drops the query, the search field, reorder state and any open menu (the picked tag and filter stay).
     func resetTransient() {
+        cancelReorder()
         endEdit()
         deleted = nil
         copiedId = nil
