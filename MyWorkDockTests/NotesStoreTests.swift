@@ -706,4 +706,89 @@ final class NotesStoreTests: XCTestCase {
         field.mouseDown(with: doubleClick)
         XCTAssertTrue(doubleClicked)
     }
+
+    func testTodoReorderFlowStartMoveCancelAndSubmit() throws {
+        let url = FileManager.default.temporaryDirectory.appending(path: "notes-\(UUID().uuidString)/notes.json")
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+
+        let now = Date()
+        let store = NotesStore(url: url)
+        store.now = { now }
+        _ = store.add("Todo 1", tag: nil)
+        _ = store.add("Todo 2", tag: nil)
+        _ = store.add("Todo 3", tag: nil)
+        // todos are prepended, so order is Todo 3, Todo 2, Todo 1
+        XCTAssertEqual(store.todos.map(\.title), ["Todo 3", "Todo 2", "Todo 1"])
+
+        // 1. Start reorder
+        store.startReorder()
+        XCTAssertTrue(store.isReordering)
+        XCTAssertEqual(store.stagedTodos.map(\.title), ["Todo 3", "Todo 2", "Todo 1"])
+        XCTAssertEqual(store.footer, "Drag to reorder todos · Click Submit to save")
+
+        // 2. Move Todo 1 before Todo 3
+        let id1 = store.todos.first { $0.title == "Todo 1" }!.id
+        let id3 = store.todos.first { $0.title == "Todo 3" }!.id
+        store.moveStagedTodo(fromId: id1, toId: id3, after: false)
+        XCTAssertEqual(store.stagedTodos.map(\.title), ["Todo 1", "Todo 3", "Todo 2"])
+        // Store items not yet updated:
+        XCTAssertEqual(store.todos.map(\.title), ["Todo 3", "Todo 2", "Todo 1"])
+
+        // 3. Cancel reorder: changes discarded
+        store.cancelReorder()
+        XCTAssertFalse(store.isReordering)
+        XCTAssertEqual(store.todos.map(\.title), ["Todo 3", "Todo 2", "Todo 1"])
+
+        // 4. Start again, move Todo 3 after Todo 1, and submit
+        store.startReorder()
+        store.moveStagedTodo(fromId: id3, toId: id1, after: true)
+        XCTAssertEqual(store.stagedTodos.map(\.title), ["Todo 2", "Todo 1", "Todo 3"])
+
+        store.submitReorder()
+        XCTAssertFalse(store.isReordering)
+        XCTAssertEqual(store.todos.map(\.title), ["Todo 2", "Todo 1", "Todo 3"])
+
+        // 5. Persisted across relaunch
+        let reloaded = NotesStore(url: url)
+        XCTAssertEqual(reloaded.todos.map(\.title), ["Todo 2", "Todo 1", "Todo 3"])
+    }
+
+    func testTodoOptionAReorderConstrainedToSameDaySection() {
+        let store = NotesStore.sample()
+        let cal = Calendar.current
+        let today = Date()
+        let yesterday = cal.date(byAdding: .day, value: -1, to: today)!
+
+        store.now = { today }
+        // Create 2 todos today and 2 yesterday
+        let tToday1 = TodoSample(id: 101, title: "Today 1", tag: "", due: "Today", createdAt: today)
+        let tToday2 = TodoSample(id: 102, title: "Today 2", tag: "", due: "Today", createdAt: today)
+        let tYest1 = TodoSample(id: 201, title: "Yest 1", tag: "", due: "Today", createdAt: yesterday)
+        let tYest2 = TodoSample(id: 202, title: "Yest 2", tag: "", due: "Today", createdAt: yesterday)
+
+        store.startReorder()
+        store.stagedTodos = [tToday1, tToday2, tYest1, tYest2]
+
+        // Moving within Today section: Allowed
+        store.moveStagedTodo(fromId: 102, toId: 101, after: false)
+        XCTAssertEqual(store.stagedTodos.map(\.id), [102, 101, 201, 202])
+
+        // Moving across sections (Today into Yesterday): Disallowed by Option A
+        store.moveStagedTodo(fromId: 102, toId: 201, after: true)
+        // Order remains unchanged:
+        XCTAssertEqual(store.stagedTodos.map(\.id), [102, 101, 201, 202])
+
+        // Moving within Yesterday section: Allowed
+        store.moveStagedTodo(fromId: 202, toId: 201, after: false)
+        XCTAssertEqual(store.stagedTodos.map(\.id), [102, 101, 202, 201])
+    }
+
+    func testResetTransientCancelsTodoReorder() {
+        let store = NotesStore.sample()
+        store.startReorder()
+        XCTAssertTrue(store.isReordering)
+        store.resetTransient()
+        XCTAssertFalse(store.isReordering)
+        XCTAssertTrue(store.stagedTodos.isEmpty)
+    }
 }

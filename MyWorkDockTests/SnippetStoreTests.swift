@@ -237,6 +237,56 @@ final class SnippetStoreTests: XCTestCase {
         XCTAssertFalse(store.hintShown) // and gone after it
     }
 
+    func testReorderFlowStartMoveCancelAndSubmit() throws {
+        let url = FileManager.default.temporaryDirectory.appending(path: "snippets-\(UUID().uuidString)/commands.json")
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+
+        let store = SnippetStore(.commands, url: url, seed: ["cmd1", "cmd2", "cmd3"])
+        XCTAssertEqual(store.items.map(\.text), ["cmd1", "cmd2", "cmd3"])
+        XCTAssertFalse(store.isReordering)
+
+        // 1. Start reorder
+        store.startReorder()
+        XCTAssertTrue(store.isReordering)
+        XCTAssertEqual(store.stagedItems.map(\.text), ["cmd1", "cmd2", "cmd3"])
+        XCTAssertEqual(store.footer, "Drag to reorder commands · Click Submit to save")
+
+        // 2. Move item 3 to before item 1
+        let id1 = store.stagedItems[0].id
+        let id3 = store.stagedItems[2].id
+        store.moveStagedItem(fromId: id3, toId: id1, after: false)
+        XCTAssertEqual(store.stagedItems.map(\.text), ["cmd3", "cmd1", "cmd2"])
+        // Store items not yet updated:
+        XCTAssertEqual(store.items.map(\.text), ["cmd1", "cmd2", "cmd3"])
+
+        // 3. Cancel reorder: staged changes discarded
+        store.cancelReorder()
+        XCTAssertFalse(store.isReordering)
+        XCTAssertEqual(store.items.map(\.text), ["cmd1", "cmd2", "cmd3"])
+
+        // 4. Start again, move item 1 after item 3, and submit
+        store.startReorder()
+        store.moveStagedItem(fromId: id1, toId: id3, after: true)
+        XCTAssertEqual(store.stagedItems.map(\.text), ["cmd2", "cmd3", "cmd1"])
+
+        store.submitReorder()
+        XCTAssertFalse(store.isReordering)
+        XCTAssertEqual(store.items.map(\.text), ["cmd2", "cmd3", "cmd1"])
+
+        // 5. Persisted across relaunch
+        let reloaded = SnippetStore(.commands, url: url, seed: [])
+        XCTAssertEqual(reloaded.items.map(\.text), ["cmd2", "cmd3", "cmd1"])
+    }
+
+    func testResetCancelsReorder() {
+        let store = SnippetStore.sample(.prompts)
+        store.startReorder()
+        XCTAssertTrue(store.isReordering)
+        store.reset()
+        XCTAssertFalse(store.isReordering)
+        XCTAssertTrue(store.stagedItems.isEmpty)
+    }
+
     func testTogglePinTogglesPinnedStateAndPersists() {
         let url = FileManager.default.temporaryDirectory.appending(path: "snips-\(UUID().uuidString)/prompts.json")
         defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
