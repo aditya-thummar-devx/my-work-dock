@@ -141,7 +141,7 @@ final class AgentCore {
         switch ev {
         case .sessionStarted: set(.idle, "Session started")
         case .sessionEnded: set(.ended, nil)
-        case .prompt(let p): set(.working, Self.truncate(p))
+        case .prompt: set(.working, "Prompt sent")
         case .toolStarted(let tool, let input): set(.working, Self.summary(tool, input))
         case .toolFinished: set(.working, nil)
         case .permission(let tool, _): set(.waiting, "Needs approval: \(tool)")

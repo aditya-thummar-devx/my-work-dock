@@ -43,7 +43,7 @@ enum AgentDecision: Equatable {
 /// Agent-neutral events produced by adapters.
 enum AgentEvent: Equatable {
     case sessionStarted, sessionEnded, idle
-    case prompt(String)
+    case prompt
     case toolStarted(tool: String, input: JSONValue)
     case toolFinished(tool: String)
     case permission(tool: String, input: JSONValue)

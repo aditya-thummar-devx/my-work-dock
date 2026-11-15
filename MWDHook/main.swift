@@ -23,7 +23,10 @@ func parseArgs(_ argv: [String]) -> Args {
 }
 
 func run(_ args: Args, _ raw: Data) -> (String, Int32) {
-    let payload = (try? JSONDecoder().decode(JSONValue.self, from: raw)) ?? .string(String(decoding: raw, as: UTF8.self))
+    var payload = (try? JSONDecoder().decode(JSONValue.self, from: raw)) ?? .string(String(decoding: raw, as: UTF8.self))
+    // Prompt text never leaves this process: MyWorkDock only needs to know a prompt was sent.
+    if case .object(var o) = payload { o["prompt"] = nil; payload = .object(o) }
+    else if args.event == "UserPromptSubmit" { payload = .null }
     let term = ProcessInfo.processInfo.environment["TERM_PROGRAM"].flatMap { $0.isEmpty ? nil : $0 }
     let msg = HookMessage(v: HookWire.version, id: UUID().uuidString, agent: args.agent, event: args.event,
                           cwd: FileManager.default.currentDirectoryPath, pid: getppid(), payload: payload,

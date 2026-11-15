@@ -15,7 +15,7 @@ enum ClaudeAdapter {
         switch m.event {
         case "SessionStart": return [.sessionStarted]
         case "SessionEnd": return [.sessionEnded]
-        case "UserPromptSubmit": return [.prompt(m.payload["prompt"]?.string ?? "")]
+        case "UserPromptSubmit": return [.prompt]
         case "PreToolUse" where tool == "AskUserQuestion": return [.question(questions(input))]
         case "PreToolUse": return [.toolStarted(tool: tool, input: input)]
         case "PostToolUse": return [.toolFinished(tool: tool)]
