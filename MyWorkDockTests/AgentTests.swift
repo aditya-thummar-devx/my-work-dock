@@ -122,6 +122,7 @@ final class AgentCoreTests: XCTestCase {
     func testPromptWhileWorkingGoesOutWithTheNextWaiter() throws {
         let c = core()
         _ = c.handle(msg("UserPromptSubmit", .object(["prompt": .string("go")]), id: "p", reply: false), respond: { _ in })
+        XCTAssertEqual(c.liveSessions().first?.lastAction, "Prompt sent") // prompt text is never kept
         XCTAssertEqual(try c.sendPrompt("claude:s", "then docs"), .queued)
         XCTAssertEqual(c.liveSessions().first?.queued, 1)
         guard case .reply(let r) = c.handle(msg("Wake", .object([:]), id: "w1"), respond: { _ in }) else { return XCTFail() }
